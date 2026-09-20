@@ -13,10 +13,35 @@ SETUP_AT_SIGNIN = {MFAType.OTP.value}
 
 
 def get_allowed_mfa_types(user=None):
+    """User overrides may narrow, but never expand, the system policy."""
+    # Preserve legacy behavior for an empty system configuration.
+    allowed = set(settings.SECURITY_MFA_METHODS or MFAType.values)
     user_allowed = getattr(user, 'allowed_mfa_types', None)
     if user_allowed:
-        return set(user_allowed)
-    return set(settings.SECURITY_MFA_METHODS or MFAType.values)
+        allowed.intersection_update(user_allowed)
+    return allowed
+
+
+def get_mfa_method_status():
+    """Use the authentication backends as the source of capability status."""
+    backends = {
+        backend.name: backend
+        for backend in map(import_string, settings.MFA_BACKENDS)
+    }
+    enterprise = bool(settings.XPACK_ENABLED and settings.XPACK_LICENSE_IS_VALID)
+    allowed = get_allowed_mfa_types()
+    methods = []
+    for value, label in MFAType.choices:
+        backend = backends.get(value)
+        visible = value != MFAType.Face or enterprise
+        methods.append({
+            'value': value,
+            'label': str(label),
+            'visible': visible,
+            'enabled': bool(visible and backend and backend.global_enabled()),
+            'allowed': value in allowed,
+        })
+    return methods
 
 
 def _is_set_up(backend):
@@ -32,7 +57,8 @@ def usable_mfa_types(user, allowed=None, without=()):
     allowed: the methods to consider (default: those the user may use); without: methods to count as not set up
     (one about to be reset or removed).
     """
-    allowed = set(allowed) if allowed else get_allowed_mfa_types(user)
+    # (a user's list narrows the system's methods, never adds to them)
+    allowed = (set(allowed) & get_allowed_mfa_types()) if allowed else get_allowed_mfa_types(user)
     usable = set()
     for path in settings.MFA_BACKENDS:
         cls = import_string(path)
