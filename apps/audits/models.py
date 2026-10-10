@@ -18,6 +18,7 @@ from ops.models import JobExecution
 from orgs.mixins.models import OrgModelMixin, Organization
 from orgs.utils import current_org
 from terminal.models import default_storage
+from tickets.models import Ticket
 from .const import (
     OperateChoices,
     ActionChoices,
@@ -29,6 +30,7 @@ from .const import (
 
 __all__ = [
     "JobLog",
+    "TicketAudit",
     "FTPLog",
     "OperateLog",
     "UserSession",
@@ -54,6 +56,13 @@ class JobLog(JobExecution):
     class Meta:
         proxy = True
         verbose_name = _("Job audit log")
+
+
+class TicketAudit(Ticket):
+    class Meta:
+        proxy = True
+        default_permissions = ('view',)
+        verbose_name = _("Ticket audit")
 
 
 class FTPLog(OrgModelMixin):
