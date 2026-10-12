@@ -38,7 +38,7 @@
             const apiUrl = "{% url 'api-auth:face-context' %}";
             const coreIndex = window.location.pathname.indexOf('/core/');
             const sitePrefix = coreIndex > 0 ? window.location.pathname.slice(0, coreIndex) : '';
-            const faceCaptureUrl = `${sitePrefix}/luna/facelive/capture`;
+            const faceCaptureUrl = `${sitePrefix}/workspace/facelive/capture`;
             const faceFrame = document.getElementById('face_capture_iframe');
             let token = '';
             let statusTimer = null;

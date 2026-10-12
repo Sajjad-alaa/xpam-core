@@ -79,8 +79,8 @@ urlpatterns += [
     path('media/', include(private_storage.urls)),
 ]
 if settings.DEBUG:
-    urlpatterns += static('/luna/', document_root=(settings.DATA_DIR + '/luna'))
-    urlpatterns += static('/ui/', document_root=(settings.DATA_DIR + '/lina'))
+    urlpatterns += static('/workspace/', document_root=(settings.DATA_DIR + '/workspace'))
+    urlpatterns += static('/web/', document_root=(settings.DATA_DIR + '/web'))
 else:
     urlpatterns += path('ui/', views.UIView.as_view()),
 

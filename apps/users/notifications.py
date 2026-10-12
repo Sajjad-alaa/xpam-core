@@ -198,7 +198,7 @@ class PasswordExpirationReminderMsg(UserMessage):
         user = self.user
 
         date_password_expired_local = timezone.localtime(user.date_password_expired)
-        update_password_url = urljoin(settings.SITE_URL, '/ui/#/profile/index')
+        update_password_url = urljoin(settings.SITE_URL, '/web/#/profile/index')
         date_password_expired = date_password_expired_local.strftime('%Y-%m-%d %H:%M:%S')
         context = {
             'name': user.name,
@@ -258,7 +258,7 @@ class ResetSSHKeyMsg(UserMessage):
     ]
 
     def get_html_msg(self) -> dict:
-        update_url = urljoin(settings.SITE_URL, '/ui/#/profile/password-and-ssh-key/?tab=SSHKey')
+        update_url = urljoin(settings.SITE_URL, '/web/#/profile/password-and-ssh-key/?tab=SSHKey')
         context = {
             'name': self.user.name,
             'url': update_url,

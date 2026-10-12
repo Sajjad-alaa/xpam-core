@@ -3,7 +3,7 @@
 from django.db.models import TextChoices
 from django.utils.translation import gettext_lazy as _
 
-TICKET_DETAIL_URL = '/ui/#/tickets/tickets/{id}'
+TICKET_DETAIL_URL = '/web/#/tickets/tickets/{id}'
 
 
 class SystemOrOrgRole(TextChoices):

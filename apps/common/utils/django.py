@@ -24,7 +24,7 @@ def reverse(
         site_url = settings.SITE_URL
         url = site_url.strip('/') + url
     if api_to_ui:
-        replace_str = 'ui/#'
+        replace_str = 'web/#'
         if is_console:
             replace_str += '/console'
         elif is_audit:

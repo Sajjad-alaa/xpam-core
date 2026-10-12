@@ -10,4 +10,4 @@ class IndexView(PermissionsMixin, View):
     permission_classes = [IsValidUser]
 
     def get(self, request, *args, **kwargs):
-        return redirect('/ui/')
+        return redirect('/web/')

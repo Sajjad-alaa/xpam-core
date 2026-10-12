@@ -57,7 +57,7 @@ class UserFaceEnableView(UserFaceCaptureView):
             'title': _('Face binding successful'),
             'message': _('Face binding successful'),
             'interval': 2,
-            'redirect_url': '/ui/#/profile/index'
+            'redirect_url': '/web/#/profile/index'
         }
         url = FlashMessageUtil.gen_message_url(message_data)
         return url
@@ -82,7 +82,7 @@ class UserFaceDisableView(UserFaceCaptureView):
             'title': _('Face unbinding successful'),
             'message': _('Face unbinding successful'),
             'interval': 2,
-            'redirect_url': '/ui/#/profile/index'
+            'redirect_url': '/web/#/profile/index'
         }
         url = FlashMessageUtil.gen_message_url(message_data)
         return url

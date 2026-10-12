@@ -55,7 +55,7 @@ class MFAEmail(BaseMFA):
         return settings.SECURITY_MFA_BY_EMAIL
 
     def disable(self):
-        return '/ui/#/profile/index'
+        return '/web/#/profile/index'
 
     def get_enable_url(self) -> str:
         return ''

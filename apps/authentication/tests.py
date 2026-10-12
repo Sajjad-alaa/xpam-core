@@ -33,9 +33,9 @@ class SSOLoginRedirectTests(SimpleTestCase):
 
     @override_settings(ALLOWED_HOSTS=['testserver'])
     def test_local_next_url_is_preserved(self):
-        request = self.factory.get('/api/v1/authentication/sso/login/', {'next': '/ui/#/workbench'})
+        request = self.factory.get('/api/v1/authentication/sso/login/', {'next': '/web/#/workbench'})
 
-        self.assertEqual(SSOViewSet.get_safe_next_url(request), '/ui/#/workbench')
+        self.assertEqual(SSOViewSet.get_safe_next_url(request), '/web/#/workbench')
 
 
 class UserVerifyPasswordRedirectTests(SimpleTestCase):
@@ -56,8 +56,8 @@ class UserVerifyPasswordRedirectTests(SimpleTestCase):
 
     @override_settings(ALLOWED_HOSTS=['testserver'])
     def test_local_next_url_is_preserved(self):
-        request = self.factory.get('/core/auth/password/verify/', {'next': '/ui/#/profile/index'})
+        request = self.factory.get('/core/auth/password/verify/', {'next': '/web/#/profile/index'})
         view = UserVerifyPasswordView()
         view.request = request
 
-        self.assertEqual(view.get_success_url(), '/ui/#/profile/index')
+        self.assertEqual(view.get_success_url(), '/web/#/profile/index')

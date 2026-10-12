@@ -20,43 +20,43 @@ from pdf2image import convert_from_bytes
 charts_map = {
     "UserLoginReport": {
         "title": _('User login report'),
-        "path": "/ui/#/reports/users/user-activity"
+        "path": "/web/#/reports/users/user-activity"
     },
     "UserChangePasswordReport": {
         "title": _('User change password report'),
-        "path": "/ui/#/reports/users/change-password"
+        "path": "/web/#/reports/users/change-password"
     },
     "AssetStatistics": {
         "title": _('Asset statistics report'),
-        "path": "/ui/#/reports/assets/asset-statistics"
+        "path": "/web/#/reports/assets/asset-statistics"
     },
     "AssetReport": {
         "title": _('Asset activity report'),
-        "path": "/ui/#/reports/assets/asset-activity"
+        "path": "/web/#/reports/assets/asset-activity"
     },
     "AccountStatistics": {
         "title": _('Account statistics report'),
-        "path": "/ui/#/reports/accounts/account-statistics?days=30"
+        "path": "/web/#/reports/accounts/account-statistics?days=30"
     },
     "AccountAutomationReport": {
         "title": _('Account automation report'),
-        "path": "/ui/#/reports/accounts/account-automation"
+        "path": "/web/#/reports/accounts/account-automation"
     },
     "ConsoleDashboard": {
         "title": _('ConsoleDashboard'),
-        "path": "/ui/#/reports/dashboard/console"
+        "path": "/web/#/reports/dashboard/console"
     },
     "AuditsDashboard": {
         "title": _('AuditsDashboard'),
-        "path": "/ui/#/reports/dashboard/audits"
+        "path": "/web/#/reports/dashboard/audits"
     },
     "PamDashboard": {
         "title": _('PamDashboard'),
-        "path": "/ui/#/reports/dashboard/pam"
+        "path": "/web/#/reports/dashboard/pam"
     },
     "ChangeSecretDashboard": {
         "title": _('ChangeSecretDashboard'),
-        "path": "/ui/#/reports/dashboard/change-secret"
+        "path": "/web/#/reports/dashboard/change-secret"
     }
 }
 
@@ -79,7 +79,7 @@ def get_trusted_site_url():
 
 def build_report_url(chart_path):
     path = urllib.parse.unquote(chart_path)
-    if not path.startswith('/ui/#/reports/'):
+    if not path.startswith('/web/#/reports/'):
         raise ValueError('Invalid report path')
     site_url, _ = get_trusted_site_url()
     return site_url + path

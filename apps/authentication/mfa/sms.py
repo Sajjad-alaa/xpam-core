@@ -51,13 +51,13 @@ class MFASms(BaseMFA):
         return settings.SMS_ENABLED
 
     def get_enable_url(self) -> str:
-        return '/ui/#/profile/index'
+        return '/web/#/profile/index'
 
     def can_disable(self) -> bool:
         return True
 
     def disable(self):
-        return '/ui/#/profile/index'
+        return '/web/#/profile/index'
 
     @staticmethod
     def help_text_of_enable():
@@ -68,4 +68,4 @@ class MFASms(BaseMFA):
         return _("Clear phone number to disable")
 
     def get_disable_url(self) -> str:
-        return '/ui/#/profile/index'
+        return '/web/#/profile/index'

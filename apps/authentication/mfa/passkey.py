@@ -28,10 +28,10 @@ class MFAPasskey(BaseMFA):
         return settings.AUTH_PASSKEY
 
     def get_enable_url(self) -> str:
-        return '/ui/#/profile/passkeys'
+        return '/web/#/profile/passkeys'
 
     def get_disable_url(self) -> str:
-        return '/ui/#/profile/passkeys'
+        return '/web/#/profile/passkeys'
 
     def disable(self):
         pass

@@ -67,7 +67,7 @@ class SessionSharing(JMSBaseModel, OrgModelMixin):
     @cached_property
     def url(self) -> str:
         origin = (self.origin or settings.SITE_URL).rstrip('/')
-        return '%s/luna/share/%s/?component=%s' % (origin, self.id, self.share_component)
+        return '%s/workspace/share/%s/?component=%s' % (origin, self.id, self.share_component)
 
     @cached_property
     def users_display(self) -> list:

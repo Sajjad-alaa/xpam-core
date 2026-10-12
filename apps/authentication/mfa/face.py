@@ -37,10 +37,10 @@ class MFAFace(BaseMFA, AuthFaceMixin):
         )
 
     def get_enable_url(self) -> str:
-        return '/ui/#/profile/index'
+        return '/web/#/profile/index'
 
     def get_disable_url(self) -> str:
-        return '/ui/#/profile/index'
+        return '/web/#/profile/index'
 
     def disable(self):
         assert self.is_authenticated()

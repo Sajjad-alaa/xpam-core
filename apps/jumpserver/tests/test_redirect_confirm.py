@@ -91,7 +91,7 @@ class RedirectConfirmTests(SimpleTestCase):
 
     def test_invalid_schemes_and_malformed_urls_remain_rejected(self):
         for target in (
-            'jms://auth/callback', 'jms://AbC+/DeF==', '', '/ui/', '//example.com/path', 'javascript://example.com/alert(1)',
+            'jms://auth/callback', 'jms://AbC+/DeF==', '', '/web/', '//example.com/path', 'javascript://example.com/alert(1)',
             'data://text/html,test', 'file://host/path', 'ftp://example.com/file',
             'jms2:/auth/callback', 'jms2://', 'https://[invalid',
         ):
