@@ -919,7 +919,7 @@ class ConnectionTokenViewSet(AuthFaceMixin, ExtraActionApiMixin, RootOrgViewMixi
 
         # RemoteApp assets publish one program; only the web gateway enforces that
         from xpack.remote_app import check_remote_app_connect_method
-        check_remote_app_connect_method(asset, connect_method)
+        check_remote_app_connect_method(asset, connect_method, protocol)
 
         data = dict()
         data['org_id'] = asset.org_id

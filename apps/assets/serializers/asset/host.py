@@ -45,10 +45,8 @@ class HostSerializer(AssetSerializer):
         platform = attrs.get('platform') or getattr(self.instance, 'platform', None)
         current = dict(getattr(self.instance, 'custom_info', None) or {})
         if not is_remote_app_platform(platform):
-            if any(provided.values()):
-                raise serializers.ValidationError(
-                    {'remote_app': _('RemoteApp settings are only available on the Windows-RemoteApp platform')})
-            # Leaving the RemoteApp platform: drop the old settings so nothing stale remains
+            # Other platforms: ignore submitted values (lina also submits hidden fields) and
+            # drop old settings so nothing stale remains
             if any(f in current for f in REMOTE_APP_FIELDS):
                 attrs['custom_info'] = {k: v for k, v in current.items() if k not in REMOTE_APP_FIELDS}
             return attrs
