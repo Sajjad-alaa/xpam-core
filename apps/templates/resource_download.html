@@ -1,7 +1,7 @@
 {% extends '_without_nav_base.html' %}
 {% load i18n static %}
 
-{% block html_title %}{% blocktrans with vendor=VENDOR %}Download {{ vendor }} Client{% endblocktrans %}{% endblock %}
+{% block html_title %}{% blocktrans with vendor=INTERFACE.login_title %}Download {{ vendor }} Client{% endblocktrans %}{% endblock %}
 {% block body_class %}resource-download{% endblock %}
 {% block custom_head_css_js %}
     <link href="{% static 'css/resource_download.css' %}?v=7.0" rel="stylesheet">
