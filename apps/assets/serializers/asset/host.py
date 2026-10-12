@@ -13,15 +13,15 @@ class HostSerializer(AssetSerializer):
     gathered_info = HostGatheredInfoSerializer(required=False, read_only=True, label=_("Gathered info"))
     # RemoteApp (XPAM): stored in custom_info, used by the Windows-RemoteApp platform
     remote_app = serializers.CharField(
-        required=False, allow_blank=True, write_only=True, max_length=300, label=_('RemoteApp program'),
+        required=False, allow_blank=True, max_length=300, label=_('RemoteApp program'),
         help_text=_('Published alias such as ||qgis-bin (recommended), or a full path such as '
                     'C:\\Program Files\\App\\app.exe')
     )
     remote_app_dir = serializers.CharField(
-        required=False, allow_blank=True, write_only=True, max_length=300, label=_('RemoteApp working directory')
+        required=False, allow_blank=True, max_length=300, label=_('RemoteApp working directory')
     )
     remote_app_args = serializers.CharField(
-        required=False, allow_blank=True, write_only=True, max_length=600, label=_('RemoteApp arguments')
+        required=False, allow_blank=True, max_length=600, label=_('RemoteApp arguments')
     )
 
     def validate_address(self, value):
