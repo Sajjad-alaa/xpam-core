@@ -4,7 +4,7 @@
 {% block html_title %}{% blocktrans with vendor=VENDOR %}Download {{ vendor }} Client{% endblocktrans %}{% endblock %}
 {% block body_class %}resource-download{% endblock %}
 {% block custom_head_css_js %}
-    <link href="{% static 'css/resource_download.css' %}?v=6.0" rel="stylesheet">
+    <link href="{% static 'css/resource_download.css' %}?v=7.0" rel="stylesheet">
 {% endblock %}
 
 {% block header %}
@@ -83,11 +83,11 @@
 
             <div class="platform-specs">
                 <span class="spec-tag"><i class="fa fa-check-circle" aria-hidden="true"></i> Windows 11 / 10 / Server</span>
-                <span class="spec-tag"><i class="fa fa-check-circle" aria-hidden="true"></i> Installer & Auto-Updater</span>
+                <span class="spec-tag"><i class="fa fa-check-circle" aria-hidden="true"></i> Installs to XPAM\Client</span>
             </div>
 
             <div class="card-action">
-                <a class="download-btn btn-windows" href="/download/public/Client_{{ CLIENT_VERSION }}_x64-setup.exe" download aria-label="{% trans 'Download' %} Windows x64">
+                <a class="download-btn btn-windows" href="/download/public/XPAM-{{ CLIENT_VERSION }}-Setup.exe" download aria-label="{% trans 'Download' %} Windows x64">
                     <i class="fa fa-download" aria-hidden="true"></i>
                     <span>{% trans 'Download for Windows' %}</span>
                 </a>
@@ -95,7 +95,7 @@
 
             <div class="file-checksum-pill">
                 <span class="file-label">File:</span>
-                <code class="file-code">{{ VENDOR }}Client_{{ CLIENT_VERSION }}_x64-setup.exe</code>
+                <code class="file-code">XPAM-{{ CLIENT_VERSION }}-Setup.exe</code>
             </div>
         </section>
 
@@ -121,7 +121,7 @@
             </div>
 
             <div class="card-action">
-                <a class="download-btn btn-macos" href="/download/public/Client_{{ CLIENT_VERSION }}_aarch64.dmg" download aria-label="{% trans 'Download' %} macOS ARM64">
+                <a class="download-btn btn-macos" href="/download/public/XPAM-{{ CLIENT_VERSION }}-arm64.dmg" download aria-label="{% trans 'Download' %} macOS ARM64">
                     <i class="fa fa-download" aria-hidden="true"></i>
                     <span>{% trans 'Download for macOS' %}</span>
                 </a>
@@ -129,26 +129,90 @@
 
             <div class="file-checksum-pill">
                 <span class="file-label">File:</span>
-                <code class="file-code">{{ VENDOR }}Client_{{ CLIENT_VERSION }}_aarch64.dmg</code>
+                <code class="file-code">XPAM-{{ CLIENT_VERSION }}-arm64.dmg</code>
+            </div>
+            <div class="alt-download">
+                {% trans 'Intel Mac' %}:
+                <a href="/download/public/XPAM-{{ CLIENT_VERSION }}-x64.dmg" download>XPAM-{{ CLIENT_VERSION }}-x64.dmg</a>
+            </div>
+        </section>
+
+        <!-- Linux .DEB Card -->
+        <section class="download-card card-linux" aria-labelledby="linux-deb-title">
+            <div class="card-glow"></div>
+            <div class="download-platform-header">
+                <div class="platform-icon-wrap icon-macos">
+                    <i class="fa fa-linux" aria-hidden="true"></i>
+                </div>
+                <div class="platform-meta">
+                    <div class="platform-title-row">
+                        <h2 id="linux-deb-title">Linux (Debian / Ubuntu)</h2>
+                        <span class="format-pill">.DEB</span>
+                    </div>
+                    <p class="platform-arch">Intel & AMD · 64-bit (x64)</p>
+                </div>
+            </div>
+
+            <div class="platform-specs">
+                <span class="spec-tag"><i class="fa fa-check-circle" aria-hidden="true"></i> Debian · Ubuntu · Mint</span>
+                <span class="spec-tag"><i class="fa fa-check-circle" aria-hidden="true"></i> sudo apt install ./file.deb</span>
+            </div>
+
+            <div class="card-action">
+                <a class="download-btn btn-macos" href="/download/public/XPAM-{{ CLIENT_VERSION }}-x64.deb" download aria-label="{% trans 'Download' %} Linux .DEB x64">
+                    <i class="fa fa-download" aria-hidden="true"></i>
+                    <span>{% trans 'Download for Linux' %} (.DEB)</span>
+                </a>
+            </div>
+
+            <div class="file-checksum-pill">
+                <span class="file-label">File:</span>
+                <code class="file-code">XPAM-{{ CLIENT_VERSION }}-x64.deb</code>
+            </div>
+            <div class="alt-download">
+                ARM64:
+                <a href="/download/public/XPAM-{{ CLIENT_VERSION }}-arm64.deb" download>XPAM-{{ CLIENT_VERSION }}-arm64.deb</a>
+            </div>
+        </section>
+
+        <!-- Linux .RPM Card -->
+        <section class="download-card card-linux" aria-labelledby="linux-rpm-title">
+            <div class="card-glow"></div>
+            <div class="download-platform-header">
+                <div class="platform-icon-wrap icon-macos">
+                    <i class="fa fa-linux" aria-hidden="true"></i>
+                </div>
+                <div class="platform-meta">
+                    <div class="platform-title-row">
+                        <h2 id="linux-rpm-title">Linux (RHEL / Fedora)</h2>
+                        <span class="format-pill">.RPM</span>
+                    </div>
+                    <p class="platform-arch">Intel & AMD · 64-bit (x64)</p>
+                </div>
+            </div>
+
+            <div class="platform-specs">
+                <span class="spec-tag"><i class="fa fa-check-circle" aria-hidden="true"></i> RHEL · Rocky · Alma · Fedora</span>
+                <span class="spec-tag"><i class="fa fa-check-circle" aria-hidden="true"></i> sudo dnf install ./file.rpm</span>
+            </div>
+
+            <div class="card-action">
+                <a class="download-btn btn-macos" href="/download/public/XPAM-{{ CLIENT_VERSION }}-x64.rpm" download aria-label="{% trans 'Download' %} Linux .RPM x64">
+                    <i class="fa fa-download" aria-hidden="true"></i>
+                    <span>{% trans 'Download for Linux' %} (.RPM)</span>
+                </a>
+            </div>
+
+            <div class="file-checksum-pill">
+                <span class="file-label">File:</span>
+                <code class="file-code">XPAM-{{ CLIENT_VERSION }}-x64.rpm</code>
+            </div>
+            <div class="alt-download">
+                ARM64:
+                <a href="/download/public/XPAM-{{ CLIENT_VERSION }}-arm64.rpm" download>XPAM-{{ CLIENT_VERSION }}-arm64.rpm</a>
             </div>
         </section>
     </div>
-
-    <!-- GitHub Releases Section -->
-    <section class="download-github-banner" aria-labelledby="more-downloads-title">
-        <div class="github-icon-circle">
-            <i class="fa fa-github" aria-hidden="true"></i>
-        </div>
-        <div class="github-copy">
-            <h2 id="more-downloads-title">{% trans 'Looking for Linux or Intel Mac Builds?' %}</h2>
-            <p>{% trans 'Download packages for Linux (.deb, .rpm, AppImage), macOS Intel (x64), and historical releases on GitHub.' %}</p>
-        </div>
-        <a class="github-btn" href="https://github.com/Sajjad-alaa/xpam-workspace/releases/tag/v5.0.0" target="_blank" rel="noopener noreferrer">
-            <i class="fa fa-github" aria-hidden="true"></i>
-            <span>{% trans 'View on GitHub Releases' %}</span>
-            <i class="fa fa-external-link" aria-hidden="true"></i>
-        </a>
-    </section>
 
     <!-- Quick Workflow Steps -->
     <section class="download-steps">

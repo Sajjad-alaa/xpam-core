@@ -807,3 +807,21 @@ html.dark .download-github-banner {
     .github-btn:hover,
     .nav-return-btn:hover { transform: none; }
 }
+
+/* XPAM: secondary architecture link under a download card */
+.alt-download {
+    margin-top: 10px;
+    font-size: 12px;
+    color: var(--dl-text-muted, #8e929c);
+    word-break: break-all;
+}
+
+.alt-download a {
+    color: var(--dl-primary);
+    text-decoration: none;
+}
+
+.alt-download a:hover,
+.alt-download a:focus {
+    text-decoration: underline;
+}
