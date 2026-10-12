@@ -1,22 +1,98 @@
 /* ==========================================================================
    Modern Desktop Client Download Portal
-   Theme: Obsidian Cyber-Enterprise Glassmorphism
+   Theme-aware: light tokens on :root, dark tokens on html.dark.
+   The page is light unless <html> carries the "dark" class, which
+   _without_nav_base.html renders server-side from INTERFACE.theme_info.is_dark
+   (and _head_css_js.html re-applies from the theme-info-data JSON).
    ========================================================================== */
 
+/* --------------------------------------------------------------------------
+   Design tokens - LIGHT (default)
+   -------------------------------------------------------------------------- */
 :root {
-    --dl-bg-base: #090d16;
-    --dl-bg-surface: rgba(18, 24, 38, 0.72);
-    --dl-bg-surface-hover: rgba(26, 34, 52, 0.88);
-    --dl-border: rgba(255, 255, 255, 0.08);
-    --dl-border-hover: rgba(16, 185, 129, 0.35);
-    --dl-text-primary: #f8fafc;
-    --dl-text-secondary: #94a3b8;
-    --dl-text-muted: #64748b;
-    --dl-accent-emerald: var(--primary-color, #10b981);
-    --dl-accent-emerald-dark: color-mix(in srgb, var(--primary-color, #10b981) 75%, #000);
+    --dl-primary: var(--primary-color, #10b981);
+    --dl-primary-dark: color-mix(in srgb, var(--dl-primary) 75%, #000);
+    --dl-primary-light: color-mix(in srgb, var(--dl-primary) 85%, #fff);
     --dl-accent-cyan: #06b6d4;
-    --dl-accent-blue: #3b82f6;
-    --dl-glow-emerald: rgba(16, 185, 129, 0.25);
+
+    /* Page */
+    --dl-bg-base: #f4f6fa;
+    --dl-bg-glow-1: color-mix(in srgb, var(--dl-primary) 10%, transparent);
+    --dl-bg-glow-2: rgba(6, 182, 212, 0.06);
+    --dl-bg-glow-3: rgba(59, 130, 246, 0.05);
+
+    /* Text */
+    --dl-text-primary: #0f172a;
+    --dl-text-secondary: #475569;
+    --dl-text-muted: #64748b;
+    --dl-title-shadow: none;
+    --dl-subtitle-shadow: none;
+
+    /* Surfaces */
+    --dl-bg-surface: #ffffff;
+    --dl-bg-surface-hover: #ffffff;
+    --dl-bg-inset: #f8fafc;
+    --dl-border: #e2e8f0;
+    --dl-border-inset: #edf1f6;
+    --dl-border-hover: color-mix(in srgb, var(--dl-primary) 40%, #e2e8f0);
+    --dl-card-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 10px 28px -14px rgba(15, 23, 42, 0.14);
+    --dl-card-shadow-hover: 0 2px 4px rgba(15, 23, 42, 0.05), 0 22px 44px -16px color-mix(in srgb, var(--dl-primary) 30%, rgba(15, 23, 42, 0.25));
+
+    /* Navigation */
+    --dl-nav-bg: rgba(255, 255, 255, 0.85);
+    --dl-nav-btn-bg: #ffffff;
+    --dl-nav-btn-bg-hover: #f1f5f9;
+    --dl-nav-btn-border-hover: #cbd5e1;
+
+    /* Hero badge & pills */
+    --dl-badge-bg: color-mix(in srgb, var(--dl-primary) 8%, #ffffff);
+    --dl-badge-border: color-mix(in srgb, var(--dl-primary) 25%, transparent);
+    --dl-badge-text: color-mix(in srgb, var(--dl-primary) 60%, #0f172a);
+    --dl-pill-bg: #ffffff;
+    --dl-pill-border: #e2e8f0;
+    --dl-pill-text: #334155;
+    --dl-pill-shadow: 0 1px 2px rgba(15, 23, 42, 0.05), 0 4px 10px -6px rgba(15, 23, 42, 0.12);
+    --dl-format-pill-bg: #f1f5f9;
+    --dl-format-pill-border: #e2e8f0;
+
+    /* Platform icons */
+    --dl-icon-win-bg: linear-gradient(135deg, rgba(14, 165, 233, 0.10), rgba(37, 99, 235, 0.12));
+    --dl-icon-win-border: rgba(14, 165, 233, 0.28);
+    --dl-icon-win-color: #0284c7;
+    --dl-icon-win-glow: rgba(14, 165, 233, 0.22);
+    --dl-icon-mac-bg: linear-gradient(135deg, #f8fafc, #eef2f7);
+    --dl-icon-mac-border: #e2e8f0;
+    --dl-icon-mac-color: #0f172a;
+    --dl-icon-mac-glow: rgba(15, 23, 42, 0.12);
+
+    /* Buttons */
+    --dl-btn-shadow: 0 8px 18px -8px color-mix(in srgb, var(--dl-primary) 60%, rgba(15, 23, 42, 0.4));
+    --dl-btn-shadow-hover: 0 12px 26px -8px color-mix(in srgb, var(--dl-primary) 65%, rgba(15, 23, 42, 0.45));
+    --dl-file-code: #334155;
+
+    /* GitHub banner */
+    --dl-banner-bg: #ffffff;
+    --dl-banner-border-hover: #cbd5e1;
+    --dl-banner-shadow-hover: 0 2px 4px rgba(15, 23, 42, 0.05), 0 18px 36px -16px rgba(15, 23, 42, 0.2);
+    --dl-gh-icon-bg: #f1f5f9;
+    --dl-gh-icon-border: #e2e8f0;
+    --dl-gh-icon-color: #0f172a;
+    --dl-gh-btn-bg: #ffffff;
+    --dl-gh-btn-border: #cbd5e1;
+    --dl-gh-btn-text: #0f172a;
+    --dl-gh-btn-bg-hover: #0f172a;
+    --dl-gh-btn-border-hover: #0f172a;
+    --dl-gh-btn-text-hover: #ffffff;
+    --dl-gh-btn-shadow-hover: 0 8px 20px -8px rgba(15, 23, 42, 0.45);
+
+    /* Steps */
+    --dl-step-bg: #ffffff;
+    --dl-step-bg-hover: #ffffff;
+    --dl-step-border: #e2e8f0;
+    --dl-step-border-hover: #cbd5e1;
+    --dl-step-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+
+    /* Shape & motion */
     --dl-radius-lg: 18px;
     --dl-radius-md: 12px;
     --dl-radius-sm: 8px;
@@ -24,14 +100,91 @@
     --dl-transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-/* Reset & Global Body Styling */
-body.resource-download {
+/* --------------------------------------------------------------------------
+   Design tokens - DARK (html.dark)
+   -------------------------------------------------------------------------- */
+html.dark {
+    --dl-bg-base: #0b0f19;
+    --dl-bg-glow-1: color-mix(in srgb, var(--dl-primary) 18%, transparent);
+    --dl-bg-glow-2: rgba(6, 182, 212, 0.08);
+    --dl-bg-glow-3: rgba(59, 130, 246, 0.06);
+
+    --dl-text-primary: #f8fafc;
+    --dl-text-secondary: #94a3b8;
+    --dl-text-muted: #64748b;
+    --dl-title-shadow: 0 4px 20px rgba(0, 0, 0, 0.8), 0 1px 3px rgba(0, 0, 0, 0.9);
+    --dl-subtitle-shadow: 0 2px 8px rgba(0, 0, 0, 0.7);
+
+    --dl-bg-surface: rgba(18, 24, 38, 0.72);
+    --dl-bg-surface-hover: rgba(26, 34, 52, 0.88);
+    --dl-bg-inset: rgba(255, 255, 255, 0.025);
+    --dl-border: rgba(255, 255, 255, 0.08);
+    --dl-border-inset: rgba(255, 255, 255, 0.04);
+    --dl-border-hover: rgba(16, 185, 129, 0.35);
+    --dl-card-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.5);
+    --dl-card-shadow-hover: 0 25px 50px -12px rgba(16, 185, 129, 0.18), 0 0 30px -5px rgba(16, 185, 129, 0.1);
+
+    --dl-nav-bg: rgba(11, 15, 25, 0.75);
+    --dl-nav-btn-bg: rgba(255, 255, 255, 0.05);
+    --dl-nav-btn-bg-hover: rgba(255, 255, 255, 0.1);
+    --dl-nav-btn-border-hover: rgba(255, 255, 255, 0.2);
+
+    --dl-badge-bg: rgba(16, 185, 129, 0.1);
+    --dl-badge-border: rgba(16, 185, 129, 0.25);
+    --dl-badge-text: #34d399;
+    --dl-pill-bg: rgba(255, 255, 255, 0.08);
+    --dl-pill-border: rgba(255, 255, 255, 0.16);
+    --dl-pill-text: #f8fafc;
+    --dl-pill-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+    --dl-format-pill-bg: rgba(255, 255, 255, 0.08);
+    --dl-format-pill-border: rgba(255, 255, 255, 0.12);
+
+    --dl-icon-win-bg: linear-gradient(135deg, rgba(56, 189, 248, 0.15), rgba(30, 64, 175, 0.2));
+    --dl-icon-win-border: rgba(56, 189, 248, 0.3);
+    --dl-icon-win-color: #38bdf8;
+    --dl-icon-win-glow: rgba(56, 189, 248, 0.3);
+    --dl-icon-mac-bg: linear-gradient(135deg, rgba(255, 255, 255, 0.12), rgba(148, 163, 184, 0.15));
+    --dl-icon-mac-border: rgba(255, 255, 255, 0.25);
+    --dl-icon-mac-color: #ffffff;
+    --dl-icon-mac-glow: rgba(255, 255, 255, 0.25);
+
+    --dl-btn-shadow: 0 8px 20px -4px rgba(0, 0, 0, 0.4);
+    --dl-btn-shadow-hover: 0 12px 28px -4px rgba(0, 0, 0, 0.5);
+    --dl-file-code: #cbd5e1;
+
+    --dl-banner-bg: linear-gradient(135deg, rgba(22, 30, 46, 0.8) 0%, rgba(15, 23, 42, 0.8) 100%);
+    --dl-banner-border-hover: rgba(255, 255, 255, 0.2);
+    --dl-banner-shadow-hover: 0 20px 40px -10px rgba(0, 0, 0, 0.6);
+    --dl-gh-icon-bg: rgba(255, 255, 255, 0.06);
+    --dl-gh-icon-border: rgba(255, 255, 255, 0.1);
+    --dl-gh-icon-color: #ffffff;
+    --dl-gh-btn-bg: rgba(255, 255, 255, 0.08);
+    --dl-gh-btn-border: rgba(255, 255, 255, 0.16);
+    --dl-gh-btn-text: #ffffff;
+    --dl-gh-btn-bg-hover: #ffffff;
+    --dl-gh-btn-border-hover: #ffffff;
+    --dl-gh-btn-text-hover: #0f172a;
+    --dl-gh-btn-shadow-hover: 0 8px 24px -4px rgba(255, 255, 255, 0.3);
+
+    --dl-step-bg: rgba(255, 255, 255, 0.02);
+    --dl-step-bg-hover: rgba(255, 255, 255, 0.04);
+    --dl-step-border: rgba(255, 255, 255, 0.05);
+    --dl-step-border-hover: rgba(255, 255, 255, 0.1);
+    --dl-step-shadow: none;
+}
+
+/* --------------------------------------------------------------------------
+   Body
+   ":root body.resource-download" (0,2,1) deliberately outranks the base
+   template's "html:not(.dark) body" (0,1,2) light fallback, which otherwise
+   repaints the background while leaving this page's text colours alone.
+   -------------------------------------------------------------------------- */
+:root body.resource-download {
     background-color: var(--dl-bg-base) !important;
-    background: radial-gradient(circle at 50% 0%, color-mix(in srgb, var(--primary-color, #10b981) 18%, transparent) 0%, transparent 45%),
-                radial-gradient(circle at 85% 15%, rgba(6, 182, 212, 0.08) 0%, transparent 40%),
-                radial-gradient(circle at 15% 40%, rgba(59, 130, 246, 0.06) 0%, transparent 35%),
-                var(--dl-bg-base) !important;
-    color: var(--dl-text-primary);
+    background-image: radial-gradient(circle at 50% -10%, var(--dl-bg-glow-1) 0%, transparent 60%),
+                      radial-gradient(circle at 90% 20%, var(--dl-bg-glow-2) 0%, transparent 40%),
+                      radial-gradient(circle at 10% 40%, var(--dl-bg-glow-3) 0%, transparent 35%) !important;
+    color: var(--dl-text-primary) !important;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     min-height: 100vh;
     margin: 0;
@@ -55,18 +208,21 @@ body.resource-download > footer,
 
 /* --------------------------------------------------------------------------
    Header / Top Navigation
+   (prefixed to outrank the base template's "body > header" !important rules)
    -------------------------------------------------------------------------- */
-.download-nav {
+:root body.resource-download > header.download-nav {
     width: 100%;
+    height: auto;
     box-sizing: border-box;
     padding: 16px 36px;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    background: rgba(11, 15, 25, 0.75);
+    background-color: var(--dl-nav-bg) !important;
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
-    border-bottom: 1px solid var(--dl-border);
+    border-bottom: 1px solid var(--dl-border) !important;
+    box-shadow: none !important;
     position: sticky;
     top: 0;
     z-index: 100;
@@ -83,6 +239,7 @@ body.resource-download > footer,
 
 .download-nav-brand .brand-link:hover {
     opacity: 0.9;
+    text-decoration: none;
 }
 
 .download-nav-brand .brand-logo {
@@ -99,25 +256,25 @@ body.resource-download > footer,
     color: var(--dl-text-primary);
 }
 
-.nav-return-btn {
+:root body.resource-download .nav-return-btn {
     display: inline-flex;
     align-items: center;
     gap: 8px;
     padding: 8px 16px;
     border-radius: var(--dl-radius-full);
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid var(--dl-border);
-    color: var(--dl-text-secondary);
+    background: var(--dl-nav-btn-bg);
+    border: 1px solid var(--dl-border) !important;
+    color: var(--dl-text-secondary) !important;
     font-size: 13px;
     font-weight: 500;
     text-decoration: none;
     transition: var(--dl-transition);
 }
 
-.nav-return-btn:hover {
-    background: rgba(255, 255, 255, 0.1);
-    border-color: rgba(255, 255, 255, 0.2);
-    color: var(--dl-text-primary);
+:root body.resource-download .nav-return-btn:hover {
+    background: var(--dl-nav-btn-bg-hover);
+    border-color: var(--dl-nav-btn-border-hover) !important;
+    color: var(--dl-text-primary) !important;
     transform: translateX(-2px);
     text-decoration: none;
 }
@@ -154,9 +311,9 @@ body.resource-download > footer,
     gap: 8px;
     padding: 6px 16px;
     border-radius: var(--dl-radius-full);
-    background: rgba(16, 185, 129, 0.1);
-    border: 1px solid rgba(16, 185, 129, 0.25);
-    color: #34d399;
+    background: var(--dl-badge-bg);
+    border: 1px solid var(--dl-badge-border);
+    color: var(--dl-badge-text);
     font-size: 12px;
     font-weight: 600;
     letter-spacing: 0.3px;
@@ -167,15 +324,15 @@ body.resource-download > footer,
     width: 8px;
     height: 8px;
     border-radius: 50%;
-    background-color: var(--dl-accent-emerald);
-    box-shadow: 0 0 10px var(--dl-accent-emerald);
+    background-color: var(--dl-primary);
+    box-shadow: 0 0 10px var(--dl-primary);
     animation: pulseGlow 2s infinite;
 }
 
 @keyframes pulseGlow {
-    0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
-    70% { transform: scale(1.1); box-shadow: 0 0 0 8px rgba(16, 185, 129, 0); }
-    100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+    0% { transform: scale(0.95); box-shadow: 0 0 0 0 color-mix(in srgb, var(--dl-primary) 70%, transparent); }
+    70% { transform: scale(1.1); box-shadow: 0 0 0 8px transparent; }
+    100% { transform: scale(0.95); box-shadow: 0 0 0 0 transparent; }
 }
 
 .download-main-title {
@@ -184,19 +341,23 @@ body.resource-download > footer,
     font-weight: 800;
     line-height: 1.15;
     letter-spacing: -1.2px;
-    color: #ffffff !important;
-    -webkit-text-fill-color: #ffffff !important;
-    text-shadow: 0 4px 20px rgba(0, 0, 0, 0.8), 0 1px 3px rgba(0, 0, 0, 0.9);
+    color: var(--dl-text-primary);
+    -webkit-text-fill-color: currentColor;
+    text-shadow: var(--dl-title-shadow);
 }
 
 .download-subtitle {
     margin: 0 auto 30px;
-    color: #cbd5e1 !important;
+    color: var(--dl-text-secondary);
     font-size: clamp(15px, 1.8vw, 17px);
     line-height: 1.65;
     max-width: 660px;
     font-weight: 450;
-    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.7);
+    text-shadow: var(--dl-subtitle-shadow);
+}
+
+html.dark .download-subtitle {
+    color: #cbd5e1;
 }
 
 .download-highlights {
@@ -214,18 +375,18 @@ body.resource-download > footer,
     gap: 7px;
     padding: 7px 16px;
     border-radius: var(--dl-radius-full);
-    background: rgba(255, 255, 255, 0.08) !important;
-    border: 1px solid rgba(255, 255, 255, 0.16) !important;
-    color: #f8fafc !important;
+    background: var(--dl-pill-bg);
+    border: 1px solid var(--dl-pill-border);
+    color: var(--dl-pill-text);
     font-size: 13px;
     font-weight: 500;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+    box-shadow: var(--dl-pill-shadow);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
 }
 
 .highlight-item .highlight-icon {
-    color: var(--primary-color, var(--dl-accent-cyan));
+    color: var(--dl-primary);
     font-size: 13px;
 }
 
@@ -247,7 +408,7 @@ body.resource-download > footer,
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
     border: 1px solid var(--dl-border);
-    box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.5);
+    box-shadow: var(--dl-card-shadow);
     display: flex;
     flex-direction: column;
     transition: var(--dl-transition);
@@ -258,8 +419,7 @@ body.resource-download > footer,
     transform: translateY(-5px);
     background: var(--dl-bg-surface-hover);
     border-color: var(--dl-border-hover);
-    box-shadow: 0 25px 50px -12px rgba(16, 185, 129, 0.18),
-                0 0 30px -5px rgba(16, 185, 129, 0.1);
+    box-shadow: var(--dl-card-shadow-hover);
 }
 
 .download-platform-header {
@@ -282,25 +442,25 @@ body.resource-download > footer,
 }
 
 .icon-windows {
-    background: linear-gradient(135deg, rgba(56, 189, 248, 0.15), rgba(30, 64, 175, 0.2));
-    border: 1px solid rgba(56, 189, 248, 0.3);
-    color: #38bdf8;
+    background: var(--dl-icon-win-bg);
+    border: 1px solid var(--dl-icon-win-border);
+    color: var(--dl-icon-win-color);
 }
 
 .download-card:hover .icon-windows {
     transform: scale(1.05);
-    box-shadow: 0 0 20px rgba(56, 189, 248, 0.3);
+    box-shadow: 0 0 20px var(--dl-icon-win-glow);
 }
 
 .icon-macos {
-    background: linear-gradient(135deg, rgba(255, 255, 255, 0.12), rgba(148, 163, 184, 0.15));
-    border: 1px solid rgba(255, 255, 255, 0.25);
-    color: #ffffff;
+    background: var(--dl-icon-mac-bg);
+    border: 1px solid var(--dl-icon-mac-border);
+    color: var(--dl-icon-mac-color);
 }
 
 .download-card:hover .icon-macos {
     transform: scale(1.05);
-    box-shadow: 0 0 20px rgba(255, 255, 255, 0.25);
+    box-shadow: 0 0 20px var(--dl-icon-mac-glow);
 }
 
 .platform-meta {
@@ -327,8 +487,8 @@ body.resource-download > footer,
 .format-pill {
     padding: 3px 9px;
     border-radius: 6px;
-    background: rgba(255, 255, 255, 0.08);
-    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: var(--dl-format-pill-bg);
+    border: 1px solid var(--dl-format-pill-border);
     color: var(--dl-text-secondary);
     font-size: 11px;
     font-weight: 700;
@@ -337,9 +497,13 @@ body.resource-download > footer,
 
 .platform-arch {
     margin: 0;
-    color: var(--dl-text-secondary);
+    color: var(--dl-text-muted);
     font-size: 13px;
     font-weight: 500;
+}
+
+html.dark .platform-arch {
+    color: var(--dl-text-secondary);
 }
 
 .platform-specs {
@@ -349,8 +513,8 @@ body.resource-download > footer,
     margin-bottom: 26px;
     padding: 14px 16px;
     border-radius: var(--dl-radius-sm);
-    background: rgba(255, 255, 255, 0.025);
-    border: 1px solid rgba(255, 255, 255, 0.04);
+    background: var(--dl-bg-inset);
+    border: 1px solid var(--dl-border-inset);
 }
 
 .spec-tag {
@@ -363,7 +527,7 @@ body.resource-download > footer,
 }
 
 .spec-tag .fa-check-circle {
-    color: var(--dl-accent-emerald);
+    color: var(--dl-primary);
     font-size: 14px;
 }
 
@@ -389,17 +553,23 @@ body.resource-download > footer,
 }
 
 .btn-windows, .btn-macos {
-    background: linear-gradient(135deg, var(--primary-color, #10b981) 0%, color-mix(in srgb, var(--primary-color, #10b981) 75%, #000) 100%);
+    background: linear-gradient(135deg, var(--dl-primary) 0%, var(--dl-primary-dark) 100%);
     color: #ffffff !important;
-    box-shadow: 0 8px 20px -4px rgba(0, 0, 0, 0.4);
+    box-shadow: var(--dl-btn-shadow);
 }
 
-.download-btn:hover {
-    background: linear-gradient(135deg, color-mix(in srgb, var(--primary-color, #10b981) 85%, #fff) 0%, var(--primary-color, #10b981) 100%);
-    box-shadow: 0 12px 28px -4px rgba(0, 0, 0, 0.5);
+.download-btn:hover,
+.download-btn:focus {
+    background: linear-gradient(135deg, var(--dl-primary-light) 0%, var(--dl-primary) 100%);
+    box-shadow: var(--dl-btn-shadow-hover);
     transform: translateY(-2px);
     color: #ffffff !important;
     text-decoration: none;
+}
+
+.download-btn:focus-visible {
+    outline: 2px solid var(--dl-primary);
+    outline-offset: 3px;
 }
 
 .download-btn:active {
@@ -418,8 +588,12 @@ body.resource-download > footer,
     margin-top: 14px;
     padding: 8px 12px;
     border-radius: 6px;
+    background: var(--dl-bg-inset);
+    border: 1px solid var(--dl-border-inset);
+}
+
+html.dark .file-checksum-pill {
     background: rgba(0, 0, 0, 0.25);
-    border: 1px solid rgba(255, 255, 255, 0.04);
 }
 
 .file-label {
@@ -430,7 +604,7 @@ body.resource-download > footer,
 }
 
 .file-code {
-    color: #cbd5e1;
+    color: var(--dl-file-code);
     font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
     font-size: 11px;
     background: transparent;
@@ -449,31 +623,35 @@ body.resource-download > footer,
     gap: 22px;
     padding: 26px 30px;
     border-radius: var(--dl-radius-lg);
-    background: linear-gradient(135deg, rgba(22, 30, 46, 0.8) 0%, rgba(15, 23, 42, 0.8) 100%);
+    background: var(--dl-banner-bg);
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
     border: 1px solid var(--dl-border);
     margin-bottom: 40px;
-    box-shadow: 0 15px 30px -10px rgba(0, 0, 0, 0.4);
+    box-shadow: var(--dl-card-shadow);
     transition: var(--dl-transition);
 }
 
+html.dark .download-github-banner {
+    box-shadow: 0 15px 30px -10px rgba(0, 0, 0, 0.4);
+}
+
 .download-github-banner:hover {
-    border-color: rgba(255, 255, 255, 0.2);
-    box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.6);
+    border-color: var(--dl-banner-border-hover);
+    box-shadow: var(--dl-banner-shadow-hover);
 }
 
 .github-icon-circle {
     width: 52px;
     height: 52px;
     border-radius: 14px;
-    background: rgba(255, 255, 255, 0.06);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: var(--dl-gh-icon-bg);
+    border: 1px solid var(--dl-gh-icon-border);
     display: flex;
     align-items: center;
     justify-content: center;
     font-size: 28px;
-    color: #ffffff;
+    color: var(--dl-gh-icon-color);
     flex-shrink: 0;
 }
 
@@ -503,9 +681,9 @@ body.resource-download > footer,
     gap: 10px;
     padding: 12px 20px;
     border-radius: var(--dl-radius-md);
-    background: rgba(255, 255, 255, 0.08);
-    border: 1px solid rgba(255, 255, 255, 0.16);
-    color: #ffffff !important;
+    background: var(--dl-gh-btn-bg);
+    border: 1px solid var(--dl-gh-btn-border);
+    color: var(--dl-gh-btn-text) !important;
     font-size: 14px;
     font-weight: 600;
     text-decoration: none;
@@ -514,12 +692,13 @@ body.resource-download > footer,
     flex-shrink: 0;
 }
 
-.github-btn:hover {
-    background: #ffffff;
-    color: #0f172a !important;
-    border-color: #ffffff;
+.github-btn:hover,
+.github-btn:focus {
+    background: var(--dl-gh-btn-bg-hover);
+    color: var(--dl-gh-btn-text-hover) !important;
+    border-color: var(--dl-gh-btn-border-hover);
     transform: translateY(-2px);
-    box-shadow: 0 8px 24px -4px rgba(255, 255, 255, 0.3);
+    box-shadow: var(--dl-gh-btn-shadow-hover);
     text-decoration: none;
 }
 
@@ -536,21 +715,22 @@ body.resource-download > footer,
 .step-card {
     padding: 24px 22px;
     border-radius: var(--dl-radius-md);
-    background: rgba(255, 255, 255, 0.02);
-    border: 1px solid rgba(255, 255, 255, 0.05);
+    background: var(--dl-step-bg);
+    border: 1px solid var(--dl-step-border);
+    box-shadow: var(--dl-step-shadow);
     transition: var(--dl-transition);
 }
 
 .step-card:hover {
-    background: rgba(255, 255, 255, 0.04);
-    border-color: rgba(255, 255, 255, 0.1);
+    background: var(--dl-step-bg-hover);
+    border-color: var(--dl-step-border-hover);
 }
 
 .step-num {
     font-size: 22px;
     font-weight: 800;
     letter-spacing: -0.5px;
-    background: linear-gradient(135deg, var(--dl-accent-emerald), var(--dl-accent-cyan));
+    background: linear-gradient(135deg, var(--dl-primary), var(--dl-accent-cyan));
     -webkit-background-clip: text;
     background-clip: text;
     -webkit-text-fill-color: transparent;
@@ -585,7 +765,7 @@ body.resource-download > footer,
 }
 
 .download-custom a:hover {
-    color: var(--dl-accent-emerald);
+    color: var(--dl-primary);
     text-decoration: underline;
 }
 
@@ -615,7 +795,15 @@ body.resource-download > footer,
         gap: 14px;
     }
 
-    .download-nav {
+    :root body.resource-download > header.download-nav {
         padding: 14px 20px;
     }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .pulse-dot { animation: none; }
+    .download-card:hover,
+    .download-btn:hover,
+    .github-btn:hover,
+    .nav-return-btn:hover { transform: none; }
 }

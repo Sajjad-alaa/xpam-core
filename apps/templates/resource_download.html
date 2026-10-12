@@ -4,34 +4,7 @@
 {% block html_title %}{% blocktrans with vendor=VENDOR %}Download {{ vendor }} Client{% endblocktrans %}{% endblock %}
 {% block body_class %}resource-download{% endblock %}
 {% block custom_head_css_js %}
-    <link href="{% static 'css/resource_download.css' %}?v=5.2" rel="stylesheet">
-    <style>
-        body.resource-download, body {
-            background-color: #0b0f19 !important;
-            background: radial-gradient(circle at 50% -10%, color-mix(in srgb, var(--primary-color, #10b981) 18%, transparent) 0%, transparent 60%),
-                        radial-gradient(circle at 90% 20%, rgba(6, 182, 212, 0.08) 0%, transparent 40%),
-                        radial-gradient(circle at 10% 40%, rgba(59, 130, 246, 0.06) 0%, transparent 35%),
-                        #0b0f19 !important;
-            color: #f8fafc !important;
-        }
-        .download-main-title {
-            color: #ffffff !important;
-            -webkit-text-fill-color: #ffffff !important;
-            text-shadow: 0 4px 20px rgba(0, 0, 0, 0.8), 0 1px 3px rgba(0, 0, 0, 0.9) !important;
-            font-weight: 800 !important;
-        }
-        .download-subtitle {
-            color: #cbd5e1 !important;
-            text-shadow: 0 2px 8px rgba(0, 0, 0, 0.7) !important;
-            font-weight: 450 !important;
-        }
-        .highlight-item {
-            background: rgba(255, 255, 255, 0.08) !important;
-            border: 1px solid rgba(255, 255, 255, 0.16) !important;
-            color: #f8fafc !important;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4) !important;
-        }
-    </style>
+    <link href="{% static 'css/resource_download.css' %}?v=6.0" rel="stylesheet">
 {% endblock %}
 
 {% block header %}
