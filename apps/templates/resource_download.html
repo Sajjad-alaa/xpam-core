@@ -87,7 +87,7 @@
             </div>
 
             <div class="card-action">
-                <a class="download-btn btn-windows" href="/download/public/XPAM-{{ CLIENT_VERSION }}-Setup.exe" download aria-label="{% trans 'Download' %} Windows x64">
+                <a class="download-btn btn-windows" rel="noopener" href="{{ CLIENT_DOWNLOAD_BASE_URL }}/XPAM-{{ CLIENT_VERSION }}-Setup.exe" download aria-label="{% trans 'Download' %} Windows x64">
                     <i class="fa fa-download" aria-hidden="true"></i>
                     <span>{% trans 'Download for Windows' %}</span>
                 </a>
@@ -121,7 +121,7 @@
             </div>
 
             <div class="card-action">
-                <a class="download-btn btn-macos" href="/download/public/XPAM-{{ CLIENT_VERSION }}-arm64.dmg" download aria-label="{% trans 'Download' %} macOS ARM64">
+                <a class="download-btn btn-macos" rel="noopener" href="{{ CLIENT_DOWNLOAD_BASE_URL }}/XPAM-{{ CLIENT_VERSION }}-arm64.dmg" download aria-label="{% trans 'Download' %} macOS ARM64">
                     <i class="fa fa-download" aria-hidden="true"></i>
                     <span>{% trans 'Download for macOS' %}</span>
                 </a>
@@ -133,7 +133,7 @@
             </div>
             <div class="alt-download">
                 {% trans 'Intel Mac' %}:
-                <a href="/download/public/XPAM-{{ CLIENT_VERSION }}-x64.dmg" download>XPAM-{{ CLIENT_VERSION }}-x64.dmg</a>
+                <a rel="noopener" href="{{ CLIENT_DOWNLOAD_BASE_URL }}/XPAM-{{ CLIENT_VERSION }}-x64.dmg" download>XPAM-{{ CLIENT_VERSION }}-x64.dmg</a>
             </div>
         </section>
 
@@ -159,7 +159,7 @@
             </div>
 
             <div class="card-action">
-                <a class="download-btn btn-macos" href="/download/public/XPAM-{{ CLIENT_VERSION }}-x64.deb" download aria-label="{% trans 'Download' %} Linux .DEB x64">
+                <a class="download-btn btn-macos" rel="noopener" href="{{ CLIENT_DOWNLOAD_BASE_URL }}/XPAM-{{ CLIENT_VERSION }}-x64.deb" download aria-label="{% trans 'Download' %} Linux .DEB x64">
                     <i class="fa fa-download" aria-hidden="true"></i>
                     <span>{% trans 'Download for Linux' %} (.DEB)</span>
                 </a>
@@ -171,7 +171,7 @@
             </div>
             <div class="alt-download">
                 ARM64:
-                <a href="/download/public/XPAM-{{ CLIENT_VERSION }}-arm64.deb" download>XPAM-{{ CLIENT_VERSION }}-arm64.deb</a>
+                <a rel="noopener" href="{{ CLIENT_DOWNLOAD_BASE_URL }}/XPAM-{{ CLIENT_VERSION }}-arm64.deb" download>XPAM-{{ CLIENT_VERSION }}-arm64.deb</a>
             </div>
         </section>
 
@@ -197,7 +197,7 @@
             </div>
 
             <div class="card-action">
-                <a class="download-btn btn-macos" href="/download/public/XPAM-{{ CLIENT_VERSION }}-x64.rpm" download aria-label="{% trans 'Download' %} Linux .RPM x64">
+                <a class="download-btn btn-macos" rel="noopener" href="{{ CLIENT_DOWNLOAD_BASE_URL }}/XPAM-{{ CLIENT_VERSION }}-x64.rpm" download aria-label="{% trans 'Download' %} Linux .RPM x64">
                     <i class="fa fa-download" aria-hidden="true"></i>
                     <span>{% trans 'Download for Linux' %} (.RPM)</span>
                 </a>
@@ -209,7 +209,7 @@
             </div>
             <div class="alt-download">
                 ARM64:
-                <a href="/download/public/XPAM-{{ CLIENT_VERSION }}-arm64.rpm" download>XPAM-{{ CLIENT_VERSION }}-arm64.rpm</a>
+                <a rel="noopener" href="{{ CLIENT_DOWNLOAD_BASE_URL }}/XPAM-{{ CLIENT_VERSION }}-arm64.rpm" download>XPAM-{{ CLIENT_VERSION }}-arm64.rpm</a>
             </div>
         </section>
     </div>

@@ -115,6 +115,13 @@ class ResourceDownload(TemplateView):
         context = super().get_context_data(**kwargs)
         meta = self.get_meta_json()
         context.update(meta)
+        # XPAM: client installers come from the GitHub release of that version by default;
+        # CLIENT_DOWNLOAD_BASE_URL overrides it (e.g. /download/public for an offline site).
+        base_url = os.environ.get('CLIENT_DOWNLOAD_BASE_URL', '').strip().rstrip('/')
+        if not base_url:
+            version = meta.get('CLIENT_VERSION', '')
+            base_url = f'https://github.com/Sajjad-alaa/xpam-workspace/releases/download/{version}'
+        context['CLIENT_DOWNLOAD_BASE_URL'] = base_url
         return context
 
 
