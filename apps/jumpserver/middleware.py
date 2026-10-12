@@ -89,11 +89,12 @@ class RefererCheckMiddleware:
 
     def check_referer(self, request):
         referer = request.META.get('HTTP_REFERER', '')
-        referer = self.http_pattern.sub('', referer)
         if not referer:
             return True
-        remote_host = request.get_host()
-        return referer.startswith(remote_host)
+        # Compare the exact host[:port]; a prefix match accepted e.g. jms.example.com.evil.org
+        from urllib.parse import urlsplit
+        netloc = urlsplit(referer if self.http_pattern.match(referer) else '//' + referer).netloc
+        return netloc.lower() == request.get_host().lower()
 
     def __call__(self, request):
         match = self.check_referer(request)
