@@ -48,6 +48,9 @@ class HostSerializer(AssetSerializer):
             if any(provided.values()):
                 raise serializers.ValidationError(
                     {'remote_app': _('RemoteApp settings are only available on the Windows-RemoteApp platform')})
+            # Leaving the RemoteApp platform: drop the old settings so nothing stale remains
+            if any(f in current for f in REMOTE_APP_FIELDS):
+                attrs['custom_info'] = {k: v for k, v in current.items() if k not in REMOTE_APP_FIELDS}
             return attrs
 
         values = {f: provided.get(f, current.get(f, '')) for f in REMOTE_APP_FIELDS}

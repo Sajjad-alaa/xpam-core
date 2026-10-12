@@ -917,6 +917,10 @@ class ConnectionTokenViewSet(AuthFaceMixin, ExtraActionApiMixin, RootOrgViewMixi
                 f'Licensed asset quota exceeded ({active_assets_count} > {allowed_assets}). Please renew or upgrade your license to connect to assets.'
             ))
 
+        # RemoteApp assets publish one program; only the web gateway enforces that
+        from xpack.remote_app import check_remote_app_connect_method
+        check_remote_app_connect_method(asset, connect_method)
+
         data = dict()
         data['org_id'] = asset.org_id
         data['user'] = user
