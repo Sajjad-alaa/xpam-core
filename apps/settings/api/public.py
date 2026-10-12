@@ -67,7 +67,7 @@ class PublicSettingApi(OpenPublicSettingApi):
         is_admin = getattr(self.request.user, 'is_superuser', False)
         if not is_admin:
             lic_info = {
-                'corporation': lic_info.get('corporation', 'JumpServer PAM'),
+                'corporation': lic_info.get('corporation', 'XPAM'),
                 'edition': lic_info.get('edition', 'Standard'),
                 'is_valid': bool(lic_info.get('is_valid', False)),
                 'has_ticket': bool(lic_info.get('has_ticket', False)),
