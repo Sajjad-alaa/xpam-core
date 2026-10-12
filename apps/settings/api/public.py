@@ -23,8 +23,15 @@ class OpenPublicSettingApi(generics.RetrieveAPIView):
         return get_interface_setting_or_default()
 
     def get_object(self):
+        try:
+            from xpack.utils import has_ticket_license
+            has_ticket = has_ticket_license()
+        except Exception:
+            has_ticket = False
+
         return {
             "XPACK_ENABLED": settings.XPACK_ENABLED,
+            "HAS_TICKET_LICENSE": has_ticket,
             "INTERFACE": self.interface_setting,
             "LANGUAGES":  [
                 {
@@ -48,10 +55,29 @@ class PublicSettingApi(OpenPublicSettingApi):
         else:
             SECURITY_PASSWORD_EXPIRATION_TIME = settings.SECURITY_PASSWORD_EXPIRATION_TIME
 
+        try:
+            from xpack.utils import get_current_license_info, has_ticket_license
+            lic_info = get_current_license_info()
+            has_ticket = has_ticket_license()
+        except Exception:
+            lic_info = settings.XPACK_LICENSE_INFO
+            has_ticket = False
+
+        # License internals (installation id, license id, serial) are for system admins only
+        is_admin = getattr(self.request.user, 'is_superuser', False)
+        if not is_admin:
+            lic_info = {
+                'corporation': lic_info.get('corporation', 'JumpServer PAM'),
+                'edition': lic_info.get('edition', 'Standard'),
+                'is_valid': bool(lic_info.get('is_valid', False)),
+                'has_ticket': bool(lic_info.get('has_ticket', False)),
+            }
+
         values = super().get_object()
         values.update({
-            "XPACK_LICENSE_IS_VALID": settings.XPACK_LICENSE_IS_VALID,
-            "XPACK_LICENSE_INFO": settings.XPACK_LICENSE_INFO,
+            "XPACK_LICENSE_IS_VALID": bool(lic_info.get('is_valid', False)),
+            "XPACK_LICENSE_INFO": lic_info,
+            "HAS_TICKET_LICENSE": has_ticket,
             "PASSWORD_RULE": {
                 'SECURITY_PASSWORD_MIN_LENGTH': settings.SECURITY_PASSWORD_MIN_LENGTH,
                 'SECURITY_ADMIN_USER_PASSWORD_MIN_LENGTH': settings.SECURITY_ADMIN_USER_PASSWORD_MIN_LENGTH,

@@ -10,6 +10,7 @@ __all__ = [
 
 class PublicSettingSerializer(serializers.Serializer):
     XPACK_ENABLED = serializers.BooleanField()
+    HAS_TICKET_LICENSE = serializers.BooleanField(required=False, default=False)
     INTERFACE = serializers.DictField()
     LANGUAGES = serializers.ListField()
     VENDOR = serializers.CharField()

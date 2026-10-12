@@ -214,3 +214,28 @@ class CsrfCheckMiddleware(CsrfViewMiddleware):
             request._dont_enforce_csrf_checks = True
             return True
         return super()._origin_verified(request)
+
+
+class SecurityHeadersMiddleware:
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        response = self.get_response(request)
+        if 'Content-Security-Policy' not in response:
+            csp = (
+                "default-src 'self'; "
+                "script-src 'self' 'unsafe-inline' 'unsafe-eval'; "
+                "style-src 'self' 'unsafe-inline'; "
+                "img-src 'self' data: blob: https:; "
+                "font-src 'self' data:; "
+                "connect-src 'self' ws: wss:; "
+                "frame-ancestors 'self'; "
+                "object-src 'none'; "
+                "base-uri 'self';"
+            )
+            response['Content-Security-Policy'] = csp
+        if 'X-Content-Type-Options' not in response:
+            response['X-Content-Type-Options'] = 'nosniff'
+        return response
+

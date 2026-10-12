@@ -60,6 +60,26 @@ class UserViewSet(CommonApiMixin, UserQuerysetMixin, SuggestionMixin, BulkModelV
             raise UnableToDeleteAllUsers()
         return True
 
+    def create(self, request, *args, **kwargs):
+        from xpack.utils import get_license_user_limit, get_current_license_info
+        try:
+            lic_info = get_current_license_info()
+            if not lic_info.get('is_valid', False):
+                error = _('License is invalid or expired. Creating users is disabled. Please renew your license.')
+                return Response({'error': error}, status=400)
+            with tmp_to_root_org():
+                user_count = User.objects.filter(is_service_account=False).count()
+            limit = get_license_user_limit()
+            new_count = len(request.data) if isinstance(request.data, list) else 1
+            if user_count + new_count > limit:
+                error = _('The number of users exceeds the license limit ({})').format(limit)
+                return Response({'error': error}, status=400)
+        except Exception as e:
+            logger.error(f"License user check failed: {e}")
+            error = _('License verification error. User creation refused: {}').format(e)
+            return Response({'error': error}, status=400)
+        return super().create(request, *args, **kwargs)
+
     def perform_destroy(self, instance):
         if instance.username == self.request.user.username:
             raise PermissionDenied(_("You cannot delete yourself. Please disable it instead."))

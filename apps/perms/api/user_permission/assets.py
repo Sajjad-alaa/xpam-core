@@ -32,6 +32,10 @@ class UserPermedAssetRetrieveApi(SelfOrPKUserMixin, RetrieveAPIView):
     serializer_class = serializers.AssetPermedDetailSerializer
 
     def get_object(self):
+        from rest_framework.exceptions import PermissionDenied
+        from xpack.utils import get_current_license_info
+        if not get_current_license_info().get('is_valid', True):
+            raise PermissionDenied('License has expired. Asset access is suspended.')
         with tmp_to_root_org():
             asset_id = self.kwargs.get('pk')
             util = PermAssetDetailUtil(self.user, asset_id)
@@ -53,6 +57,9 @@ class BaseUserPermedAssetsApi(SelfOrPKUserMixin, ExtraFilterFieldsMixin, ListAPI
 
     def get_queryset(self):
         if getattr(self, 'swagger_fake_view', False):
+            return Asset.objects.none()
+        from xpack.utils import get_current_license_info
+        if not get_current_license_info().get('is_valid', True):
             return Asset.objects.none()
         if settings.ASSET_SIZE == 'small':
             self.ordering = ['name']

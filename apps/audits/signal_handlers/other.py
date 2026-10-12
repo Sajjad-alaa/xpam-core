@@ -62,7 +62,20 @@ def on_audits_log_create(sender, instance=None, **kwargs):
     else:
         return
 
-    serializer = serializer_cls(instance)
-    data = data_to_json(serializer.data, indent=None)
-    msg = "{} - {}".format(category, data)
-    sys_logger.info(msg)
+    # Dispatch to Log Shipment engine for multiple SIEM / rsyslog destinations
+    try:
+        from xpack.log_shipment import dispatch_log_shipment
+        dispatch_log_shipment(category, instance, serializer_cls)
+    except Exception:
+        pass
+
+    # Legacy static syslog if enabled in config.txt
+    from django.conf import settings
+    if getattr(settings, 'SYSLOG_ENABLE', False):
+        try:
+            serializer = serializer_cls(instance)
+            data = data_to_json(serializer.data, indent=None)
+            msg = "{} - {}".format(category, data)
+            sys_logger.info(msg)
+        except Exception:
+            pass

@@ -9,6 +9,7 @@ from django.db import models
 from django.shortcuts import reverse
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
+from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework.exceptions import PermissionDenied
 
 from common.db import fields, models as jms_models
@@ -332,6 +333,27 @@ class User(
             return
         self.ukey_sn = ukey_sn.strip() or None
         self.save(update_fields=['ukey_sn'])
+
+    def save(self, *args, **kwargs):
+        is_creating = getattr(self, '_state', None) and self._state.adding
+        if is_creating and not getattr(self, 'is_service_account', False):
+            try:
+                from xpack.utils import get_license_user_limit, get_current_license_info
+                lic_info = get_current_license_info()
+                if not lic_info.get('is_valid', False):
+                    raise DjangoValidationError(_("License is invalid or expired. Creating new users is disabled."))
+                limit = get_license_user_limit()
+                current_count = self.__class__.objects.filter(is_service_account=False).count()
+                if current_count >= limit:
+                    raise DjangoValidationError(
+                        _("The number of users exceeds the license limit ({})").format(limit)
+                    )
+            except DjangoValidationError:
+                raise
+            except Exception as e:
+                logger.error(f"License check failed during User.save: {e}")
+                raise DjangoValidationError(_("User license check failed: {}").format(e))
+        return super().save(*args, **kwargs)
 
 
 class UserPasswordHistory(models.Model):

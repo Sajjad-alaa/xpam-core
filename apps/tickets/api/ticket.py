@@ -52,6 +52,16 @@ class TicketViewSet(ReportExportMixin, CommonApiMixin, viewsets.ModelViewSet):
         'open': 'tickets.view_ticket',
     }
 
+    def initial(self, request, *args, **kwargs):
+        super().initial(request, *args, **kwargs)
+        try:
+            from xpack.utils import has_ticket_license
+            if not has_ticket_license():
+                from rest_framework.exceptions import PermissionDenied
+                raise PermissionDenied(_("Ticket license is required for this feature"))
+        except ImportError:
+            pass
+
     def retrieve(self, request, *args, **kwargs):
         with tmp_to_root_org():
             instance = self.get_object()

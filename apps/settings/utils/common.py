@@ -1,4 +1,5 @@
 # coding: utf-8
+import re
 from jumpserver.context_processor import default_interface
 from django.conf import settings
 from IPy import IP
@@ -7,11 +8,70 @@ from common.utils import lookup_domain
 
 
 def get_interface_setting_or_default():
-    if not settings.XPACK_ENABLED:
-        return default_interface
+    import json
+    data = dict(default_interface)
+    try:
+        from settings.models import Setting
+        item = Setting.objects.filter(name='INTERFACE').first()
+        if item and item.value:
+            val = json.loads(item.value)
+            if isinstance(val, dict):
+                data.update(val)
+    except Exception:
+        pass
 
-    from xpack.plugins.interface.models import Interface
-    return Interface.get_interface_setting(default_interface)
+    # An uploaded image whose file is gone would render as a broken <img>; use the default instead.
+    try:
+        import os
+        from xpack.api.interface import INTERFACE_UPLOAD_URL, INTERFACE_UPLOAD_DIR
+        for field in ('logo_index', 'logo_logout', 'favicon', 'login_image'):
+            value = data.get(field)
+            if isinstance(value, str) and value.startswith(INTERFACE_UPLOAD_URL):
+                filename = os.path.basename(value)
+                if not os.path.isfile(os.path.join(INTERFACE_UPLOAD_DIR, filename)):
+                    data[field] = default_interface.get(field)
+    except Exception:
+        pass
+
+    HEX_COLOR_PATTERN = re.compile(r'^#[0-9a-fA-F]{3}(?:[0-9a-fA-F]{3})?(?:[0-9a-fA-F]{2})?$')
+
+    def safe_json_dumps(obj):
+        return json.dumps(obj).replace('<', '\\u003c').replace('>', '\\u003e').replace('&', '\\u0026')
+
+    try:
+        from xpack.api.interface import THEMES_LIST
+        current_theme = data.get('theme', 'midnight_dark')
+        theme_item = None
+        for t in THEMES_LIST:
+            if t['name'] == current_theme:
+                theme_item = t
+                break
+        if not theme_item and THEMES_LIST:
+            theme_item = THEMES_LIST[0]
+        if theme_item:
+            colors = dict(theme_item['colors'])
+            custom_primary = data.get('custom_primary')
+            if custom_primary and isinstance(custom_primary, str) and HEX_COLOR_PATTERN.match(custom_primary.strip()):
+                custom_primary = custom_primary.strip()
+                colors['--color-primary'] = custom_primary
+                colors['--color-link'] = custom_primary
+                colors['--menu-text-active'] = custom_primary
+            mode = data.get('theme_mode') or ('dark' if theme_item.get('is_dark') else 'light')
+            is_dark = (mode == 'dark') if mode in ['dark', 'light'] else theme_item.get('is_dark', False)
+            colors['theme_mode'] = mode
+            colors['is_dark'] = is_dark
+            data['theme_info'] = {
+                'colors': colors,
+                'is_dark': is_dark,
+                'theme_mode': mode
+            }
+            data['theme_info_json'] = safe_json_dumps(data['theme_info'])
+    except Exception:
+        pass
+    if 'theme_info_json' not in data:
+        data['theme_info_json'] = safe_json_dumps(data.get('theme_info', {}))
+
+    return data
 
 
 def get_login_title():

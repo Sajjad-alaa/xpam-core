@@ -3,6 +3,7 @@ from urllib import parse
 
 from django.conf import settings
 from django.contrib import auth
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import IntegrityError
 from django.http import HttpResponseRedirect, HttpResponse, HttpResponseServerError
 from django.urls import reverse
@@ -284,6 +285,13 @@ class Saml2AuthCallbackView(View, PrepareRequestMixin, FlashMessageMixin):
         except IntegrityError as e:
             msg = _('Please check if a user with the same username or email already exists')
             logger.error(e, exc_info=True)
+            response = self.get_failed_response('/', error_title, msg)
+            return response
+        except DjangoValidationError as e:
+            msg = str(e)
+            if hasattr(e, 'messages') and e.messages:
+                msg = e.messages[0]
+            logger.warning(f"SAML user creation blocked by license validation: {msg}")
             response = self.get_failed_response('/', error_title, msg)
             return response
         if user and user.is_valid:

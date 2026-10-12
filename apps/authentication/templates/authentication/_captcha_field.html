@@ -1,29 +1,30 @@
 {% load i18n %}
 {% spaceless %}
-    <img src="{{ image }}" alt="captcha" class="captcha" />
-    <div class="row" style="padding-bottom: 10px">
-        <div class="col-sm-6">
-            <div class="input-group-prepend">
-                {% if audio %}
+    <div class="captcha-flex-row">
+        <div class="captcha-input-col">
+            {% if audio %}
+                <div class="input-group-prepend">
                     <a title="{% trans "Play CAPTCHA as audio file" %}" href="{{ audio }}"></a>
-                {% endif %}
                 </div>
+            {% endif %}
             {% include "django/forms/widgets/multiwidget.html" %}
-         </div>
+        </div>
+        <div class="captcha-img-col">
+            <img src="{{ image }}" alt="captcha" class="captcha" title="{% trans 'Click to refresh' %}" />
+        </div>
     </div>
     <script>
-        var placeholder = '{% trans "Captcha" %}'
+        var placeholder = '{% trans "Verification code" %}';
         function refresh_captcha() {
-            $.getJSON("{% url "captcha-refresh" %}",
+            $.getJSON('{% url "captcha-refresh" %}',
                 function (result) {
                     $('.captcha').attr('src', result['image_url']);
-                    $('#id_captcha_0').val(result['key'])
-                })
+                    $('#id_captcha_0').val(result['key']);
+                });
         }
         $(document).ready(function () {
-            $('.captcha').click(refresh_captcha)
-            $('#id_captcha_1').addClass('form-control').attr('placeholder', placeholder)
-        })
+            $('.captcha').click(refresh_captcha);
+            $('#id_captcha_1').addClass('form-control').attr('placeholder', placeholder);
+        });
     </script>
-
 {% endspaceless %}

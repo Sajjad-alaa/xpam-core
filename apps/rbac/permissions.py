@@ -74,8 +74,14 @@ class RBACPermission(permissions.DjangoModelPermissions):
 
     def _get_action_perms(self, action, model_cls, view):
         action_perms_map = self.get_rbac_perms(view, model_cls)
+        action_lower = action.lower() if isinstance(action, str) else action
+        action_upper = action.upper() if isinstance(action, str) else action
         if action in action_perms_map:
             perms = action_perms_map[action]
+        elif action_lower in action_perms_map:
+            perms = action_perms_map[action_lower]
+        elif action_upper in action_perms_map:
+            perms = action_perms_map[action_upper]
         elif '*' in action_perms_map:
             perms = action_perms_map['*']
         else:

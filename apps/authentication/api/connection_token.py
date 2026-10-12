@@ -901,6 +901,22 @@ class ConnectionTokenViewSet(AuthFaceMixin, ExtraActionApiMixin, RootOrgViewMixi
             self, user, asset, account_alias, protocol, connect_method,
             permed_account=None,
     ):
+        from xpack.utils import get_current_license_info, get_license_asset_count
+        lic_info = get_current_license_info()
+        if not lic_info.get('is_valid', True):
+            status = lic_info.get('status', 'Expired')
+            raise PermissionDenied(_(
+                f'License status is {status}. Asset connections via Web Terminal (Luna) and native clients are suspended. Please renew your subscription.'
+            ))
+
+        from assets.models import Asset
+        active_assets_count = Asset.objects.filter(is_active=True).count()
+        allowed_assets = get_license_asset_count()
+        if active_assets_count > allowed_assets:
+            raise PermissionDenied(_(
+                f'Licensed asset quota exceeded ({active_assets_count} > {allowed_assets}). Please renew or upgrade your license to connect to assets.'
+            ))
+
         data = dict()
         data['org_id'] = asset.org_id
         data['user'] = user
@@ -1176,6 +1192,13 @@ class SuperConnectionTokenViewSet(ConnectionTokenViewSet):
 
     @action(methods=['GET'], detail=True, url_path='check')
     def check(self, request, *args, **kwargs):
+        from xpack.utils import get_current_license_info
+        lic_info = get_current_license_info()
+        if not lic_info.get('is_valid', True):
+            return Response(data={
+                "code": "license_expired",
+                "detail": _("License has expired. Asset connection is suspended.")
+            }, status=status.HTTP_400_BAD_REQUEST)
         instance = self.get_object()
         data = {
             "detail": "OK",
@@ -1238,6 +1261,11 @@ class SuperConnectionTokenViewSet(ConnectionTokenViewSet):
         rbac_perm = 'authentication.view_superconnectiontokensecret'
         if not request.user.has_perm(rbac_perm):
             raise PermissionDenied('Not allow to view secret')
+
+        from xpack.utils import get_current_license_info
+        lic_info = get_current_license_info()
+        if not lic_info.get('is_valid', True):
+            raise PermissionDenied('License has expired. Session cannot be established.')
 
         token_id = request.data.get('id') or ''
         token = ConnectionToken.get_typed_connection_token(token_id)

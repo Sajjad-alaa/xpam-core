@@ -238,6 +238,9 @@ class UserSerializer(
             "is_first_login",
             *fields_xpack,
             "date_api_key_last_used",
+            # Only terminal registration creates service accounts; making it writable would
+            # let admins move users out of the licensed user count.
+            "is_service_account",
         ]
         fields_only_root_org = ["orgs_roles"]
         disallow_self_update_fields = ["is_active", "system_roles", "org_roles"]

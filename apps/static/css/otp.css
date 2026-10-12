@@ -1,150 +1,240 @@
-/*公共样式*/
-*{
-	margin:0;
-	padding: 0;
-	outline: none;
+/* Premium OTP & MFA Authentication Styles - Synced with Appearance */
+* {
+    margin: 0;
+    padding: 0;
+    outline: none;
+    box-sizing: border-box;
 }
-a{
-	text-decoration: none;
-	color:black
+
+a {
+    text-decoration: none;
+    color: var(--color-primary, #10b981);
 }
-li{
-	list-style:none;
+
+li {
+    list-style: none;
 }
-button{
-	outline: none;
+
+button {
+    outline: none;
 }
-.red-fonts{
-	color: #ed5565;
-    font-size: 15px;
+
+.red-fonts {
+    color: #ef4444;
+    font-size: 13px;
     text-align: center;
 }
 
-/*header样式*/
-header{
-	overflow:hidden ;
-	background: #ffffff;
-	padding:15px 10%;
-}
-header .logo a{
-	float:left;
-}
-header .logo a:nth-child(2){
-	padding-top: 13px;
-}
-header div:nth-child(1){
-	float:left;
-}
-header div:nth-child(2){
-	float:right;
-	font-size: 12px;
-	padding-top: 20px;
-}
-header div:nth-child(2) a:hover{
-	color:var(--primary-color);
+.otp-card-container {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
 }
 
-/*article样式*/
-article{
-	padding-top: 50px;
-	padding:50px 370px
-}
-article ul{
-	float: left;
-	position: relative;
-	left: 50%;
-	margin-bottom: 50px;
-}
-article ul li{
-	float: left;
-	position: relative;
-	right: 50%;
-}
-article ul li span,article ul li i{
-	display: block;
-	float: left;
-}
-article ul li span{
-	width: 150px;
-	height: 4px;
-	margin: 15px 0;
-	background: black;
-}
-article ul li:last-child{
-	padding-left: 2px;
-}
-.iconfont{
-	font-size: 30px;
-	color: grey;
-}
-.back{
-	margin-left:-15px;
-}
-.active{
-	color:var(--primary-color);
-}
-.clearfix:after {
-	  content:"";
-	  height:0;
-	  visibility:hidden;
-	  display:block;
-	  clear:both;
-}
-.verify{
-	text-align: center;
-	font-size: 14px;
-	/*padding-left:70px;*/
-	color: grey;
-}
-.verify span{
-	color:red;
-}
-.line{
-	width: 500px;
-	height:1px;
-	margin-left:100px;
-	margin-top:10px ;
-	background: grey;
+/* Premium Card Layout - Perfectly matching Appearance variables */
+article,
+.otp-premium-card {
+    width: 100% !important;
+    max-width: 420px !important;
+    margin: 0 auto !important;
+    padding: 30px 28px 28px 28px !important;
+    background: var(--page-content-background-color, #060b0e) !important;
+    border: 1px solid var(--panel-border-color, #1a2e38) !important;
+    border-radius: 16px !important;
+    box-shadow: 0 20px 50px -10px rgba(0, 0, 0, 0.55), 0 0 0 1px var(--panel-border-color, #1a2e38) !important;
+    box-sizing: border-box !important;
+    text-align: center !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
 }
 
-/*输入框样式*/
-.form-input{
-    text-align: center;
-    margin: 20px auto;
+.mfa-shield-badge {
+    width: 46px;
+    height: 46px;
+    border-radius: 12px;
+    background: rgba(var(--color-primary-rgb, 16, 185, 129), 0.12) !important;
+    border: 1px solid rgba(var(--color-primary-rgb, 16, 185, 129), 0.28) !important;
+    color: var(--color-primary, #10b981) !important;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 12px auto;
+    flex-shrink: 0;
 }
-.form-input input{
+
+.otp-card-title,
+article h2 {
+    color: var(--color-text-primary, #f1f5f9) !important;
+    font-size: 20px !important;
+    font-weight: 700 !important;
+    margin: 0 0 6px 0 !important;
+    letter-spacing: -0.02em !important;
+    text-align: center !important;
+}
+
+.otp-card-subtitle {
+    font-size: 13px !important;
+    color: var(--color-text-secondary, #94a3b8) !important;
+    line-height: 1.45 !important;
+    margin: 0 auto 16px auto !important;
+    max-width: 320px !important;
+    text-align: center !important;
+}
+
+.otp-card-content,
+.otp-card-body {
+    width: 100%;
+}
+
+/* QR Code Display - 190x190 on Padded White Plate for Perfect Contrast & Camera Lock */
+.qr-card-wrapper {
+    display: flex !important;
+    justify-content: center !important;
+    align-items: center !important;
+    margin: 0 auto 14px auto !important;
+    width: 100% !important;
+}
+
+/* White quiet-zone plate: scanners need a light border around the code */
+.qr-white-plate {
+    background: #ffffff !important;
+    padding: 14px !important;
+    border-radius: 12px !important;
+    box-shadow: 0 8px 24px -2px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(0, 0, 0, 0.08) !important;
+    display: inline-block !important;
+    margin: 0 auto !important;
+    line-height: 0 !important;
+}
+
+#qr_code {
     width: 200px;
-    height: 30px;
-    padding-left: 10px;
-	outline: none;
-}
-/*身份验证*/
-/*安装应用*/
-.verify div{
-	display: inline-block;
-}
-.verify div:nth-child(3){
-	margin-left: 58px;
-}
-.next{
-	margin: 20px auto;
-    display: block;
-    width: 214px;
-    line-height: 34px;
-    background: var(--primary-color);
-    text-align: center;
-    border-radius: 6px;
-    color: white;
+    height: 200px;
+    overflow: hidden;
+    line-height: 0;
 }
 
+/* Only sizes here. Never force `display` - qrcode.js toggles canvas/img itself
+   and forcing both visible renders two stacked, clipped QR codes. */
+#qr_code img,
+#qr_code canvas {
+    width: 200px !important;
+    height: 200px !important;
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    image-rendering: pixelated;
+}
+
+/* Form & Input Styling */
+.otp-bind-form {
+    width: 100% !important;
+    max-width: 300px !important;
+    margin: 0 auto !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 14px !important;
+}
+
+.otp-input-group {
+    width: 100% !important;
+    text-align: center !important;
+}
+
+.otp-label {
+    display: block !important;
+    font-size: 11px !important;
+    font-weight: 600 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.8px !important;
+    color: var(--color-text-secondary, #94a3b8) !important;
+    margin-bottom: 6px !important;
+}
+
+.otp-code-input,
+.form-input input {
+    width: 100% !important;
+    height: 44px !important;
+    border-radius: 8px !important;
+    border: 1.5px solid var(--color-input-border, #223c4a) !important;
+    background-color: var(--page-background-color, #111f26) !important;
+    color: var(--color-text-primary, #f1f5f9) !important;
+    font-size: 22px !important;
+    letter-spacing: 8px !important;
+    text-align: center !important;
+    font-weight: 700 !important;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
+    transition: all 0.2s ease !important;
+    outline: none !important;
+    box-sizing: border-box !important;
+}
+
+.otp-code-input:focus,
+.form-input input:focus {
+    border-color: var(--color-primary, #10b981) !important;
+    box-shadow: 0 0 0 3px rgba(var(--color-primary-rgb, 16, 185, 129), 0.25) !important;
+}
+
+.btn-verify-submit,
+.next {
+    width: 100% !important;
+    height: 44px !important;
+    border-radius: 8px !important;
+    background: var(--color-primary, #10b981) !important;
+    color: #ffffff !important;
+    border: none !important;
+    font-size: 14px !important;
+    font-weight: 600 !important;
+    cursor: pointer !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 8px !important;
+    box-shadow: 0 4px 14px rgba(var(--color-primary-rgb, 16, 185, 129), 0.35) !important;
+    transition: all 0.18s ease !important;
+    margin: 0 !important;
+    text-decoration: none !important;
+}
+
+.btn-verify-submit:hover,
 .next:hover {
-	color: white;
+    filter: brightness(1.1) !important;
+    transform: translateY(-1px) !important;
+    box-shadow: 0 6px 18px rgba(var(--color-primary-rgb, 16, 185, 129), 0.45) !important;
+    color: #ffffff !important;
 }
-/*绑定TOTP*/
 
-/*版权信息*/
-footer{
-    text-align:center;
-	font-size: 14px;
-	color: #1a1a1a;
+.btn-verify-submit:active,
+.next:active {
+    filter: brightness(0.95) !important;
+    transform: translateY(0) !important;
+}
+
+.otp-error-msg {
+    margin: -4px 0 0 0 !important;
+}
+
+/* Light mode overrides if user chooses light mode in appearance */
+html:not(.dark) article,
+body:not(.dark) article,
+html:not(.dark) .otp-premium-card,
+body:not(.dark) .otp-premium-card {
+    background: var(--page-content-background-color, #ffffff) !important;
+    border-color: var(--panel-border-color, #e2e8f0) !important;
+    box-shadow: 0 16px 40px -8px rgba(0, 0, 0, 0.12), 0 0 0 1px var(--panel-border-color, #e2e8f0) !important;
+}
+
+html:not(.dark) .otp-code-input,
+body:not(.dark) .otp-code-input,
+html:not(.dark) .form-input input,
+body:not(.dark) .form-input input {
+    background-color: var(--page-content-background-color, #ffffff) !important;
+    border-color: var(--color-input-border, #cbd5e1) !important;
+    color: var(--color-text-primary, #0f172a) !important;
+}
+
+footer {
+    display: none !important;
 }

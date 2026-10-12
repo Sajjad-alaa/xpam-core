@@ -2,7 +2,7 @@
 {% load i18n %}
 
 <!DOCTYPE html>
-<html>
+<html class="{% if INTERFACE.theme_info.is_dark %}dark{% endif %}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -11,85 +11,158 @@
     {% include '_head_css_js.html' %}
     <link href="{% static 'css/jumpserver.css' %}" rel="stylesheet">
     <link href="{% static 'css/style.css' %}" rel="stylesheet">
-    <link rel="stylesheet" href="{% static 'css/otp.css' %}"/>
+    <link rel="stylesheet" href="{% static 'css/otp.css' %}?v=5"/>
     <script src="{% static "js/plugins/qrcode/qrcode.js" %}"></script>
     <style>
+        html {
+            height: 100%;
+            box-sizing: border-box;
+        }
+
         body {
             box-sizing: border-box;
-            min-height: 100%;
+            min-height: 100vh;
+            margin: 0;
+            padding: 0;
             display: flex;
-            align-items: center;
             flex-direction: column;
+            background-color: var(--page-background-color, #111f26) !important;
+            background-image: radial-gradient(ellipse 80% 50% at 50% -12%, rgba(var(--color-primary-rgb, 16, 185, 129), 0.12), transparent) !important;
+            color: var(--color-text-primary, #f1f5f9) !important;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            transition: background-color 0.2s ease, color 0.2s ease;
         }
 
         body > header {
             width: 100%;
-            flex-grow: 0;
+            height: 56px;
             flex-shrink: 0;
             display: flex;
             align-items: center;
             justify-content: space-between;
-            gap: 16px;
+            padding: 0 28px;
+            background-color: var(--page-content-background-color, #060b0e) !important;
+            border-bottom: 1px solid var(--panel-border-color, #1a2e38);
+            box-sizing: border-box;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+            position: relative;
+            z-index: 50;
         }
 
         .wrapper {
-            margin: auto;
+            flex: 1 0 auto;
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 24px 16px;
+            box-sizing: border-box;
         }
         
         body > header .logo {
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 10px;
             min-width: 0;
         }
 
         body > header .logo a {
             flex-shrink: 0;
+            display: flex;
+            align-items: center;
         }
 
         body > header .logo img {
             display: block;
+            height: 32px;
+            width: 32px;
+            object-fit: contain;
+            border-radius: 6px;
         }
 
         body > header .logo span {
-            font-size: 21px;
+            font-size: 16px;
+            font-weight: 600;
             line-height: 1.4;
-            overflow-wrap: anywhere;
+            color: var(--color-text-primary, #f1f5f9);
+            letter-spacing: -0.01em;
         }
 
         body > header > div:last-child {
             flex-shrink: 0;
-            padding-top: 0;
         }
 
-        footer > div {
-            margin-top: 100px;
+        body > header > div:last-child a {
+            color: var(--color-text-secondary, #94a3b8);
+            font-size: 13px;
+            font-weight: 500;
+            text-decoration: none;
+            transition: all 0.15s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 5px 12px;
+            border-radius: 6px;
+            border: 1px solid var(--panel-border-color, #1a2e38);
+            background: rgba(var(--color-primary-rgb, 16, 185, 129), 0.04);
+        }
+
+        body > header > div:last-child a:hover {
+            color: var(--color-primary, #10b981);
+            border-color: var(--color-primary, #10b981);
+            background: rgba(var(--color-primary-rgb, 16, 185, 129), 0.1);
+        }
+
+        /* Light mode fallbacks */
+        html:not(.dark) body, body:not(.dark) {
+            background-color: var(--page-background-color, #f8fafc) !important;
+            background-image: radial-gradient(ellipse 80% 50% at 50% -12%, rgba(var(--color-primary-rgb, 16, 185, 129), 0.08), transparent) !important;
+            color: var(--color-text-primary, #0f172a) !important;
+        }
+
+        html:not(.dark) body > header, body:not(.dark) > header {
+            background-color: var(--page-content-background-color, #ffffff) !important;
+            border-bottom-color: var(--panel-border-color, #e2e8f0) !important;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+        }
+
+        html:not(.dark) body > header .logo span, body:not(.dark) > header .logo span {
+            color: var(--color-text-primary, #0f172a) !important;
+        }
+
+        html:not(.dark) body > header > div:last-child a, body:not(.dark) > header > div:last-child a {
+            color: var(--color-text-secondary, #64748b) !important;
+            border-color: var(--panel-border-color, #e2e8f0) !important;
+        }
+
+        footer {
+            display: none !important;
         }
     </style>
     {% block custom_head_css_js %}{% endblock %}
 </head>
 
-<body class="{% block body_class %}{% endblock %}" style="background-color: #f3f3f4">
+<body class="{% if INTERFACE.theme_info.is_dark %}dark{% endif %} {% block body_class %}{% endblock %}">
+{% block header %}
 <header>
     <div class="logo">
         <a href="{% url 'index' %}" aria-label="{% trans 'Home page' %}">
-            <img src="{{ INTERFACE.logo_logout }}" alt="" width="50px" height="50px"/>
+            <img src="{{ INTERFACE.logo_logout }}" alt="Logo" width="32" height="32"/>
         </a>
         <span>{{ INTERFACE.login_title }}</span>
     </div>
     <div>
-        <a href="{% url 'index' %}">{% trans 'Home page' %}</a>
+        <a href="{% url 'index' %}">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
+            <span>{% trans 'Home page' %}</span>
+        </a>
     </div>
 </header>
+{% endblock %}
 <div class="wrapper">
     {% block body %}
     {% endblock %}
 </div>
-<footer>
-    <div>
-        {% include '_copyright.html' %}
-    </div>
-</footer>
 {% include '_foot_js.html' %}
 </body>
 </html>

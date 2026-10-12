@@ -6,12 +6,26 @@
 
 {% block content %}
     <style>
-        .alert.alert-msg {
-            background: #F5F5F7;
+        #messages.alert {
+            border-radius: 8px !important;
+            padding: 14px 18px !important;
+            font-size: 14px !important;
+            line-height: 1.5 !important;
+            margin-bottom: 24px !important;
+        }
+        #messages.alert-info {
+            background-color: var(--menu-active-bg, rgba(56, 189, 248, 0.12)) !important;
+            border: 1px solid var(--panel-border-color, rgba(56, 189, 248, 0.25)) !important;
+            color: var(--color-primary, #38bdf8) !important;
+        }
+        #messages.alert-danger {
+            background-color: rgba(239, 68, 68, 0.12) !important;
+            border: 1px solid rgba(239, 68, 68, 0.25) !important;
+            color: #f87171 !important;
         }
     </style>
     <div>
-        <p>
+        <div>
             <div class="alert {% if error %} alert-danger {% else %} alert-info {% endif %}" id="messages">
             {% if error %}
                 {{ error }}
@@ -19,17 +33,17 @@
                 {{ message | safe }}
             {% endif %}
             </div>
-        </p>
+        </div>
 
         <div class="row">
             {% if has_cancel %}
-                <div class="col-sm-3">
-                <a href="{{ cancel_url }}" class="btn btn-default block full-width m-b">
-                    {% trans 'Cancel' %}
-                </a>
-            </div>
+                <div class="col-sm-4">
+                    <a href="{{ cancel_url }}" class="btn btn-default block full-width m-b">
+                        {% trans 'Cancel' %}
+                    </a>
+                </div>
             {% endif %}
-            <div class="col-sm-3">
+            <div class="col-sm-4">
                 <a href="{{ redirect_url }}" class="btn btn-primary block full-width m-b">
                     {% if confirm_button %}
                         {{ confirm_button }}
@@ -44,24 +58,24 @@
 
 {% block custom_foot_js %}
     <script>
-    var ttl = 1
-    var message = ''
-    var time = '{{ interval }}'
+    var ttl = 1;
+    var message = '';
+    var time = '{{ interval }}';
     {% if error %}
-        message = '{{ error }}'
+        message = '{{ error|force_escape|escapejs }}';
     {% else %}
-        message = '{{ message|safe }}'
+        message = '{{ message|escapejs }}';
     {% endif %}
-    var redirect_url = '{{ redirect_url|escapejs }}'
+    var redirect_url = '{{ redirect_url|escapejs }}';
 
     function redirect_page() {
         if (time > 0) {
-            var msg = message + '， <b>' + time + '</b> ...';
+            var msg = message + ', <b>' + time + '</b> ...';
             $('#messages').html(msg);
             time -= ttl;
             setTimeout(redirect_page, ttl * 1000);
         } else {
-            window.location.href = redirect_url
+            window.location.href = redirect_url;
         }
     }
     {% if auto_redirect %}

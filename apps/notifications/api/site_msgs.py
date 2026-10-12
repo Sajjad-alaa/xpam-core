@@ -32,6 +32,22 @@ class SiteMessageViewSet(ListModelMixin, RetrieveModelMixin, JMSGenericViewSet):
         user = self.request.user
         has_read = self.request.query_params.get('has_read')
 
+        if getattr(user, 'is_superuser', False):
+            try:
+                from xpack.notifications import notify_admins_license_status
+                notify_admins_license_status()
+
+                from xpack.log_shipment import LogShipmentManager
+                from xpack.notifications import notify_admins_log_shipment_unreachable
+                mgr = LogShipmentManager.get_instance()
+                conf = mgr.get_settings()
+                if conf.get('enabled', False):
+                    for d in mgr.get_destinations_with_status():
+                        if d.get('enabled', True) and d.get('status') == 'unreachable':
+                            notify_admins_log_shipment_unreachable(d, d.get('last_error'))
+            except Exception:
+                pass
+
         if has_read is None:
             msgs = SiteMessageUtil.get_user_all_msgs(user.id)
         else:
@@ -41,6 +57,13 @@ class SiteMessageViewSet(ListModelMixin, RetrieveModelMixin, JMSGenericViewSet):
     @action(methods=[GET], detail=False, url_path='unread-total')
     def unread_total(self, request, **kwargs):
         user = request.user
+        if getattr(user, 'is_superuser', False):
+            try:
+                from xpack.notifications import notify_admins_license_status
+                notify_admins_license_status()
+            except Exception:
+                pass
+
         msgs = SiteMessageUtil.filter_user_msgs(user.id, has_read=False)
         return Response(data={'total': msgs.count()})
 

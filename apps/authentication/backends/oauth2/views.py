@@ -1,6 +1,7 @@
 import uuid
 from django.conf import settings
 from django.contrib import auth
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.http import HttpResponseRedirect
 from django.urls import reverse
 from django.utils.http import urlencode
@@ -78,7 +79,15 @@ class OAuth2AuthCallbackView(View, FlashMessageMixin):
 
         if 'code' in callback_params:
             logger.debug(log_prompt.format('Process authenticate'))
-            user = authenticate(code=callback_params['code'], request=request, state=state)
+            try:
+                user = authenticate(code=callback_params['code'], request=request, state=state)
+            except DjangoValidationError as e:
+                msg = str(e)
+                if hasattr(e, 'messages') and e.messages:
+                    msg = e.messages[0]
+                logger.warning(f"OAuth2 user creation blocked by license validation: {msg}")
+                response = self.get_failed_response('/', title=_('OAuth2 Error'), msg=msg)
+                return response
 
             if user:
                 logger.debug(log_prompt.format('Login: {}'.format(user)))

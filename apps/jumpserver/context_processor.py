@@ -28,14 +28,19 @@ default_context = {
     'LOGIN_WECOM_logo_logout': static('img/login_wecom_logo.png'),
     'LOGIN_DINGTALK_logo_logout': static('img/login_dingtalk_logo.png'),
     'LOGIN_FEISHU_logo_logout': static('img/login_feishu_logo.png'),
-    'COPYRIGHT': f'{_("FIT2CLOUD")} © 2014-{current_year}',
+    'COPYRIGHT': '',
     'INTERFACE': default_interface,
 }
 
 
 def jumpserver_processor(request):
+    from settings.utils import get_interface_setting_or_default
     # Setting default pk
     context = {**default_context}
+    try:
+        context['INTERFACE'] = get_interface_setting_or_default()
+    except Exception:
+        pass
     context.update({
         'VERSION': settings.VERSION,
         'SECURITY_COMMAND_EXECUTION': settings.SECURITY_COMMAND_EXECUTION,

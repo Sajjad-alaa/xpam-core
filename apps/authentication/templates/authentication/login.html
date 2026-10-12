@@ -17,64 +17,18 @@
     <script src="{% static 'js/jumpserver.js' %}?v=10"></script>
 
     <style>
-        .login-content {
-        {% comment %} box-shadow: 0 5px 5px -3px rgb(0 0 0 / 15%), 0 8px 10px 1px rgb(0 0 0 / 14%), 0 3px 14px 2px rgb(0 0 0 / 12%); {% endcomment %}
+        :root {
+            --primary-color: #334155;
+            --color-primary: #334155;
+            --page-background-color: #f8fafc;
+            --page-content-background-color: #ffffff;
+            --panel-border-color: #e2e8f0;
+            --color-border: #e2e8f0;
+            --color-input-border: #cbd5e1;
+            --color-text-primary: #0f172a;
+            --color-text-secondary: #64748b;
+            --color-link: #334155;
         }
-
-        .login-footer {
-            height: 50px;
-            width: 1000px;
-            margin: 40px auto;
-            text-align: center;
-        }
-
-        .footer-item {
-            padding: 5px 20px;
-            color: gray;
-        }
-
-        .footer-item a {
-            color: gray;
-        }
-
-        .help-block {
-            margin: 0;
-            text-align: left;
-        }
-
-        form label {
-            color: #737373;
-            font-size: 13px;
-            font-weight: normal;
-        }
-
-        .form-group {
-            margin-bottom: 30px;
-            margin-top: 20px;
-        }
-
-        .extra-fields-1 .form-group {
-            margin-bottom: 30px;
-            margin-top: 15px;
-        }
-
-        .extra-fields-2 .form-group {
-            margin-bottom: 20px;
-            margin-top: 10px;
-        }
-
-        .extra-fields-3 .form-group {
-            margin-bottom: 10px;
-            margin-top: 10px;
-        }
-
-        .login-content {
-            height: 500px;
-            width: 1000px;
-            margin-top: auto;
-            margin-bottom: auto;
-        }
-
 
         body {
             box-sizing: border-box;
@@ -85,116 +39,393 @@
             flex-direction: column;
             width: 100vw;
             height: 100vh;
-            background-color: #f3f3f3;
-        {#height: calc(100vh - (100vh - 470px) / 3);#}
+            margin: 0;
+            background-color: var(--page-background-color, #f8fafc);
+            color: var(--color-text-primary, #0f172a);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            transition: background-color 0.25s ease, color 0.25s ease;
         }
 
-
-        .captcha {
-            float: right;
+        .login-content {
+            min-height: 540px;
+            width: 1020px;
+            max-width: 95vw;
+            margin-top: auto;
+            margin-bottom: auto;
+            border-radius: 16px;
+            overflow: hidden;
+            background-color: var(--page-content-background-color, #ffffff);
+            border: 1px solid var(--panel-border-color, var(--color-border, #e2e8f0));
+            box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.15), 0 10px 20px -10px rgba(0, 0, 0, 0.08);
+            display: flex;
+            flex-direction: row-reverse;
         }
 
         .right-image-box {
             height: 100%;
             width: 50%;
-            float: right;
+            background-color: var(--page-content-background-color, #ffffff);
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        .right-image {
+            height: 100%;
+            width: 100%;
+            object-fit: cover;
+        }
+
+        /* Enterprise PAM Hero Showcase */
+        .pam-hero-panel {
+            width: 100%;
+            height: 100%;
+            min-height: 540px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 36px 32px;
+            box-sizing: border-box;
+            position: relative;
+            background: linear-gradient(145deg, rgba(var(--color-primary-rgb, 51, 65, 85), 0.05) 0%, rgba(var(--color-primary-rgb, 51, 65, 85), 0.15) 100%);
+            overflow: hidden;
+            text-align: center;
+        }
+
+        .pam-hero-bg-glow {
+            position: absolute;
+            width: 280px;
+            height: 280px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(var(--color-primary-rgb, 56, 189, 248), 0.22) 0%, transparent 70%);
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            filter: blur(25px);
+        }
+
+        .pam-hero-content {
+            position: relative;
+            z-index: 2;
+            width: 100%;
+            max-width: 380px;
+            margin: auto;
+        }
+
+        .pam-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 5px 14px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            color: var(--color-primary, #334155);
+            background: rgba(var(--color-primary-rgb, 51, 65, 85), 0.12);
+            border: 1px solid rgba(var(--color-primary-rgb, 51, 65, 85), 0.2);
+            margin-bottom: 12px;
+        }
+
+        .pam-hero-heading {
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--color-text-primary, #0f172a);
+            margin: 0 0 6px 0;
+            letter-spacing: -0.02em;
+        }
+
+        .pam-hero-tagline {
+            font-size: 13px;
+            color: var(--color-text-secondary, #64748b);
+            margin: 0 0 18px 0;
+            line-height: 1.4;
+        }
+
+        .pam-hero-visual {
+            width: 100%;
+            max-width: 300px;
+            margin: 0 auto 18px auto;
+        }
+
+        .pam-vector-art {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+
+        .pam-feature-list {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .pam-feat-item {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 11px;
+            font-weight: 500;
+            color: var(--color-text-secondary, #64748b);
+            background: rgba(255, 255, 255, 0.6);
+            padding: 4px 10px;
+            border-radius: 12px;
+            border: 1px solid var(--panel-border-color, #e2e8f0);
+        }
+
+        .pam-feat-bullet {
+            width: 5px;
+            height: 5px;
+            border-radius: 50%;
+            background-color: var(--color-primary, #334155);
         }
 
         .left-form-box {
             text-align: center;
-            background-color: white;
+            background-color: var(--page-content-background-color, #ffffff);
             height: 100%;
             width: 50%;
-            border-right: 1px solid #EFF0F1;
+            border-right: 1px solid var(--panel-border-color, var(--color-border, #e2e8f0));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
         }
 
         .left-form-box .form-panel {
-            position: relative;
-            top: 50%;
-            transform: translateY(-50%);
+            width: 100%;
+            padding: 0 44px;
         }
 
-        .left-form-box .form-panel {
-            position: relative;
-            top: 50%;
-            transform: translateY(-50%);
+        .brand-header {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            margin-bottom: 24px;
         }
 
-        .left-form-box .form-panel .form-mobile {
-            padding: 15px 60px;
-            text-align: left
+        .brand-header img {
+            width: 44px;
+            height: 44px;
+            object-fit: contain;
+            border-radius: 8px;
         }
 
-        .left-form-box .form-panel .form-mobile h2 {
-            display: inline
+        .brand-title {
+            font-size: 22px;
+            font-weight: 600;
+            color: var(--color-text-primary, #0f172a);
+            letter-spacing: -0.02em;
         }
 
-        .red-fonts {
-            color: red;
+        .form-mobile {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 20px;
+            padding: 0;
+        }
+
+        .form-mobile h2 {
+            margin: 0;
+            font-size: 20px;
+            font-weight: 600;
+            color: var(--color-text-primary, #0f172a);
+        }
+
+        .login-page-language {
+            font-size: 13px !important;
+            color: var(--color-text-secondary, #64748b) !important;
+            text-decoration: none !important;
+        }
+
+        .login-page-language:hover {
+            color: var(--color-primary, #334155) !important;
+        }
+
+        form label {
+            color: var(--color-text-secondary, #64748b);
+            font-size: 13px;
+            font-weight: 500;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+            margin-top: 15px;
+        }
+
+        .extra-fields-1 .form-group {
+            margin-bottom: 18px;
+            margin-top: 12px;
+        }
+
+        .extra-fields-2 .form-group {
+            margin-bottom: 15px;
+            margin-top: 10px;
+        }
+
+        .extra-fields-3 .form-group {
+            margin-bottom: 10px;
+            margin-top: 8px;
         }
 
         .form-group.has-error {
             margin-bottom: 0;
         }
 
-        .captcha-field .has-error .help-block {
-            margin-top: -8px !important;
+        .help-block {
+            margin: 0;
+            text-align: left;
         }
 
-        .jms-title {
-        {#padding: 22px 10px 10px;#}
+        .red-fonts {
+            color: #ef4444;
         }
 
-        .more-login-items {
-            margin-top: 15px;
+        .contact-form .form-control {
+            background-color: var(--page-content-background-color, #ffffff) !important;
+            border: 1px solid var(--color-input-border, #cbd5e1) !important;
+            color: var(--color-text-primary, #0f172a) !important;
+            border-radius: 6px !important;
+            height: 42px !important;
+            padding: 8px 14px;
+            font-size: 14px;
+            box-shadow: none;
+            transition: border-color 0.15s ease, box-shadow 0.15s ease;
         }
 
-        .more-login-item {
-            border-right: 1px dashed #dedede;
-            padding: 2px 5px;
+        .contact-form .form-control:focus {
+            border-color: var(--color-primary, var(--primary-color, #334155)) !important;
+            box-shadow: 0 0 0 3px rgba(var(--color-primary-rgb, 51, 65, 85), 0.18) !important;
+            outline: none;
         }
 
-        .more-login-item:last-child {
-            border-right: none;
-        }
-
-        .select-con {
-            width: 35%;
-        }
-
-        .mfa-div {
+        .btn-transparent, #login {
+            background: var(--color-primary, var(--primary-color, #334155)) !important;
+            border: 1px solid var(--color-primary, var(--primary-color, #334155)) !important;
+            color: #ffffff !important;
+            border-radius: 6px !important;
+            height: 42px;
+            font-size: 14px;
+            font-weight: 500;
+            letter-spacing: 0.5px;
             width: 100%;
+            cursor: pointer;
+            transition: all 0.2s ease-in-out;
         }
 
-        .login-page-language {
-            font-size: 12px !important;
-            margin-right: -32px !important;
-            padding-top: 12px !important;
-            padding-left: 0 !important;
-            padding-bottom: 8px !important;
-            color: #8F959E !important;
-            font-weight: 350 !important;
-            min-height: auto !important;
+        .btn-transparent:hover, #login:hover {
+            filter: brightness(1.08);
+            color: #ffffff !important;
         }
 
-        .right-image {
-            height: 100%;
-            width: 100%
+        .btn-transparent:active, #login:active {
+            filter: brightness(0.95);
         }
 
-        .jms-title {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            font-size: 21px;
-            font-weight: 400;
-            color: #151515;
-            letter-spacing: 0;
+        #forgot_password {
+            color: var(--color-link, var(--color-primary, #334155));
+            text-decoration: none;
+            font-size: 13px;
+        }
+
+        #forgot_password:hover {
+            text-decoration: underline;
+        }
+
+        .captcha-field .form-group {
+            margin-top: 15px;
+            margin-bottom: 15px;
+        }
+
+        .captcha-flex-row {
+            display: flex !important;
+            align-items: center !important;
+            justify-content: space-between !important;
+            gap: 12px !important;
+            width: 100% !important;
+            height: 42px !important;
+        }
+
+        .captcha-input-col {
+            flex: 1 !important;
+            min-width: 0 !important;
+            height: 42px !important;
+        }
+
+        .captcha-input-col input,
+        .captcha-input-col .form-control {
+            width: 100% !important;
+            height: 42px !important;
+            margin: 0 !important;
+            border-radius: 6px !important;
+        }
+
+        .captcha-img-col {
+            flex-shrink: 0 !important;
+            width: 120px !important;
+            height: 42px !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+        }
+
+        .captcha-img-col img.captcha,
+        img.captcha,
+        .captcha {
+            float: none !important;
+            height: 42px !important;
+            width: 120px !important;
+            min-width: 120px !important;
+            object-fit: cover !important;
+            border-radius: 6px !important;
+            border: 1px solid var(--color-input-border, #cbd5e1) !important;
+            background: #ffffff !important;
+            cursor: pointer !important;
+            margin: 0 !important;
+            display: block !important;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08) !important;
+            transition: opacity 0.2s ease !important;
+        }
+
+        .captcha-img-col img.captcha:hover,
+        img.captcha:hover,
+        .captcha:hover {
+            opacity: 0.85 !important;
+        }
+
+        .captcha-field .has-error .help-block {
+            margin-top: 4px !important;
+        }
+
+        .auto_login_box {
+            display: inline-block;
+        }
+
+        .auto-login.form-group .checkbox {
+            margin: 5px 0;
+        }
+
+        .more-login {
+            margin-top: 18px;
+        }
+
+        .has-error .more-login {
+            margin-top: 0;
         }
 
         .more-methods-title {
             position: relative;
-            margin-top: 20px;
+            margin-top: 16px;
+            color: var(--color-text-secondary, #64748b);
+            font-size: 12px;
+            text-align: center;
         }
 
         .more-methods-title:before, .more-methods-title:after {
@@ -202,8 +433,8 @@
             top: 50%;
             transform: translateY(-50%);
             content: '';
-            border: 1px dashed #e7eaec;
-            width: 35%;
+            border-top: 1px dashed var(--color-border, #e2e8f0);
+            width: 32%;
         }
 
         .more-methods-title:before {
@@ -214,59 +445,162 @@
             right: 0;
         }
 
-        .more-methods-title.ja:before, .more-methods-title.ja:after {
-            width: 26%;
+        .more-login-items {
+            margin-top: 12px;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 8px;
         }
 
-        .captcha-field .form-group {
-            margin-bottom: 5px;
+        .more-login-item {
+            border: 1px solid var(--color-border, #e2e8f0);
+            border-radius: 6px;
+            padding: 6px 12px;
+            color: var(--color-text-secondary, #64748b);
+            font-size: 13px;
+            text-decoration: none;
+            transition: all 0.15s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
         }
 
-        .auto-login.form-group .checkbox {
-            margin: 5px 0;
-        }
-
-        .more-login {
-            margin-top: 20px;
-        }
-
-        .has-error .more-login {
-            margin-top: 0;
-        }
-
-        .welcome-message {
-            color: #646A73;
+        .more-login-item:hover {
+            border-color: var(--color-primary, #334155);
+            color: var(--color-primary, #334155);
+            text-decoration: none;
         }
 
         .navbar-right .dropdown-menu {
-            right: -24px !important;
+            right: 0 !important;
             left: auto;
+            border-radius: 8px;
+            border: 1px solid var(--color-border, #e2e8f0);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            background-color: var(--page-content-background-color, #ffffff);
         }
 
-        .auto_login_box {
-            display: inline-block;
+        .navbar-right .dropdown-menu > li > a {
+            color: var(--color-text-primary, #0f172a);
+            padding: 8px 16px;
+            font-size: 13px;
         }
 
-        .auto-login input[type=checkbox] {
-
+        .navbar-right .dropdown-menu > li > a:hover {
+            background-color: var(--menu-hover-bg, #f1f5f9);
+            color: var(--color-primary, #334155);
         }
 
         .error-info {
-            font-size: 16px;
+            font-size: 15px;
             text-align: center;
+            max-width: 900px;
+            margin: 10px auto;
         }
 
-        .mobile-logo {
-            display: none;
+        /* Dark mode overrides */
+        html.dark body, body.dark {
+            background-color: var(--page-background-color, #090d16) !important;
+            color: var(--color-text-primary, #f8fafc) !important;
+        }
+
+        html.dark .login-content, body.dark .login-content {
+            background-color: var(--page-content-background-color, #0f172a) !important;
+            border-color: var(--panel-border-color, #243044) !important;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.6) !important;
+        }
+
+        html.dark .left-form-box, body.dark .left-form-box {
+            background-color: var(--page-content-background-color, #0f172a) !important;
+            border-right-color: var(--panel-border-color, #243044) !important;
+        }
+
+        html.dark .right-image-box, body.dark .right-image-box {
+            background-color: #070d18 !important;
+        }
+
+        html.dark .pam-hero-panel, body.dark .pam-hero-panel {
+            background: linear-gradient(145deg, #070d18 0%, #0d1726 50%, #091222 100%) !important;
+        }
+
+        html.dark .pam-hero-heading, body.dark .pam-hero-heading {
+            color: #f8fafc !important;
+        }
+
+        html.dark .pam-badge, body.dark .pam-badge {
+            color: var(--color-primary, #38bdf8) !important;
+            background: rgba(var(--color-primary-rgb, 56, 189, 248), 0.16) !important;
+            border-color: rgba(var(--color-primary-rgb, 56, 189, 248), 0.3) !important;
+        }
+
+        html.dark .pam-feat-item, body.dark .pam-feat-item {
+            background: rgba(255, 255, 255, 0.05) !important;
+            border-color: #222f44 !important;
+            color: #94a3b8 !important;
+        }
+
+        html.dark .captcha, body.dark .captcha {
+            border-color: #334155 !important;
+            filter: invert(0.88) hue-rotate(180deg);
+        }
+
+        html.dark .brand-title, body.dark .brand-title,
+        html.dark .form-mobile h2, body.dark .form-mobile h2 {
+            color: var(--color-text-primary, #f8fafc) !important;
+        }
+
+        html.dark .contact-form .form-control, body.dark .contact-form .form-control {
+            background-color: #090d16 !important;
+            border-color: var(--color-input-border, #334155) !important;
+            color: #f8fafc !important;
+        }
+
+        html.dark .contact-form .form-control:focus, body.dark .contact-form .form-control:focus {
+            background-color: #090d16 !important;
+            border-color: var(--color-primary, #38bdf8) !important;
+            box-shadow: 0 0 0 3px rgba(var(--color-primary-rgb, 56, 189, 248), 0.25) !important;
+            color: #f8fafc !important;
+        }
+
+        html.dark .navbar-right .dropdown-menu, body.dark .navbar-right .dropdown-menu {
+            background-color: #1e293b !important;
+            border-color: #334155 !important;
+            color: #f8fafc !important;
+        }
+
+        html.dark .navbar-right .dropdown-menu > li > a, body.dark .navbar-right .dropdown-menu > li > a {
+            color: #f8fafc !important;
+        }
+
+        html.dark .navbar-right .dropdown-menu > li > a:hover, body.dark .navbar-right .dropdown-menu > li > a:hover {
+            background-color: #334155 !important;
+            color: #ffffff !important;
+        }
+
+        html.dark .more-methods-title:before, html.dark .more-methods-title:after,
+        body.dark .more-methods-title:before, body.dark .more-methods-title:after {
+            border-color: #243044 !important;
+        }
+
+        html.dark .more-login-item, body.dark .more-login-item {
+            border-color: #243044 !important;
+            color: var(--color-text-secondary, #94a3b8) !important;
         }
 
         @media (max-width: 768px) {
             body {
-                background-color: #ffffff;
+                background-color: var(--page-content-background-color, #ffffff) !important;
             }
 
             .login-content {
                 width: 100%;
+                border-radius: 0;
+                border: none;
+                box-shadow: none;
+                flex-direction: column;
+                height: auto;
+                min-height: 100vh;
             }
 
             .left-form-box {
@@ -278,29 +612,8 @@
                 display: none;
             }
 
-            .navbar-top-links {
-                display: inline;
-                float: right;
-            }
-
-            .mobile-logo {
-                display: block;
-                padding: 0 45px;
-                text-align: left;
-            }
-
-            .right-image {
-                height: revert;
-                width: revert;
-            }
-
             .left-form-box .form-panel {
-                transform: translateY(-65%);
-            }
-
-            .left-form-box .form-panel .form-mobile h2 {
-                padding: 0;
-                margin: 0;
+                padding: 24px 20px;
             }
         }
     </style>
@@ -324,18 +637,96 @@
 {% endif %}
 <div class="login-content extra-fields-{{ extra_fields_count }}">
     <div class="right-image-box">
-        <a href="{% if not XPACK_ENABLED %}https://github.com/jumpserver/jumpserver.git{% endif %}">
-            <img src="{{ INTERFACE.login_image }}" class="right-image" alt="screen-image"/>
-        </a>
+        {% if INTERFACE.login_image and not "/login_image.png" in INTERFACE.login_image %}
+            <img src="{{ INTERFACE.login_image }}" class="right-image" alt="Login Graphic"/>
+        {% else %}
+            <div class="pam-hero-panel">
+                <div class="pam-hero-bg-glow"></div>
+                <div class="pam-hero-content">
+                    <div class="pam-badge">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                        <span>Enterprise PAM</span>
+                    </div>
+                    
+                    <h1 class="pam-hero-heading">{{ INTERFACE.login_title }}</h1>
+                    <p class="pam-hero-tagline">Privileged Access Management &amp; Zero Trust Bastion</p>
+                    
+                    <div class="pam-hero-visual">
+                        <svg viewBox="0 0 320 180" fill="none" xmlns="http://www.w3.org/2000/svg" class="pam-vector-art">
+                            <defs>
+                                <linearGradient id="pamGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                                    <stop offset="0%" stop-color="var(--color-primary, #38bdf8)" stop-opacity="0.8"/>
+                                    <stop offset="100%" stop-color="var(--color-primary, #38bdf8)" stop-opacity="0.2"/>
+                                </linearGradient>
+                                <filter id="pamGlow" x="-20%" y="-20%" width="140%" height="140%">
+                                    <feGaussianBlur stdDeviation="6" result="blur" />
+                                    <feComposite in="SourceGraphic" in2="blur" operator="over" />
+                                </filter>
+                            </defs>
+                            
+                            <!-- Grid concentric rings -->
+                            <circle cx="160" cy="90" r="75" stroke="var(--color-primary, #38bdf8)" stroke-opacity="0.15" stroke-width="1.5" stroke-dasharray="4 4"/>
+                            <circle cx="160" cy="90" r="50" stroke="var(--color-primary, #38bdf8)" stroke-opacity="0.22" stroke-width="1.5"/>
+                            
+                            <!-- Central Security Shield -->
+                            <path d="M160 52 L192 68 V100 C192 120 160 134 160 134 C160 134 128 120 128 100 V68 Z" fill="url(#pamGrad)" stroke="var(--color-primary, #38bdf8)" stroke-width="2" filter="url(#pamGlow)"/>
+                            
+                            <!-- Lock in Shield -->
+                            <rect x="151" y="87" width="18" height="15" rx="3" fill="#ffffff" fill-opacity="0.9"/>
+                            <path d="M154 87 V81 C154 77.7 156.7 75 160 75 C163.3 75 166 77.7 166 81 V87" stroke="#ffffff" stroke-width="2.2" stroke-linecap="round"/>
+                            <circle cx="160" cy="94" r="2" fill="var(--color-primary, #0f172a)"/>
+
+                            <!-- Bastion Node 1: SSH -->
+                            <line x1="160" y1="52" x2="160" y2="24" stroke="var(--color-primary, #38bdf8)" stroke-opacity="0.4" stroke-width="1.5"/>
+                            <circle cx="160" cy="24" r="14" fill="var(--page-content-background-color, #1e293b)" stroke="var(--color-primary, #38bdf8)" stroke-width="1.5"/>
+                            <text x="160" y="27" font-size="8" font-weight="700" fill="var(--color-primary, #38bdf8)" text-anchor="middle" font-family="sans-serif">SSH</text>
+
+                            <!-- Bastion Node 2: RDP -->
+                            <line x1="192" y1="84" x2="240" y2="60" stroke="var(--color-primary, #38bdf8)" stroke-opacity="0.4" stroke-width="1.5"/>
+                            <circle cx="240" cy="60" r="14" fill="var(--page-content-background-color, #1e293b)" stroke="var(--color-primary, #38bdf8)" stroke-width="1.5"/>
+                            <text x="240" y="63" font-size="8" font-weight="700" fill="var(--color-primary, #38bdf8)" text-anchor="middle" font-family="sans-serif">RDP</text>
+
+                            <!-- Bastion Node 3: K8S -->
+                            <line x1="192" y1="108" x2="240" y2="124" stroke="var(--color-primary, #38bdf8)" stroke-opacity="0.4" stroke-width="1.5"/>
+                            <circle cx="240" cy="124" r="14" fill="var(--page-content-background-color, #1e293b)" stroke="var(--color-primary, #38bdf8)" stroke-width="1.5"/>
+                            <text x="240" y="127" font-size="8" font-weight="700" fill="var(--color-primary, #38bdf8)" text-anchor="middle" font-family="sans-serif">K8S</text>
+
+                            <!-- Bastion Node 4: DB -->
+                            <line x1="128" y1="84" x2="80" y2="60" stroke="var(--color-primary, #38bdf8)" stroke-opacity="0.4" stroke-width="1.5"/>
+                            <circle cx="80" cy="60" r="14" fill="var(--page-content-background-color, #1e293b)" stroke="var(--color-primary, #38bdf8)" stroke-width="1.5"/>
+                            <text x="80" y="63" font-size="8" font-weight="700" fill="var(--color-primary, #38bdf8)" text-anchor="middle" font-family="sans-serif">DB</text>
+
+                            <!-- Bastion Node 5: WEB -->
+                            <line x1="128" y1="108" x2="80" y2="124" stroke="var(--color-primary, #38bdf8)" stroke-opacity="0.4" stroke-width="1.5"/>
+                            <circle cx="80" cy="124" r="14" fill="var(--page-content-background-color, #1e293b)" stroke="var(--color-primary, #38bdf8)" stroke-width="1.5"/>
+                            <text x="80" y="127" font-size="8" font-weight="700" fill="var(--color-primary, #38bdf8)" text-anchor="middle" font-family="sans-serif">WEB</text>
+                        </svg>
+                    </div>
+
+                    <div class="pam-feature-list">
+                        <div class="pam-feat-item">
+                            <span class="pam-feat-bullet"></span>
+                            <span>Zero Trust Bastion</span>
+                        </div>
+                        <div class="pam-feat-item">
+                            <span class="pam-feat-bullet"></span>
+                            <span>Session Auditing</span>
+                        </div>
+                        <div class="pam-feat-item">
+                            <span class="pam-feat-bullet"></span>
+                            <span>Multi-Cloud PAM</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        {% endif %}
     </div>
     <div class="left-form-box {% if not form.challenge and not form.captcha %} no-captcha-challenge {% endif %}">
-        <div class="mobile-logo" style="padding-bottom: 45px; box-sizing: border-box">
-            <div class="jms-title">
-                <img style="width: 60px; height: 60px" src="{{ INTERFACE.logo_logout }}" alt="Logo"/>
-                <span style="padding-left: 10px">{{ INTERFACE.login_title }}</span>
-            </div>
-        </div>
         <div class="form-panel">
+            <div class="brand-header">
+                <img src="{{ INTERFACE.logo_logout }}" alt="Logo"/>
+                <span class="brand-title">{{ INTERFACE.login_title }}</span>
+            </div>
             <div class="form-mobile">
                 <h2 style='font-weight: 400;'>
                     {% trans 'Login' %}

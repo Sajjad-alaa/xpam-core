@@ -17,9 +17,55 @@
     }
 </style>
 
+{{ INTERFACE.theme_info|json_script:"theme-info-data" }}
 <script>
-  const themeInfo = {{ INTERFACE.theme_info | safe }};
-  if (themeInfo && themeInfo.colors && themeInfo.colors['--color-primary']) {
-      document.documentElement.style.setProperty('--primary-color', themeInfo.colors['--color-primary']);
-  }
+  (function() {
+      try {
+          const el = document.getElementById('theme-info-data');
+          if (!el) return;
+          const themeInfo = JSON.parse(el.textContent || '{}');
+          if (!themeInfo || !themeInfo.colors) return;
+          const colors = themeInfo.colors;
+
+          function hexToRgb(hex) {
+              if (!hex || typeof hex !== 'string') return '51, 65, 85';
+              var h = hex.trim().replace(/^#/, '');
+              if (h.length === 3) h = h.split('').map(function(c) { return c + c; }).join('');
+              if (h.length === 6) {
+                  var num = parseInt(h, 16);
+                  return ((num >> 16) & 255) + ', ' + ((num >> 8) & 255) + ', ' + (num & 255);
+              }
+              return '51, 65, 85';
+          }
+
+          var root = document.documentElement;
+          for (var k in colors) {
+              if (Object.prototype.hasOwnProperty.call(colors, k)) {
+                  var v = colors[k];
+                  if (typeof k === 'string' && k.startsWith('--') && typeof v === 'string') {
+                      root.style.setProperty(k, v);
+                  }
+              }
+          }
+          if (colors['--color-primary']) {
+              root.style.setProperty('--primary-color', colors['--color-primary']);
+              root.style.setProperty('--dl-accent-emerald', colors['--color-primary']);
+              root.style.setProperty('--color-primary-rgb', hexToRgb(colors['--color-primary']));
+          }
+          if (themeInfo.is_dark) {
+              root.classList.add('dark');
+              root.setAttribute('data-theme', 'dark');
+              if (document.body) {
+                  document.body.classList.add('dark');
+              } else {
+                  document.addEventListener('DOMContentLoaded', function() {
+                      if (document.body) document.body.classList.add('dark');
+                  });
+              }
+          } else {
+              root.classList.remove('dark');
+              root.setAttribute('data-theme', 'light');
+          }
+      } catch (e) {}
+  })();
 </script>

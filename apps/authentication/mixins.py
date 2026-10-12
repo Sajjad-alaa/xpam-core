@@ -16,7 +16,7 @@ from django.contrib.auth import (
 )
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
-from django.core.exceptions import ImproperlyConfigured
+from django.core.exceptions import ImproperlyConfigured, ValidationError as DjangoValidationError
 from django.db.models import Q
 from django.shortcuts import reverse, redirect, get_object_or_404
 from django.utils.http import urlencode
@@ -163,6 +163,14 @@ def authenticate(request=None, **credentials):
             user = backend.authenticate(request, **credentials)
         except PermissionDenied:
             # This backend says to stop in our tracks - this user should not be allowed in at all.
+            break
+        except DjangoValidationError as e:
+            msg = str(e)
+            if hasattr(e, 'messages') and e.messages:
+                msg = e.messages[0]
+            if request:
+                request.error_message = msg
+            logger.warning('Authenticate refused by validation: {}'.format(msg))
             break
         except OnlyAllowExistUserAuthError:
             if request:

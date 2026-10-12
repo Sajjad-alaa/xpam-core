@@ -82,15 +82,7 @@ class Language(models.TextChoices):
 
     @classmethod
     def choices_supported(cls):
-        _choices = []
-        code_mapper = cls.get_code_mapper()
-        supported = [ code_mapper.get(code, code) for code in settings.LANGUAGES_SUPPORTED ]
-        for code, label in cls.choices:
-            if code in supported:
-                _choices.append((code, label))
-        if not _choices:
-            return cls.choices
-        return _choices
+        return [(cls.en.value, cls.en.label)]
 
     @classmethod
     def get_code_mapper(cls):

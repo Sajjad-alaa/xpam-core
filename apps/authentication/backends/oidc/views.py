@@ -16,7 +16,7 @@ import secrets
 import time
 from django.conf import settings
 from django.contrib import auth
-from django.core.exceptions import SuspiciousOperation
+from django.core.exceptions import SuspiciousOperation, ValidationError as DjangoValidationError
 from django.db import IntegrityError
 from django.http import HttpResponseRedirect, QueryDict
 from django.urls import reverse
@@ -173,6 +173,13 @@ class OIDCAuthCallbackView(View, FlashMessageMixin):
                 msg = _('Please check if a user with the same username or email already exists')
                 logger.error(e, exc_info=True)
                 response = self.get_failed_response('/', error_title, msg)
+                return response
+            except DjangoValidationError as e:
+                msg = str(e)
+                if hasattr(e, 'messages') and e.messages:
+                    msg = e.messages[0]
+                logger.warning(f"OIDC user creation blocked by license validation: {msg}")
+                response = self.get_failed_response(settings.AUTH_OPENID_AUTHENTICATION_FAILURE_REDIRECT_URI, error_title, msg)
                 return response
             if user:
                 logger.debug(log_prompt.format('Login: {}'.format(user)))

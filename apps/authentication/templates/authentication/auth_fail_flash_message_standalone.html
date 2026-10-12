@@ -6,12 +6,26 @@
 
 {% block content %}
     <style>
-        .alert.alert-msg {
-            background: #F5F5F7;
+        #messages.alert {
+            border-radius: 8px !important;
+            padding: 14px 18px !important;
+            font-size: 14px !important;
+            line-height: 1.5 !important;
+            margin-bottom: 24px !important;
+        }
+        #messages.alert-info, #messages.alert-msg {
+            background-color: var(--menu-active-bg, rgba(56, 189, 248, 0.12)) !important;
+            border: 1px solid var(--panel-border-color, rgba(56, 189, 248, 0.25)) !important;
+            color: var(--color-primary, #38bdf8) !important;
+        }
+        #messages.alert-danger {
+            background-color: rgba(239, 68, 68, 0.12) !important;
+            border: 1px solid rgba(239, 68, 68, 0.25) !important;
+            color: #f87171 !important;
         }
     </style>
     <div>
-        <p>
+        <div>
             <div class="alert alert-msg" id="messages">
             {% if error %}
                 {{ error }}
@@ -19,17 +33,17 @@
                 {{ message|safe }}
             {% endif %}
             </div>
-        </p>
+        </div>
 
         <div class="row">
             {% if has_cancel %}
-            <div class="col-sm-3">
+            <div class="col-sm-4">
                 <a href="{{ cancel_url }}" class="btn btn-default block full-width m-b">
                     {% trans 'Cancel' %}
                 </a>
             </div>
             {% endif %}
-            <div class="col-sm-3">
+            <div class="col-sm-4">
                 <a href="{{ redirect_url }}" class="btn btn-primary block full-width m-b">
                     {% if confirm_button %}
                         {{ confirm_button }}
@@ -44,20 +58,20 @@
 
 {% block custom_foot_js %}
 <script>
-    var message = ''
-    var time = '{{ interval }}'
-    var error = '{{ error }}'
-    var auto_redirect = '{{ auto_redirect }}'
+    var message = '';
+    var time = '{{ interval }}';
+    var error = '{{ error|force_escape|escapejs }}';
+    var auto_redirect = '{{ auto_redirect }}';
 
     if (error) {
-        message = error
+        message = error;
     } else {
-        message = '{{ message|safe }}'
+        message = '{{ message|escapejs }}';
     }
 
     function redirect_page() {
         if (time > 0) {
-            var msg = message + '， <b>' + time + '</b> ...';
+            var msg = message + ', <b>' + time + '</b> ...';
             $('#messages').html(msg);
             time--;
             setTimeout(redirect_page, 1000);

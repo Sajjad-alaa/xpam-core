@@ -10,17 +10,13 @@ from .. import const
 current_year = datetime.datetime.now().year
 corporation = f'FIT2CLOUD 飞致云 © 2014-{current_year}'
 
-XPACK_DIR = os.path.join(const.BASE_DIR, 'xpack')
-XPACK_DISABLED = os.environ.get('XPACK_ENABLED') in ['0', 'false', 'False', 'no', 'No']
-XPACK_ENABLED = False
-if not XPACK_DISABLED:
-    XPACK_ENABLED = os.path.isdir(XPACK_DIR)
-# JDMC can only be disabled explicitly in development mode.
-JDMC_ENABLED = XPACK_ENABLED and (CONFIG.JDMC_ENABLED or not CONFIG.DEBUG_DEV)
+XPACK_DIR = os.path.join(const.BASE_DIR, 'apps', 'xpack')
+XPACK_ENABLED = True
+JDMC_ENABLED = False
 XPACK_TEMPLATES_DIR = []
 XPACK_CONTEXT_PROCESSOR = []
 XPACK_LICENSE_IS_VALID = False
-XPACK_LICENSE_EDITION = ""
+XPACK_LICENSE_EDITION = "Standard"
 XPACK_LICENSE_EDITION_ULTIMATE = False
 XPACK_LICENSE_INFO = {
     'corporation': corporation,
@@ -36,3 +32,4 @@ if XPACK_ENABLED:
     XPACK_CONTEXT_PROCESSOR = get_xpack_context_processor()
     TEMPLATES[0]['DIRS'].extend(XPACK_TEMPLATES_DIR)
     TEMPLATES[0]['OPTIONS']['context_processors'].extend(XPACK_CONTEXT_PROCESSOR)
+

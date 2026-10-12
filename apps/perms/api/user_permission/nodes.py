@@ -24,6 +24,9 @@ class BaseUserPermedNodesApi(SelfOrPKUserMixin, ListAPIView):
     def get_queryset(self):
         if getattr(self, 'swagger_fake_view', False):
             return Node.objects.none()
+        from xpack.utils import get_current_license_info
+        if not get_current_license_info().get('is_valid', True):
+            return Node.objects.none()
         return self.get_nodes()
 
     @abc.abstractmethod

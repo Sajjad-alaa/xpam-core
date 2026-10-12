@@ -2,6 +2,7 @@ from functools import lru_cache
 
 from django.conf import settings
 from django.contrib.auth import logout as auth_logout
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db.utils import IntegrityError
 from django.utils.module_loading import import_string
 from django.utils.translation import gettext_lazy as _
@@ -66,6 +67,12 @@ class BaseLoginCallbackView(AuthMixin, FlashMessageMixin, IMClientMixin, View):
             user.save()
         except IntegrityError as err:
             logger.error(f'{self.msg_client_err}: create user error: {err}')
+        except DjangoValidationError as err:
+            msg = str(err)
+            if hasattr(err, 'messages') and err.messages:
+                msg = err.messages[0]
+            logger.warning(f'{self.msg_client_err}: user creation blocked by license limit: {msg}')
+            return None, (self.msg_client_err, msg)
 
         if user is None:
             title = self.msg_client_err

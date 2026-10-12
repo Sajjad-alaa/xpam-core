@@ -234,6 +234,11 @@ class SessionViewSet(ReportExportMixin, OrgBulkModelViewSet):
         return queryset
 
     def perform_create(self, serializer):
+        from rest_framework.exceptions import PermissionDenied
+        from xpack.utils import get_current_license_info
+        lic_info = get_current_license_info()
+        if not lic_info.get('is_valid', True):
+            raise PermissionDenied(_('License has expired. Terminal sessions are suspended.'))
         if hasattr(self.request.user, 'terminal'):
             serializer.validated_data["terminal"] = self.request.user.terminal
         return super().perform_create(serializer)

@@ -216,20 +216,49 @@ class BaseAssetViewSet(OrgBulkModelViewSet):
             )
             return Response({'error': error}, status=400)
 
-        with tmp_to_root_org():
-            asset_count = Asset.objects.order_by().count()
+        try:
+            with tmp_to_root_org():
+                asset_count = Asset.objects.filter(is_active=True).count()
 
-        if not settings.XPACK_LICENSE_IS_VALID and asset_count >= 5000:
-            error = gettext('The number of assets exceeds the limit of 5000')
-            return Response({'error': error}, status=400)
-
-        if settings.XPACK_LICENSE_IS_VALID:
-            license_asset_limit = get_license_asset_limit()
-            if asset_count >= license_asset_limit:
-                error = gettext('The number of assets exceeds the license limit')
+            from xpack.utils import get_current_license_info
+            lic_info = get_current_license_info()
+            if not lic_info.get('is_valid', False):
+                error = gettext('License has expired. Creating assets is disabled. Please renew your license.')
                 return Response({'error': error}, status=400)
 
+            license_asset_limit = get_license_asset_limit()
+            new_count = len(request.data) if isinstance(request.data, list) else 1
+            if asset_count + new_count > license_asset_limit:
+                error = gettext('The number of assets exceeds the license limit ({})').format(license_asset_limit)
+                return Response({'error': error}, status=400)
+        except Exception as e:
+            logger.error(f"License asset check failed: {e}")
+            error = gettext('License verification error. Asset creation refused: {}').format(e)
+            return Response({'error': error}, status=400)
+
         return super().create(request, *args, **kwargs)
+
+    def update(self, request, *args, **kwargs):
+        if request.data.get('is_active') is True:
+            instance = self.get_object()
+            if not instance.is_active:
+                try:
+                    with tmp_to_root_org():
+                        asset_count = Asset.objects.filter(is_active=True).count()
+                    from xpack.utils import get_current_license_info
+                    lic_info = get_current_license_info()
+                    if not lic_info.get('is_valid', False):
+                        error = gettext('License has expired. Activating assets is disabled. Please renew your license.')
+                        return Response({'error': error}, status=400)
+                    license_asset_limit = get_license_asset_limit()
+                    if asset_count + 1 > license_asset_limit:
+                        error = gettext('The number of active assets exceeds the license limit ({}). Cannot activate asset.').format(license_asset_limit)
+                        return Response({'error': error}, status=400)
+                except Exception as e:
+                    logger.error(f"License asset activation check failed: {e}")
+                    error = gettext('License verification error. Asset activation refused: {}').format(e)
+                    return Response({'error': error}, status=400)
+        return super().update(request, *args, **kwargs)
 
 
 class AssetViewSet(SuggestionMixin, BaseAssetViewSet):

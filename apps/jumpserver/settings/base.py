@@ -194,6 +194,7 @@ MIDDLEWARE = [
     'authentication.middleware.SessionCookieMiddleware',
     'simple_history.middleware.HistoryRequestMiddleware',
     'jumpserver.middleware.SafeRedirectMiddleware',
+    'jumpserver.middleware.SecurityHeadersMiddleware',
     *POST_CUSTOM_MIDDLEWARES,
     'jumpserver.middleware.EndMiddleware',
 ]
@@ -315,8 +316,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 # Internationalization
 # https://docs.djangoproject.com/en/1.10/topics/i18n/
-# LANGUAGE_CODE = 'en'
-LANGUAGE_CODE = CONFIG.LANGUAGE_CODE
+LANGUAGE_CODE = 'en'
 
 TIME_ZONE = CONFIG.TIME_ZONE
 

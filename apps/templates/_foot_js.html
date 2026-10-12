@@ -28,9 +28,9 @@
     .markdown-footer a:hover{ text-decoration: underline; }
   </style>
   <div id="markdown-output" class="markdown-footer" role="contentinfo" aria-label="{% trans 'Page footer' %}"></div>
+  {{ INTERFACE.footer_content|json_script:"footer-markdown-data" }}
 {% endif %}
 
-<script type="text/markdown"> {{ INTERFACE.footer_content }} </script>
 <script>
   activeNav("{{ FORCE_SCRIPT_NAME }}");
 
@@ -52,7 +52,11 @@
         breaks: true
       });
 
-      const markdownContent = `{{ INTERFACE.footer_content|default:''|escapejs }}`.replace(/\r\n?/g, '\n').trim();;
+      // Read the footer from a json_script block: escapejs does not escape `${`, so
+      // interpolating it into a template literal would execute admin-supplied code.
+      const footerDataEl = document.getElementById('footer-markdown-data');
+      const markdownContent = String(footerDataEl ? JSON.parse(footerDataEl.textContent) || '' : '')
+          .replace(/\r\n?/g, '\n').trim();
       const markdownRef = document.getElementById('markdown-output');
 
       if (markdownRef && markdownContent) {

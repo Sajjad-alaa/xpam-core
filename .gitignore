@@ -58,3 +58,8 @@ context
 luna
 lina
 .envrc
+vendor_keys/
+generate_license.py
+*.pem
+*.key
+*.lic

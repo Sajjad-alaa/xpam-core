@@ -462,6 +462,38 @@ class Asset(NodesRelationMixin, LabeledMixin, AbsConnectivity, JSONFilterMixin, 
             if secret_type in asset_secret_types_mapp.get(asset.id, [])
         ]
 
+    def save(self, *args, **kwargs):
+        is_creating = getattr(self, '_state', None) and self._state.adding
+        activating = False
+        if is_creating and self.is_active:
+            activating = True
+        elif not is_creating and self.is_active:
+            if self.pk:
+                from orgs.utils import tmp_to_root_org
+                with tmp_to_root_org():
+                    orig = Asset.objects.filter(pk=self.pk).values('is_active').first()
+                if orig and not orig.get('is_active', False):
+                    activating = True
+
+        if activating:
+            from django.core.exceptions import ValidationError as DjangoValidationError
+            from xpack.utils import get_current_license_info, get_license_asset_count
+            lic_info = get_current_license_info()
+            if not lic_info.get('is_valid', False):
+                raise DjangoValidationError(_("License is invalid or expired. Activating assets is disabled."))
+            limit = get_license_asset_count()
+            # Count every active asset: across all orgs (root org) and all asset types
+            # (base Asset table), not just the current org and this subclass.
+            from orgs.utils import tmp_to_root_org
+            with tmp_to_root_org():
+                current_active = Asset.objects.filter(is_active=True).exclude(pk=self.pk).count()
+            if current_active + 1 > limit:
+                raise DjangoValidationError(
+                    _("The number of active assets exceeds the license limit ({}). Cannot activate asset.").format(limit)
+                )
+
+        return super().save(*args, **kwargs)
+
     class Meta:
         unique_together = [('org_id', 'name')]
         verbose_name = _("Asset")

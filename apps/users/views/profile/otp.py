@@ -84,23 +84,23 @@ class UserOtpEnableStartView(OTPBindMFACheckMixin, TemplateView):
         pre_response = self._pre_check_need_mfa_for_otp_bind(user)
         if pre_response:
             return pre_response
-        return super().get(request, *args, **kwargs)
+
+        query_string = self.request.GET.urlencode()
+        bind_url = reverse('authentication:user-otp-enable-bind')
+        if query_string:
+            bind_url = f'{bind_url}?{query_string}'
+        return redirect(bind_url)
 
 
 class UserOtpEnableInstallAppView(OTPBindMFACheckMixin, TemplateView):
     template_name = 'users/user_otp_enable_install_app.html'
 
     def get(self, request, *args, **kwargs):
-        try:
-            user = self.get_user_from_session()
-        except SessionEmptyError as e:
-            verify_url = reverse('authentication:user-otp-enable-start') + f'?e={e}'
-            return HttpResponseRedirect(verify_url)
-
-        pre_response = self._pre_check_need_mfa_for_otp_bind(user)
-        if pre_response:
-            return pre_response
-        return super().get(request, *args, **kwargs)
+        query_string = self.request.GET.urlencode()
+        bind_url = reverse('authentication:user-otp-enable-bind')
+        if query_string:
+            bind_url = f'{bind_url}?{query_string}'
+        return redirect(bind_url)
 
     @staticmethod
     def replace_authenticator_png(platform):
@@ -197,11 +197,19 @@ class UserOtpEnableBindView(OTPBindMFACheckMixin, TemplateView, FormView):
 
     def get_context_data(self, **kwargs):
         user = get_user_or_pre_auth_user(self.request)
-        otp_uri, otp_secret_key = generate_otp_uri(user.username)
-        self.request.session['otp_secret_key'] = otp_secret_key
+        session = self.request.session
+        # Keep the same pending secret for this user across page refreshes and
+        # failed submissions; otherwise the account already scanned into the
+        # authenticator app no longer matches and every code is rejected.
+        pending_secret = session.get('otp_secret_key')
+        if pending_secret and session.get('otp_secret_user_id') == str(user.id):
+            otp_uri, otp_secret_key = generate_otp_uri(user.username, pending_secret)
+        else:
+            otp_uri, otp_secret_key = generate_otp_uri(user.username)
+        session['otp_secret_key'] = otp_secret_key
+        session['otp_secret_user_id'] = str(user.id)
         context = {
             'otp_uri': otp_uri,
-            'otp_secret_key': otp_secret_key,
             'user': user
         }
         kwargs.update(context)

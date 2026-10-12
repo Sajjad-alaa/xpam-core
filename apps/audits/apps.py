@@ -12,5 +12,5 @@ class AuditsConfig(AppConfig):
         from . import signal_handlers  # noqa
         from . import tasks  # noqa
 
-        if settings.SYSLOG_ENABLE:
-            post_save.connect(signal_handlers.on_audits_log_create)
+        # Connect audits log create signal for SIEM log shipment & legacy syslog
+        post_save.connect(signal_handlers.on_audits_log_create)
