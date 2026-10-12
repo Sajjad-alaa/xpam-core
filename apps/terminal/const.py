@@ -53,19 +53,19 @@ class ComponentLoad(TextChoices):
 
 
 class TerminalType(TextChoices):
-    koko = 'koko', 'KoKo'
+    koko = 'koko', 'SecureConnection'
     guacamole = 'guacamole', 'Guacamole'
     omnidb = 'omnidb', 'OmniDB'
     xrdp = 'xrdp', 'Xrdp'
-    lion = 'lion', 'Lion'
+    lion = 'lion', 'SecureConnection Desktop'
     core = 'core', 'Core'
     celery = 'celery', 'Celery'
     magnus = 'magnus', 'Magnus'
     razor = 'razor', 'Razor'
     tinker = 'tinker', 'Tinker'
     video_worker = 'video_worker', 'Video Worker'
-    chen = 'chen', 'Chen'
-    kael = 'kael', 'Kael'
+    chen = 'chen', 'WebConnector'
+    kael = 'kael', 'AI'
     panda = 'panda', 'Panda'
     nec = 'nec', 'Nec'
     facelive = 'facelive', 'Facelive'

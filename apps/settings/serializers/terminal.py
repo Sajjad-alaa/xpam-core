@@ -31,13 +31,13 @@ class TerminalSettingSerializer(serializers.Serializer):
     TERMINAL_PASSWORD_AUTH = serializers.BooleanField(
         required=False, label=_("Password"),
         help_text=_(
-            '* Allow users to log in to the KoKo component via password authentication'
+            '* Allow users to log in to the SecureConnection component via password authentication'
         )
     )
     TERMINAL_PUBLIC_KEY_AUTH = serializers.BooleanField(
         required=False, label=_("Public key"),
         help_text=_(
-            '* Allow users to log in to the KoKo component via Public key authentication'
+            '* Allow users to log in to the SecureConnection component via Public key authentication'
             '<br/>'
             'If third-party authentication services, such as AD/LDAP, are enabled, you should '
             'disable this option to prevent users from logging in after being deleted from the AD/LDAP server'
@@ -54,7 +54,7 @@ class TerminalSettingSerializer(serializers.Serializer):
         help_text=_(
             '* You can individually configure the service address and port in the service endpoint'
             '<br/>'
-            'If enabled, the Luna page will display the DB client launch method when connecting to assets'
+            'If enabled, the Workspace page will display the DB client launch method when connecting to assets'
         )
     )
     TERMINAL_RAZOR_ENABLED = serializers.BooleanField(
@@ -62,15 +62,15 @@ class TerminalSettingSerializer(serializers.Serializer):
         help_text=_(
             '* You can individually configure the service address and port in the service endpoint'
             '<br/>'
-            'If enabled, the Luna page will display the download rdp file button '
+            'If enabled, the Workspace page will display the download rdp file button '
             'and RDP Client launch method when connecting to assets'
         )
     )
     TERMINAL_KOKO_SSH_ENABLED = serializers.BooleanField(
         label=_("Client connection"),
         help_text=_(
-            '* Allow connecting to the KoKo component via SSH client'
+            '* Allow connecting to the SecureConnection component via SSH client'
             '<br/>'
-            'If enabled, the Luna page will display the SSH client launch method when connecting to assets'
+            'If enabled, the Workspace page will display the SSH client launch method when connecting to assets'
         )
     )

@@ -18,7 +18,7 @@ class ListMultipleChoiceField(serializers.MultipleChoiceField):
 
 
 class LunaSettingSerializer(serializers.Serializer):
-    PREFIX_TITLE = _('Luna default')
+    PREFIX_TITLE = _('Workspace default')
 
     LUNA_DEFAULT_IS_ASYNC_ASSET_TREE = serializers.BooleanField(
         required=False, label=_('Async loading of asset tree')

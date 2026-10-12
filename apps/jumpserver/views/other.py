@@ -25,7 +25,7 @@ __all__ = [
 class LunaView(View):
     def get(self, request):
         msg = _(
-            "<div>Luna is a separately deployed program, you need to deploy Luna, koko, configure nginx for url distribution,</div> "
+            "<div>Workspace is a separately deployed program, you need to deploy Workspace and SecureConnection, configure nginx for url distribution,</div> "
             "</div>If you see this page, prove that you are not accessing the nginx listening port. Good luck.</div>")
         return HttpResponse(msg)
 
@@ -56,14 +56,14 @@ class WsView(APIView):
 
 class UIView(View):
     def get(self, request):
-        msg = "如果你能看到这个页面，证明你的配置是有问题的，请参考文档设置好nginx, UI由Lina项目提供"
+        msg = "如果你能看到这个页面，证明你的配置是有问题的，请参考文档设置好nginx, UI由 Web 组件提供"
         return HttpResponse(msg)
 
 
 class KokoView(View):
     def get(self, request):
         msg = _(
-            "<div>Koko is a separately deployed program, you need to deploy Koko, configure nginx for url distribution,</div> "
+            "<div>SecureConnection is a separately deployed program, you need to deploy SecureConnection, configure nginx for url distribution,</div> "
             "</div>If you see this page, prove that you are not accessing the nginx listening port. Good luck.</div>")
         return HttpResponse(msg)
 

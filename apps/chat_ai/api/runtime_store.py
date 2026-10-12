@@ -58,7 +58,7 @@ class RuntimeStoreJSONParser(JSONParser):
 
 
 class IsKaelTerminal(permissions.BasePermission):
-    message = 'Only a Kael terminal service account may access the runtime store.'
+    message = 'Only an AI terminal service account may access the runtime store.'
 
     def has_permission(self, request, view):
         try:

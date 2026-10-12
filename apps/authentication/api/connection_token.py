@@ -906,7 +906,7 @@ class ConnectionTokenViewSet(AuthFaceMixin, ExtraActionApiMixin, RootOrgViewMixi
         if not lic_info.get('is_valid', True):
             status = lic_info.get('status', 'Expired')
             raise PermissionDenied(_(
-                f'License status is {status}. Asset connections via Web Terminal (Luna) and native clients are suspended. Please renew your subscription.'
+                f'License status is {status}. Asset connections via the Workspace web terminal and native clients are suspended. Please renew your subscription.'
             ))
 
         from assets.models import Asset

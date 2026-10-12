@@ -82,7 +82,7 @@ if settings.DEBUG:
     urlpatterns += static('/workspace/', document_root=(settings.DATA_DIR + '/workspace'))
     urlpatterns += static('/web/', document_root=(settings.DATA_DIR + '/web'))
 else:
-    urlpatterns += path('ui/', views.UIView.as_view()),
+    urlpatterns += path('web/', views.UIView.as_view()),
 
 # js i18n 路由文件
 urlpatterns += [
