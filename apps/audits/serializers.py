@@ -203,7 +203,7 @@ class ActivityUnionLogSerializer(serializers.Serializer):
                 ), 'type=action_detail')
         elif obj_type == ActivityChoices.task:
             detail_url = reverse(
-                'ops:celery-task-log', kwargs={'pk': detail_id}
+                'ops:worker-task-log', kwargs={'pk': detail_id}
             )
         elif obj_type == ActivityChoices.login_log:
             detail_url = reverse(

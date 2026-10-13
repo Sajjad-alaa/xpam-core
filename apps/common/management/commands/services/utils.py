@@ -1,3 +1,5 @@
+import os
+import re
 import threading
 import signal
 import time
@@ -26,7 +28,9 @@ class ServicesUtil(object):
 
     def start_and_watch(self):
         logging.info(time.ctime())
-        logging.info(f'JumpServer version {__version__}, more see https://www.jumpserver.com')
+        # XPAM: product name and the installed version (CURRENT_VERSION without the upstream -ce suffix)
+        version = re.sub(r'-ce$', '', os.environ.get('CURRENT_VERSION', '')) or __version__
+        logging.info(f'XPAM version {version}')
         self.start()
         if self.run_daemon:
             self.show_status()

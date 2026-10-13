@@ -10,5 +10,7 @@ app_name = "ops"
 
 urlpatterns = [
     # Resource Task url
+    path('worker/task/<uuid:pk>/log/', views.CeleryTaskLogView.as_view(), name='worker-task-log'),
+    # Address used before the rename; old links and audit entries keep working
     path('celery/task/<uuid:pk>/log/', views.CeleryTaskLogView.as_view(), name='celery-task-log'),
 ]

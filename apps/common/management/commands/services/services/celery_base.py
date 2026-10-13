@@ -11,7 +11,7 @@ class CeleryBaseService(BaseService):
 
     @property
     def cmd(self):
-        print('\n- Start Celery as Distributed Task Queue: {}'.format(self.queue.capitalize()))
+        print('\n- Start worker for task queue: {}'.format(self.queue.capitalize()))
         os.environ.setdefault('PYTHONPATH', settings.APPS_DIR)
         os.environ.setdefault('LC_ALL', 'C.UTF-8')
         os.environ.setdefault('LANG', 'C.UTF-8')
@@ -37,6 +37,11 @@ class CeleryBaseService(BaseService):
             '--without-mingle',
         ]
         return cmd
+
+    @property
+    def log_filename(self):
+        # XPAM: worker_default.log / worker_ansible.log (the service names stay celery_*)
+        return f"{self.name.replace('celery', 'worker')}.log"
 
     @property
     def cwd(self):
