@@ -321,6 +321,12 @@ class UserSerializer(
         if self.instance and not password:
             # 更新用户, 未设置密码
             return
+        # XPAM: a password set by an administrator must meet the password policy as well
+        # (upstream only checks the policy when users change their own password)
+        from ..utils import check_password_rules
+        is_org_admin = bool(self.instance and self.instance.is_org_admin)
+        if password and not check_password_rules(password, is_org_admin=is_org_admin):
+            raise serializers.ValidationError(_('Password does not match security rules'))
         return password
 
     @staticmethod

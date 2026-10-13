@@ -22,7 +22,8 @@ class URL:
 
 
 class SlackRenderer(mistune.HTMLRenderer):
-    def heading(self, text, level):
+    # Written for mistune 3: renderer methods receive the token attributes as keyword arguments
+    def heading(self, text, level, **attrs):
         return '*' + text + '*\n'
 
     def strong(self, text):
@@ -37,14 +38,15 @@ class SlackRenderer(mistune.HTMLRenderer):
             lines[i] = prefix + line[4:-5]
         return '\n'.join(lines)
 
-    def block_code(self, code, lang=None):
+    def block_code(self, code, *args, **kwargs):
         return f'`{code}`'
 
-    def link(self, link, text=None, title=None):
+    def link(self, text, url=None, title=None):
+        url = self.safe_url(url or '')
         if title or text:
             label = str(title or text).strip()
-            return f'<{link}|{label}>'
-        return f'<{link}>'
+            return f'<{url}|{label}>'
+        return f'<{url}>'
 
     def paragraph(self, text):
         return f'{text.strip()}\n'

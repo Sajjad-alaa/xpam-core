@@ -244,9 +244,10 @@ class Config(dict):
         'SESSION_COOKIE_DOMAIN': None,
         'CSRF_COOKIE_DOMAIN': None,
         'SESSION_COOKIE_NAME_PREFIX': None,
-        'SESSION_COOKIE_AGE': 3600 * 24,
+        # XPAM: 12 hours instead of 24
+        'SESSION_COOKIE_AGE': 3600 * 12,
         'DATA_UPLOAD_MAX_MEMORY_SIZE': 67_117_056,
-        'SESSION_EXPIRE_AT_BROWSER_CLOSE': False,
+        'SESSION_EXPIRE_AT_BROWSER_CLOSE': True,
         'VIEW_ASSET_ONLINE_SESSION_INFO': True,
         'LOGIN_URL': reverse_lazy('authentication:login'),
 
@@ -643,7 +644,8 @@ class Config(dict):
 
         # 安全配置
         'SAFE_MODE': False,
-        'SECURITY_MFA_AUTH': 0,  # 0 不开启 1 全局开启 2 管理员开启
+        # XPAM: multi-factor authentication is required for administrators by default
+        'SECURITY_MFA_AUTH': 2,  # 0 off, 1 everyone, 2 administrators
         'SECURITY_MFA_AUTH_ENABLED_FOR_THIRD_PARTY': True,
         'SECURITY_MFA_BY_EMAIL': False,
         'SECURITY_MFA_METHODS': [
@@ -666,11 +668,12 @@ class Config(dict):
         'SECURITY_PASSWORD_EXPIRATION_TIME_ADMIN': 9999,
         'SECURITY_PASSWORD_EXPIRATION_TIME': 9999,
         'SECURITY_EXPIRED_TOKEN_RECORD_KEEP_DAYS': 180,
-        'SECURITY_PASSWORD_MIN_LENGTH': 6,
-        'SECURITY_ADMIN_USER_PASSWORD_MIN_LENGTH': 6,
-        'SECURITY_PASSWORD_UPPER_CASE': False,
-        'SECURITY_PASSWORD_LOWER_CASE': False,
-        'SECURITY_PASSWORD_NUMBER': False,
+        # XPAM: stronger password policy than upstream (was 6 characters, no character classes)
+        'SECURITY_PASSWORD_MIN_LENGTH': 12,
+        'SECURITY_ADMIN_USER_PASSWORD_MIN_LENGTH': 14,
+        'SECURITY_PASSWORD_UPPER_CASE': True,
+        'SECURITY_PASSWORD_LOWER_CASE': True,
+        'SECURITY_PASSWORD_NUMBER': True,
         'SECURITY_PASSWORD_SPECIAL_CHAR': False,
         'SECURITY_MFA_IN_LOGIN_PAGE': False,
         'SECURITY_LOGIN_CHALLENGE_ENABLED': False,
@@ -705,7 +708,8 @@ class Config(dict):
         # 登录IP限制的规则
         'SECURITY_LOGIN_IP_BLACK_LIST': [],
         'SECURITY_LOGIN_IP_WHITE_LIST': [],
-        'SECURITY_LOGIN_IP_LIMIT_COUNT': 99999,
+        # XPAM: also limit failed logins per source address (upstream: effectively unlimited)
+        'SECURITY_LOGIN_IP_LIMIT_COUNT': 50,
         'SECURITY_LOGIN_IP_LIMIT_TIME': 30,
 
         # 启动前

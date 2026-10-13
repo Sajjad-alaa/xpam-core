@@ -149,7 +149,7 @@ class UserProfileSerializer(UserSerializer):
 
         is_org_admin = self.instance.org_roles.filter(
             name=Role.BuiltinRole.org_admin.name
-        ).exsits()
+        ).exists()
         if not check_password_rules(password, is_org_admin=is_org_admin):
             msg = _('Password does not match security rules')
             raise serializers.ValidationError(msg)
