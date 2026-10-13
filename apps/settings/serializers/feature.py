@@ -24,11 +24,10 @@ __all__ = [
 
 ANSIBLE_DOCKER_HELP_TEXT = lazy(
     lambda: _(
-        'Run Ansible jobs in the Docker execution environment (%(image)s). '
-        'To run jobs locally instead, disable "Docker isolation for Ansible" under '
-        'System Settings > Feature Settings > Job Center. '
-        'If the image is missing, run this command on the Ansible worker: '
-        'docker pull %(image)s'
+        'Run Ansible jobs in a separate Docker execution environment (%(image)s) instead of '
+        'inside the worker. Off by default: it only works when the worker container is given '
+        'the host Docker socket and the image is present, which grants the worker control of '
+        'the host. Leave it off unless you have set that up deliberately.'
     ) % {'image': ANSIBLE_EE_IMAGE},
     str,
 )()

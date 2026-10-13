@@ -39,7 +39,8 @@ def docker_isolation_kwargs(project_dir):
         'process_isolation': True,
         'process_isolation_executable': 'docker',
         'container_image': ANSIBLE_EE_IMAGE,
-        'container_options': ['--network=jms_net'],
+        # XPAM: the Compose network is xpam_net (jms_net upstream); override with ANSIBLE_DOCKER_NETWORK
+        'container_options': ['--network=' + os.environ.get('ANSIBLE_DOCKER_NETWORK', 'xpam_net')],
         'container_volume_mounts': [f'{project_dir}:{project_dir}:Z'],
     }
 

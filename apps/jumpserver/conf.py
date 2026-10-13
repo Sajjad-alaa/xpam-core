@@ -650,7 +650,9 @@ class Config(dict):
             'otp', 'sms', 'email', 'face', 'otp_radius', 'passkey', 'mfa_custom'
         ],
         'SECURITY_COMMAND_EXECUTION': False,
-        'ANSIBLE_DOCKER_ENABLED': True,
+        # XPAM runs automation jobs inside the worker. Upstream's Docker execution environment
+        # needs the host's Docker socket in the worker (host-level access) and is off by default.
+        'ANSIBLE_DOCKER_ENABLED': False,
         'SECURITY_COMMAND_BLACKLIST': [
             'reboot', 'shutdown', 'poweroff', 'halt', 'dd', 'half', 'top'
         ],
