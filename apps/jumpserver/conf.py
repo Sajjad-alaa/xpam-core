@@ -644,8 +644,9 @@ class Config(dict):
 
         # 安全配置
         'SAFE_MODE': False,
-        # XPAM: multi-factor authentication is required for administrators by default
-        'SECURITY_MFA_AUTH': 2,  # 0 off, 1 everyone, 2 administrators
+        # Multi-factor authentication is not forced on a new installation; switch it on under
+        # System settings -> Security (recommended at least for administrators)
+        'SECURITY_MFA_AUTH': 0,  # 0 off, 1 everyone, 2 administrators
         'SECURITY_MFA_AUTH_ENABLED_FOR_THIRD_PARTY': True,
         'SECURITY_MFA_BY_EMAIL': False,
         'SECURITY_MFA_METHODS': [
