@@ -68,7 +68,7 @@ class CeleryTask(models.Model):
         self.__state = value
 
     class Meta:
-        verbose_name = _("Celery Task")
+        verbose_name = _("Background task")
         ordering = ('name',)
         permissions = [
             ('view_taskmonitor', _('Can view task monitor'))
@@ -121,4 +121,4 @@ class CeleryTaskExecution(models.Model):
 
     class Meta:
         ordering = ['-date_start']
-        verbose_name = _("Celery Task Execution")
+        verbose_name = _("Background task execution")

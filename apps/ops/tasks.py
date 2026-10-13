@@ -104,7 +104,7 @@ def run_ops_job_execution(execution_id, **kwargs):
 
 
 @shared_task(
-    verbose_name=_('Clear celery periodic tasks'),
+    verbose_name=_('Clear periodic tasks'),
     description=_(
         "At system startup, clean up celery tasks that no longer exist"
     )

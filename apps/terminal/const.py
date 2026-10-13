@@ -59,7 +59,7 @@ class TerminalType(TextChoices):
     xrdp = 'xrdp', 'Xrdp'
     lion = 'lion', 'SecureConnection Desktop'
     core = 'core', 'Core'
-    celery = 'celery', 'Celery'
+    celery = 'celery', 'Worker'
     magnus = 'magnus', 'Magnus'
     razor = 'razor', 'Razor'
     tinker = 'tinker', 'Tinker'
