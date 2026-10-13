@@ -108,8 +108,8 @@ class PrepareRequestMixin:
         request_attribute_template = {
             "attributeConsumingService": {
                 "isDefault": False,
-                "serviceName": "JumpServer",
-                "serviceDescription": "JumpServer",
+                "serviceName": "XPAM",
+                "serviceDescription": "XPAM",
                 "requestedAttributes": attr_list
             }
         }
@@ -134,9 +134,9 @@ class PrepareRequestMixin:
         default = {
             "organization": {
                 "en": {
-                    "name": "JumpServer",
-                    "displayname": "JumpServer",
-                    "url": "https://jumpserver.com/"
+                    "name": "XPAM",
+                    "displayname": "XPAM",
+                    "url": "https://github.com/Sajjad-alaa"
                 }
             },
         }

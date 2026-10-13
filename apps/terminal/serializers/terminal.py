@@ -95,6 +95,25 @@ class TaskSerializer(BulkModelSerializer):
         ref_name = 'TerminalTaskSerializer'
 
 
+# XPAM: components that run upstream helper binaries still announce themselves with their
+# upstream code names; they are stored and shown under the XPAM names.
+XPAM_COMPONENT_NAME_PREFIXES = {
+    '[Chen]': '[WebConnector]',
+    '[KoKo]': '[SecureConnection]',
+    '[Koko]': '[SecureConnection]',
+    '[Lion]': '[SecureConnection Desktop]',
+    '[Kael]': '[AI]',
+    '[Celery]': '[Worker]',
+}
+
+
+def xpam_component_name(name):
+    for old, new in XPAM_COMPONENT_NAME_PREFIXES.items():
+        if isinstance(name, str) and name.startswith(old):
+            return new + name[len(old):]
+    return name
+
+
 class TerminalRegistrationSerializer(serializers.ModelSerializer):
     service_account = ServiceAccountSerializer(read_only=True)
     provider_id = serializers.UUIDField(required=False, write_only=True)
@@ -114,7 +133,7 @@ class TerminalRegistrationSerializer(serializers.ModelSerializer):
         valid = super().is_valid(raise_exception=raise_exception)
         if not valid:
             return valid
-        raw_name = self.validated_data.get('name')
+        raw_name = xpam_component_name(self.validated_data.get('name'))
         name = pretty_string(raw_name)
         self.validated_data['name'] = name
         if len(raw_name) > 128:

@@ -8,7 +8,7 @@ from .base import CONFIG, INSTALLED_APPS, TEMPLATES
 from .. import const
 
 current_year = datetime.datetime.now().year
-corporation = f'FIT2CLOUD 飞致云 © 2014-{current_year}'
+corporation = 'XPAM'
 
 XPACK_DIR = os.path.join(const.BASE_DIR, 'apps', 'xpack')
 XPACK_ENABLED = True

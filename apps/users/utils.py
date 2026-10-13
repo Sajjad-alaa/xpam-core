@@ -72,7 +72,7 @@ def redirect_user_first_login_or_index(request, redirect_field_name):
     return url
 
 
-def generate_otp_uri(username, otp_secret_key=None, issuer="JumpServer"):
+def generate_otp_uri(username, otp_secret_key=None, issuer="XPAM"):
     if otp_secret_key is None:
         otp_secret_key = base64.b32encode(os.urandom(10)).decode('utf-8')
 

@@ -446,9 +446,9 @@ class Config(dict):
         'SAML2_SP_ADVANCED_SETTINGS': {
             "organization": {
                 "en": {
-                    "name": "JumpServer",
-                    "displayname": "JumpServer",
-                    "url": "https://jumpserver.com/"
+                    "name": "XPAM",
+                    "displayname": "XPAM",
+                    "url": "https://github.com/Sajjad-alaa"
                 }
             },
             "strict": True,
@@ -485,7 +485,7 @@ class Config(dict):
 
         'AUTH_PASSKEY': False,
         'FIDO_SERVER_ID': '',
-        'FIDO_SERVER_NAME': 'JumpServer',
+        'FIDO_SERVER_NAME': 'XPAM',
 
         # 企业微信
         'AUTH_WECOM': False,
@@ -620,7 +620,7 @@ class Config(dict):
         'EMAIL_CUSTOM_USER_CREATED_BODY': _('Your account has been created successfully'),
 
         'OTP_VALID_WINDOW': 2,
-        'OTP_ISSUER_NAME': 'JumpServer',
+        'OTP_ISSUER_NAME': 'XPAM',
         'OTP_DIGEST': 'sha1',
         'EMAIL_SUFFIX': 'example.com',
 
@@ -802,8 +802,9 @@ class Config(dict):
         'TERMINAL_TELNET_REGEX': '',
 
         # 导航栏 帮助
-        'HELP_DOCUMENT_URL': 'https://jumpserver.com/docs',
-        'HELP_SUPPORT_URL': 'https://www.lxware.hk/pages/about',
+        # XPAM: change both under System settings -> Basic
+        'HELP_DOCUMENT_URL': 'https://github.com/Sajjad-alaa/xpam-installer/blob/xpam/docs/INSTALL.md',
+        'HELP_SUPPORT_URL': 'https://github.com/Sajjad-alaa/xpam-installer/issues',
 
         'FORGOT_PASSWORD_URL': '',
         'HEALTH_CHECK_TOKEN': '',

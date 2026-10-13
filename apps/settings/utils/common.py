@@ -19,6 +19,8 @@ def get_interface_setting_or_default():
                 data.update(val)
     except Exception:
         pass
+    # The version always comes from the running software, never from a saved appearance setting
+    data['version'] = default_interface.get('version', '')
 
     # An uploaded image whose file is gone would render as a broken <img>; use the default instead.
     try:

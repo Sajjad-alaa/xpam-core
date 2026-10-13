@@ -14,8 +14,11 @@ default_interface = dict((
     ('logo_white', static('img/logo_white.png')),
     ('logo_text_white', static('img/logo_text_white.svg')),
     ('favicon', static('img/facio.ico')),
-    ('login_title', _('JumpServer - An open-source PAM')),
-    ('theme', 'classic_green'),
+    # XPAM: product name and look of a new installation (everything can be changed in the console)
+    ('login_title', 'XPAM'),
+    ('theme', 'midnight_dark'),
+    ('theme_mode', 'light'),
+    ('custom_primary', '#38bdf8'),
     ('theme_info', {}),
     ('footer_content', ''),
     # XPAM: show the product version without the upstream edition suffix (v5.0.0-ce -> v5.0.0)
