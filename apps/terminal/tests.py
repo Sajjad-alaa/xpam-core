@@ -119,7 +119,7 @@ class WebAppletDefaultsTests(SimpleTestCase):
             for filename in ('manifest.yml', 'setup.yml', 'uninstall.yml')
         )
         version = manifest['version']
-        installer = f'JumpServer-WebLite-{version}-x64.msi'
+        installer = f'XPAM-WebLite-{version}-x64.msi'
         self.assertEqual(setup['type'], 'msi')
         self.assertEqual(setup['source'], f'jms:///download/applets/{installer}')
         self.assertIn('/quiet', setup['arguments'])
