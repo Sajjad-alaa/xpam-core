@@ -46,6 +46,16 @@
         - not user_exists or params.modify_sudo
         - params.sudo
 
+    - name: "Remove {{ account.username }} sudo setting"
+      ansible.builtin.lineinfile:
+        dest: /etc/sudoers
+        state: absent
+        regexp: "^{{ account.username }} ALL="
+        validate: visudo -cf %s
+      when:
+        - params.modify_sudo
+        - not params.sudo
+
     - name: "Change {{ account.username }} password"
       ansible.builtin.user:
         name: "{{ account.username }}"

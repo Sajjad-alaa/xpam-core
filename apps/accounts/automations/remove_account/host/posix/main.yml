@@ -90,23 +90,51 @@
         - account_exists
         - home_dir.stat.exists | default(false)
 
-    - name: Refuse to overwrite an existing home backup
-      ansible.builtin.fail:
-        msg: "Home backup already exists: {{ account_home }}.bak"
+    - name: Choose the backup path (never overwrite an earlier backup)
+      ansible.builtin.set_fact:
+        home_backup_path: >-
+          {{ account_home ~ '.bak' if not (backup_dir.stat.exists | default(false))
+             else account_home ~ '.bak-' ~ now(utc=true, fmt='%Y%m%d%H%M%S') }}
       when:
         - account_exists
         - home_dir.stat.exists | default(false)
-        - backup_dir.stat.exists | default(false)
+
+    - name: "End the account's running processes"
+      ansible.builtin.command:
+        argv: [pkill, -KILL, -u, "{{ account.username }}"]
+      register: pkill_result
+      failed_when: pkill_result.rc not in [0, 1]
+      changed_when: pkill_result.rc == 0
+      when:
+        - account_exists
+        - params.end_sessions | default(false)
 
     - name: "Rename user home directory if it exists"
       ansible.builtin.command:
         argv:
           - mv
           - "{{ account_home }}"
-          - "{{ account_home }}.bak"
+          - "{{ home_backup_path }}"
       when:
         - account_exists
         - home_dir.stat.exists | default(false)
+        - (params.home_action | default('backup')) != 'delete'
+
+    - name: "Delete user home directory"
+      ansible.builtin.file:
+        path: "{{ account_home }}"
+        state: absent
+      when:
+        - account_exists
+        - home_dir.stat.exists | default(false)
+        - (params.home_action | default('backup')) == 'delete'
+
+    - name: "Remove the account's sudo setting"
+      ansible.builtin.lineinfile:
+        dest: /etc/sudoers
+        state: absent
+        regexp: "^{{ account.username }} ALL="
+        validate: visudo -cf %s
 
     - name: "Remove account"
       ansible.builtin.user:

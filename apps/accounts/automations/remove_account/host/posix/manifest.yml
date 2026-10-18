@@ -5,6 +5,18 @@ type:
   - linux
   - unix
 method: remove_account
+params:
+  - name: home_action
+    type: str
+    label: "Home folder"
+    default: 'backup'
+    help_text: "backup: rename to <home>.bak; delete: remove it"
+
+  - name: end_sessions
+    type: bool
+    label: "End sessions"
+    default: False
+    help_text: "Stop the account's running processes before removing it"
 
 i18n:
   Posix account remove:

@@ -1074,6 +1074,9 @@ class ConnectionTokenViewSet(AuthFaceMixin, ExtraActionApiMixin, RootOrgViewMixi
             return {api_settings.NON_FIELD_ERRORS_KEY: [str(item) for item in detail]}
         return {api_settings.NON_FIELD_ERRORS_KEY: [str(detail)]}
 
+    def prepare_jit_account(self, raw_data):
+        return _jit_prepare(self.request.user, raw_data)
+
     def create(self, request, *args, **kwargs):
         self.personal_credential_audit_context = None
         self.personal_credential_saved = None
@@ -1118,6 +1121,13 @@ class ConnectionTokenViewSet(AuthFaceMixin, ExtraActionApiMixin, RootOrgViewMixi
                 'org_id': requested_audit_org_id,
             }
         failure_reason = ''
+        # XPAM: a just-in-time account is created on the asset before the token is issued, outside
+        # the token transaction, so the push automation can see it and its log is kept on failure
+        jit_record = None
+        if raw_data.get('account') == AliasAccount.JIT:
+            jit_record, jit_error = self.prepare_jit_account(raw_data)
+            if jit_error:
+                return Response({'code': 'jit_account_failed', 'detail': jit_error}, status=400)
         try:
             # Face context creation is part of the connection/save operation.
             # If it fails, roll back both the token and any inline credential.
@@ -1125,6 +1135,9 @@ class ConnectionTokenViewSet(AuthFaceMixin, ExtraActionApiMixin, RootOrgViewMixi
                 response = super().create(request, *args, **kwargs)
                 if self.need_face_verify:
                     self.create_face_verify(response)
+            if jit_record and 200 <= response.status_code < 300 and isinstance(response.data, Mapping):
+                from accounts.jit.service import attach_token
+                attach_token(jit_record, response.data.get('id'))
         except JMSException as e:
             failure_reason = str(e.detail.code)
             data = {'code': e.detail.code, 'detail': e.detail}
@@ -1161,7 +1174,32 @@ class ConnectionTokenViewSet(AuthFaceMixin, ExtraActionApiMixin, RootOrgViewMixi
         return response
 
 
+def _jit_prepare(user, raw_data):
+    """(JITAccount, error) for a connection request that chose the @JIT account."""
+    from accounts.jit.service import provision_for_connection, JITError
+    asset_id = raw_data.get('asset')
+    if isinstance(asset_id, Mapping):
+        asset_id = asset_id.get('id') or asset_id.get('pk')
+    if not asset_id or not is_uuid(asset_id) or not user:
+        return None, _('Asset not found')
+    asset = Asset.objects.filter(id=asset_id).first()
+    if not asset:
+        return None, _('Asset not found')
+    try:
+        return provision_for_connection(user, asset), None
+    except JITError as e:
+        return None, str(e)
+
+
 class SuperConnectionTokenViewSet(ConnectionTokenViewSet):
+
+    def prepare_jit_account(self, raw_data):
+        # Components create tokens on behalf of the user who connected to them
+        from users.models import User
+        user_id = raw_data.get('user')
+        user = User.objects.filter(id=user_id).first() if user_id and is_uuid(user_id) else None
+        return _jit_prepare(user, raw_data)
+
     serializer_classes = {
         'default': SuperConnectionTokenSerializer,
         'get_secret_detail': ConnectionTokenSecretSerializer,

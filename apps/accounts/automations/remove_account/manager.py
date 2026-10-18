@@ -51,6 +51,8 @@ class RemoveAccountManager(AccountBasePlaybookManager):
         self.ensure_unique_inventory_host(host, asset)
         if host.get("error"):
             return host
+        # XPAM: pass the method parameters (home folder handling, ending sessions) to the playbook
+        host["params"] = self.get_params(automation, self.method_type())
 
         inventory_hosts = []
         accounts_to_remove = self.snapshot_asset_account_map.get(str(asset.id), [])

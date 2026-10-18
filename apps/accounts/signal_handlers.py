@@ -1,5 +1,6 @@
 from collections import defaultdict
 
+from django.db import transaction
 from django.db.models.signals import post_delete
 from django.db.models.signals import post_save
 from django.dispatch import receiver
@@ -118,3 +119,85 @@ def subscribe_vault_change(sender, **kwargs):
     logger.debug("Start subscribe vault change")
 
     vault_pub_sub.subscribe(lambda name: refresh_vault_client())
+
+
+# ---------------------------------------------------------------- XPAM just-in-time accounts
+def _schedule_jit_reconcile():
+    """Reconcile shortly after a burst of permission changes (debounced)."""
+    from django.core.cache import cache
+    from accounts.tasks.jit import jit_reconcile_task
+    # The marker is removed when the run starts, so no change is ever left out
+    if cache.add('xpam-jit-reconcile-scheduled', 1, timeout=120):
+        transaction.on_commit(lambda: jit_reconcile_task.apply_async(countdown=15))
+
+
+def _jit_in_use():
+    """True when a policy keeps accounts for as long as access is granted."""
+    from accounts.models import JITPolicy
+    from orgs.utils import tmp_to_root_org
+    with tmp_to_root_org():
+        return JITPolicy.objects.filter(
+            mode__in=[JITPolicy.Mode.while_granted, JITPolicy.Mode.approved_window]
+        ).exists()
+
+
+@receiver(post_save, sender='terminal.Session')
+def on_session_finished_release_jit(sender, instance, created=False, **kwargs):
+    if not instance.is_finished or not instance.account_id:
+        return
+    from accounts.models import JITAccount
+    from accounts.tasks.jit import jit_release_if_idle_task
+    from orgs.utils import tmp_to_root_org
+    with tmp_to_root_org():
+        jit_ids = list(JITAccount.objects.filter(
+            account_id=instance.account_id, mode='per_session', status=JITAccount.Status.ready,
+        ).values_list('id', flat=True))
+    for jit_id in jit_ids:
+        # Wait a moment: a dropped remote desktop often reconnects right away
+        transaction.on_commit(
+            lambda _id=str(jit_id): jit_release_if_idle_task.apply_async(args=(_id,), countdown=60)
+        )
+
+
+@receiver(post_save, sender='accounts.JITPolicy')
+@receiver(post_delete, sender='accounts.JITPolicy')
+def on_jit_policy_change(sender, instance=None, **kwargs):
+    _schedule_jit_reconcile()
+
+
+@receiver(post_save, sender='perms.AssetPermission')
+@receiver(post_delete, sender='perms.AssetPermission')
+def on_permission_change_reconcile_jit(sender, instance=None, **kwargs):
+    if _jit_in_use():
+        _schedule_jit_reconcile()
+
+
+def _on_m2m_change(sender, action=None, **kwargs):
+    if action in ('post_add', 'post_remove', 'post_clear') and _jit_in_use():
+        _schedule_jit_reconcile()
+
+
+def _connect_jit_m2m_signals():
+    from django.db.models.signals import m2m_changed
+    from perms.models import AssetPermission
+    from users.models import User
+    for field in ('users', 'user_groups', 'assets', 'nodes'):
+        m2m_changed.connect(_on_m2m_change, sender=getattr(AssetPermission, field).through,
+                            dispatch_uid=f'xpam-jit-perm-{field}')
+    m2m_changed.connect(_on_m2m_change, sender=User.groups.through, dispatch_uid='xpam-jit-user-groups')
+
+
+_connect_jit_m2m_signals()
+
+
+@receiver(post_save, sender='users.User')
+@receiver(post_delete, sender='users.User')
+def on_user_change_reconcile_jit(sender, instance=None, created=False, update_fields=None, **kwargs):
+    if created:
+        return
+    # Sign-ins and similar bookkeeping saves do not change who has access
+    if update_fields and set(update_fields) <= {'last_login', 'date_api_key_last_used', 'date_updated',
+                                                'date_password_last_updated'}:
+        return
+    if _jit_in_use():
+        _schedule_jit_reconcile()

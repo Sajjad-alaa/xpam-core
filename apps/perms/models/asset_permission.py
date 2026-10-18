@@ -81,6 +81,11 @@ class AssetPermission(LabeledMixin, JMSOrgBaseModel):
     )
     is_active = models.BooleanField(default=True, verbose_name=_('Active'))
     from_ticket = models.BooleanField(default=False, verbose_name=_('From ticket'))
+    # XPAM: create an account on the asset for each user of this permission (just-in-time)
+    jit_policy = models.ForeignKey(
+        'accounts.JITPolicy', null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='asset_permissions', verbose_name=_('Just-in-time policy')
+    )
 
     objects = AssetPermissionManager.from_queryset(AssetPermissionQuerySet)()
 

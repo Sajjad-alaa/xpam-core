@@ -17,6 +17,8 @@ class AliasAccount(TextChoices):
     USER = '@USER', _('Dynamic user')
     ANON = '@ANON', _('Anonymous account')
     SPEC = '@SPEC', _('Specified account')
+    # XPAM: an account created on the asset for the user when needed and removed afterwards
+    JIT = '@JIT', _('Just-in-time account')
 
     @classmethod
     def virtual_choices(cls):
@@ -27,6 +29,7 @@ class Source(TextChoices):
     LOCAL = 'local', _('Local')
     DISCOVERY = 'collected', _('Discovery')
     TEMPLATE = 'template', _('Template')
+    JIT = 'jit', _('Just-in-time')
 
 
 class AccountInvalidPolicy(TextChoices):

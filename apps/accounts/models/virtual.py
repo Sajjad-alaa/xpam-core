@@ -26,7 +26,8 @@ class VirtualAccount(JMSOrgBaseModel):
         usernames_map = {
             AliasAccount.INPUT: _("Manual input"),
             AliasAccount.USER: _("Same with user"),
-            AliasAccount.ANON: ''
+            AliasAccount.ANON: '',
+            AliasAccount.JIT: _("Created on connect"),
         }
         usernames_map = {str(k): v for k, v in usernames_map.items()}
         return usernames_map.get(self.alias, '')
@@ -38,6 +39,8 @@ class VirtualAccount(JMSOrgBaseModel):
             AliasAccount.USER: _('The account username name same with user on connect'),
             AliasAccount.ANON: _('Connect asset without using a username and password, '
                                  'and it only supports web-based and custom-type assets'),
+            AliasAccount.JIT: _('XPAM creates an account on the asset for you and removes it '
+                                'again as set by the just-in-time policy'),
         }
         comments_map = {str(k): v for k, v in comments_map.items()}
         return comments_map.get(self.alias, '')
@@ -61,6 +64,8 @@ class VirtualAccount(JMSOrgBaseModel):
             account = cls.get_anonymous_account()
         elif alias == AliasAccount.USER.value:
             account = cls.get_same_account(user, asset, input_secret=input_secret, input_secret_type=input_secret_type, from_permed=from_permed)
+        elif alias == AliasAccount.JIT.value:
+            account = cls.get_jit_account()
         else:
             account = cls(name=alias, username=alias, secret=None)
         account.alias = alias
@@ -83,6 +88,12 @@ class VirtualAccount(JMSOrgBaseModel):
             secret = input_secret
             secret_type = input_secret_type or 'password'
         return Account(name=AliasAccount.INPUT.label, username=username, secret=secret, secret_type=secret_type)
+
+    @classmethod
+    def get_jit_account(cls):
+        """ @JIT: placeholder shown for selection; the real account is created on connect """
+        from .account import Account
+        return Account(name=AliasAccount.JIT.label, username=AliasAccount.JIT.value, secret=None)
 
     @classmethod
     def get_anonymous_account(cls):

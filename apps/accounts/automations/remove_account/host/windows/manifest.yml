@@ -5,6 +5,18 @@ method: remove_account
 category: host
 type:
   - windows
+params:
+  - name: remove_profile
+    type: bool
+    label: "Remove profile"
+    default: False
+    help_text: "Also delete the account's profile folder (C:\\Users\\<name>)"
+
+  - name: end_sessions
+    type: bool
+    label: "End sessions"
+    default: False
+    help_text: "Sign the account out of its remote desktop sessions before removing it"
 
 i18n:
   Windows account remove:

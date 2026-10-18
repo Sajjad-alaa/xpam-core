@@ -88,7 +88,9 @@ class PermAssetDetailUtil:
         # @ALL 账号先处理，后面的每个最多映射一个账号
         all_action_bit = alias_action_bit_mapper.pop(AliasAccount.ALL, None)
         if all_action_bit:
-            asset_account_usernames = asset.all_valid_accounts.values_list('username', flat=True)
+            # XPAM: just-in-time accounts belong to one user and are never shared through @ALL
+            asset_account_usernames = asset.all_valid_accounts.exclude(source='jit') \
+                .values_list('username', flat=True)
             for username in asset_account_usernames:
                 alias_action_bit_mapper[username] |= all_action_bit
                 alias_date_expired_mapper[username].extend(
@@ -120,7 +122,7 @@ class PermAssetDetailUtil:
     def map_alias_to_accounts(cls, alias_action_bit_mapper, alias_date_expired_mapper, asset, user):
         username_accounts_mapper = defaultdict(list)
         cleaned_accounts_expired = defaultdict(list)
-        asset_accounts = asset.all_valid_accounts.all()
+        asset_accounts = asset.all_valid_accounts.exclude(source='jit')
 
         # 用户名 -> 账号
         for account in asset_accounts:
@@ -134,7 +136,7 @@ class PermAssetDetailUtil:
                 _accounts = username_accounts_mapper[user.username]
             elif alias in username_accounts_mapper:
                 _accounts = username_accounts_mapper[alias]
-            elif alias in ['@INPUT', '@ANON', '@USER']:
+            elif alias in ['@INPUT', '@ANON', '@USER', '@JIT']:
                 account = VirtualAccount.get_special_account(alias, user, asset, from_permed=True)
             elif alias.startswith('@'):
                 continue
@@ -151,6 +153,14 @@ class PermAssetDetailUtil:
     def get_permed_accounts_from_perms(cls, perms, user, asset):
         # alias: is a collection of account usernames and special accounts [@ALL, @INPUT, @USER, @ANON]
         alias_action_bit_mapper, alias_date_expired_mapper = cls.parse_alias_action_date_expire(perms, asset)
+        # XPAM: permissions with a just-in-time policy offer the @JIT account
+        from accounts.jit.policy import jit_grant_for_perms
+        jit_actions, jit_expired = jit_grant_for_perms(perms, asset)
+        if jit_actions:
+            alias_action_bit_mapper[AliasAccount.JIT.value] = (
+                alias_action_bit_mapper.get(AliasAccount.JIT.value, 0) | jit_actions
+            )
+            alias_date_expired_mapper[AliasAccount.JIT.value].extend(jit_expired)
         # 展开 alias 到具体的账号
         cleaned_accounts_action_bit, cleaned_accounts_expired = cls.map_alias_to_accounts(
             alias_action_bit_mapper, alias_date_expired_mapper, asset, user

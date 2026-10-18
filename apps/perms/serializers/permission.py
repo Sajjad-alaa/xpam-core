@@ -7,7 +7,7 @@ from rest_framework import serializers
 from rest_framework.fields import empty
 
 from accounts.const import Source
-from accounts.models import AccountTemplate, Account
+from accounts.models import AccountTemplate, Account, JITPolicy
 from assets.models import Asset, Node
 from common.serializers import ResourceLabelsMixin
 from common.serializers.fields import BitChoicesField, ObjectRelatedField
@@ -66,8 +66,19 @@ class AssetPermissionSerializer(ResourceLabelsMixin, BulkOrgResourceModelSeriali
     is_expired = serializers.BooleanField(read_only=True, label=_("Is expired"))
     accounts = PermAccountsSerializer(label=_("Accounts"), required=False)
     protocols = PermProtocolsSerializer(label=_("Protocols"), required=False)
+    jit_policy = ObjectRelatedField(
+        queryset=JITPolicy.objects, required=False, allow_null=True, label=_('Just-in-time policy')
+    )
 
     template_accounts = AccountTemplate.objects.none()
+
+    @staticmethod
+    def validate_jit_policy(policy):
+        if policy and policy.mode == JITPolicy.Mode.approved_window:
+            raise serializers.ValidationError(_(
+                'An "Approved time window" policy applies to approved access requests by itself; '
+                'choose a policy with another account lifetime here'))
+        return policy
 
     class Meta:
         model = AssetPermission
@@ -82,7 +93,7 @@ class AssetPermissionSerializer(ResourceLabelsMixin, BulkOrgResourceModelSeriali
         fields_generic = [
             "accounts", "protocols", "actions",
             "created_by", "date_created", "date_start", "date_expired", "is_active",
-            "is_expired", "is_valid", "comment", "from_ticket",
+            "is_expired", "is_valid", "comment", "from_ticket", "jit_policy",
         ]
         fields_small = fields_mini + fields_generic
         fields_m2m = ["users", "user_groups", "assets", "nodes", "labels"] + amount_fields

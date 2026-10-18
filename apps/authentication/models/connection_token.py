@@ -400,6 +400,14 @@ class ConnectionToken(JMSOrgBaseModel):
         if not self.asset:
             return None
 
+        if self.account == AliasAccount.JIT:
+            # XPAM: the account created on the asset for this connection
+            from accounts.jit.service import account_for_token
+            jit_account = account_for_token(self)
+            if jit_account:
+                self.set_ad_domain_if_need(jit_account)
+                return jit_account
+
         if self.account.startswith('@'):
             credential = self.get_personal_credential(include_secret=True)
             if credential:

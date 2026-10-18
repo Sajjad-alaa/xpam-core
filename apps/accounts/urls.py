@@ -31,6 +31,8 @@ router.register(r'check-account-executions', api.CheckAccountExecutionViewSet, '
 router.register(r'account-check-engines', api.CheckAccountEngineViewSet, 'account-check-engine')
 router.register(r'account-risks', api.AccountRiskViewSet, 'account-risks')
 router.register(r'integration-applications', api.IntegrationApplicationViewSet, 'integration-apps')
+router.register(r'jit-policies', api.JITPolicyViewSet, 'jit-policy')
+router.register(r'jit-accounts', api.JITAccountViewSet, 'jit-account')
 
 urlpatterns = [
     path('accounts/bulk/', api.AssetAccountBulkCreateApi.as_view(), name='account-bulk-create'),

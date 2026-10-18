@@ -1,6 +1,31 @@
 - hosts: windows
   gather_facts: no
   tasks:
+    - name: "Sign the account out of its sessions"
+      ansible.windows.win_powershell:
+        parameters:
+          Name: "{{ account.username }}"
+        script: |
+          param([string]$Name)
+          $Ansible.Changed = $false
+          $lines = @(quser 2>$null)
+          foreach ($line in ($lines | Select-Object -Skip 1)) {
+            $parts = ($line.Trim() -replace '^>', '') -split '\s+'
+            if ($parts.Count -ge 2 -and $parts[0] -ieq $Name) {
+              $id = $parts | Where-Object { $_ -match '^\d+$' } | Select-Object -First 1
+              if ($id) { logoff $id; $Ansible.Changed = $true }
+            }
+          }
+      when: params.end_sessions | default(false)
+      ignore_errors: true
+
+    - name: "Remove the account's profile"
+      community.windows.win_user_profile:
+        name: "{{ account.username }}"
+        state: absent
+      when: params.remove_profile | default(false)
+      ignore_errors: true
+
     - name: "Remove account"
       ansible.windows.win_user:
         name: "{{ account.username }}"
