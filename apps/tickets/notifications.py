@@ -148,7 +148,8 @@ class TicketAppliedToAssigneeMessage(BaseTicketMessage):
             'ticket_id': self.ticket.id,
             'approver_id': self.user.id, 'content': self.content,
         }
-        cache.set(self.token, data, 3600)
+        from tickets.channels import link_seconds
+        cache.set(self.token, data, link_seconds())
         return context
 
     @classmethod

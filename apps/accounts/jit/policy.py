@@ -255,6 +255,34 @@ def explain(user, asset, request=False, matcher=None):
     return result
 
 
+def user_must_keep_mfa(user):
+    """A just-in-time rule that asks for MFA covers this user (cached for a minute)."""
+    from django.core.cache import cache
+    if not getattr(user, 'id', None):
+        return False
+    key = f'xpam-jit-mfa-user:{user.id}'
+    cached = cache.get(key)
+    if cached is not None:
+        return cached
+    result = False
+    try:
+        from accounts.models import JITPolicy
+        any_key = 'xpam-jit-mfa-policies'
+        if cache.get(any_key) is False:
+            return False
+        with tmp_to_root_org():
+            policies = list(JITPolicy.objects.filter(is_active=True, require_mfa=True))
+        cache.set(any_key, bool(policies), 60)
+        if policies:
+            matcher = PolicyMatcher()
+            result = any(matcher._includes(p, 'users', user) for p in policies if p.is_rule_based) or \
+                any(p.asset_permissions.filter(users=user).exists() for p in policies)
+    except Exception as e:
+        logger.debug('JIT MFA check for %s failed: %s', user, e)
+    cache.set(key, result, 60)
+    return result
+
+
 def push_params(policy):
     """Parameters for the built-in push automations (per method id)."""
     windows_groups = [g.strip() for g in (policy.windows_groups or '').split(',') if g.strip()]

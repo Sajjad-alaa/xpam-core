@@ -12,7 +12,7 @@ from orgs.mixins.api import OrgBulkModelViewSet, OrgGenericViewSet
 from ..models import JITPolicy, JITAccount
 from ..serializers.jit import JITPolicySerializer, JITAccountSerializer
 
-__all__ = ['JITPolicyViewSet', 'JITAccountViewSet', 'JITDashboardViewSet']
+__all__ = ['JITPolicyViewSet', 'JITAccountViewSet', 'JITDashboardViewSet', 'JITApprovalChannelsViewSet']
 
 
 class JITPolicyViewSet(OrgBulkModelViewSet):
@@ -149,3 +149,79 @@ class JITDashboardViewSet(viewsets.ViewSet):
         removed = convert_to_jit(perm, request.user)
         cache.delete(f'xpam-jit-dashboard:{current_org.id}')
         return Response({'removed_accounts': removed, 'policy': policy.name if policy else None})
+
+
+class JITApprovalChannelsViewSet(viewsets.ViewSet):
+    """Where approval requests are sent besides e-mail: Teams, Slack, Telegram. Secrets are never returned."""
+    permission_classes = (RBACPermission,)
+    rbac_perms = {
+        'list': 'accounts.view_jitpolicy',
+        'save': 'accounts.change_jitpolicy',
+        'test': 'accounts.change_jitpolicy',
+    }
+
+    @staticmethod
+    def _public(config):
+        from django.conf import settings as dj_settings
+        from settings.models import Setting
+        direct = Setting.objects.filter(name='TICKETS_DIRECT_APPROVE').first()
+        return {
+            'teams_webhook_set': bool(config.get('teams_webhook')),
+            'slack_webhook_set': bool(config.get('slack_webhook')),
+            'telegram_token_set': bool(config.get('telegram_token')),
+            'telegram_chat': config.get('telegram_chat') or '',
+            'link_hours': config.get('link_hours'),
+            'direct_approve': bool(direct.cleaned_value) if direct else bool(dj_settings.TICKETS_DIRECT_APPROVE),
+            'site_url': dj_settings.SITE_URL,
+        }
+
+    def list(self, request):
+        from tickets.channels import get_config
+        return Response(self._public(get_config()))
+
+    @staticmethod
+    def _incoming(data, current):
+        """Values to store: an empty secret field keeps the stored one, "-" clears it."""
+        out = {}
+        for key in ('teams_webhook', 'slack_webhook', 'telegram_token'):
+            value = (data.get(key) or '').strip()
+            if value == '-':
+                out[key] = ''
+            elif value:
+                if key != 'telegram_token' and not value.startswith('https://'):
+                    raise ValueError(_('The webhook address must start with https://'))
+                out[key] = value
+        if 'telegram_chat' in data:
+            out['telegram_chat'] = str(data.get('telegram_chat') or '').strip()[:64]
+        if data.get('link_hours') not in (None, ''):
+            out['link_hours'] = int(data['link_hours'])
+        merged = dict(current)
+        merged.update(out)
+        return out, merged
+
+    @action(methods=['post'], detail=False)
+    def save(self, request):
+        from settings.models import Setting
+        from tickets.channels import get_config, save_config
+        try:
+            out, _merged = self._incoming(request.data, get_config())
+        except (ValueError, TypeError) as e:
+            return Response({'detail': str(e)}, status=400)
+        save_config(out)
+        if 'direct_approve' in request.data:
+            Setting.update_or_create(name='TICKETS_DIRECT_APPROVE', value=bool(request.data.get('direct_approve')),
+                                     encrypted=False, category='ticket')
+        return Response(self._public(get_config()))
+
+    @action(methods=['post'], detail=False)
+    def test(self, request):
+        """Send a test message with the values in the form (or the stored ones)."""
+        from tickets.channels import get_config, send_test
+        try:
+            _out, merged = self._incoming(request.data, get_config())
+        except (ValueError, TypeError) as e:
+            return Response({'detail': str(e)}, status=400)
+        results = send_test(merged)
+        if not results:
+            return Response({'detail': _('No channel is set up')}, status=400)
+        return Response({k: {'ok': ok, 'error': msg} for k, (ok, msg) in results.items()})

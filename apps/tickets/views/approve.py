@@ -73,7 +73,10 @@ class TicketDirectApproveView(TemplateView):
         return super().get_context_data(**kwargs)
 
     def get(self, request, *args, **kwargs):
-        if not (settings.TICKETS_DIRECT_APPROVE or request.user.is_authenticated):
+        ticket_info = cache.get(kwargs['token'])
+        # XPAM: links sent to chat channels are not bound to one approver: they always need a sign-in
+        bound = bool(ticket_info and ticket_info.get('approver_id'))
+        if not request.user.is_authenticated and not (settings.TICKETS_DIRECT_APPROVE and bound):
             direct_url = reverse('tickets:direct-approve', kwargs={'token': kwargs['token']})
             redirect_url = f"{reverse('authentication:login') + '?admin=1'}&{self.redirect_field_name}={direct_url}"
             message_data = {
@@ -85,7 +88,6 @@ class TicketDirectApproveView(TemplateView):
             redirect_url = FlashMessageUtil.gen_message_url(message_data)
             return redirect(redirect_url)
 
-        ticket_info = cache.get(kwargs['token'])
         if not ticket_info:
             return self.redirect_message_response(redirect_url=self.login_url)
         return super().get(request, ticket_info=ticket_info, *args, **kwargs)
@@ -93,7 +95,7 @@ class TicketDirectApproveView(TemplateView):
     @staticmethod
     def get_user(request, ticket_info):
         user = request.user
-        if not user.is_authenticated and settings.TICKETS_DIRECT_APPROVE:
+        if not user.is_authenticated and settings.TICKETS_DIRECT_APPROVE and ticket_info.get('approver_id'):
             user_id = ticket_info.get('approver_id')
             user = User.objects.filter(id=user_id).first()
         return user

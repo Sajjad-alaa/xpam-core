@@ -57,6 +57,9 @@ class BaseHandler:
         assignees_display = ', '.join([str(assignee) for assignee in assignees])
         logger.debug('Send applied email to assignees: {}'.format(assignees_display))
         send_ticket_applied_mail_to_assignees(self.ticket, assignees)
+        # XPAM: the same approval request in Teams / Slack / Telegram
+        from tickets.channels import notify
+        notify(self.ticket)
 
     def _send_processed_mail_to_applicant(self, step=None):
         applicant = self.ticket.applicant

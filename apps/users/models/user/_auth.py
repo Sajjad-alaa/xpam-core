@@ -53,8 +53,11 @@ class MFAMixin:
         # 2 仅管理员强制开启
         if force_level == 2 and self.is_org_admin:
             return True
-        # 3 仅用户开启
-        return self.mfa_level == 2
+        if self.mfa_level == 2:
+            return True
+        # XPAM: users of a just-in-time rule that asks for MFA must keep MFA on
+        from accounts.jit.policy import user_must_keep_mfa
+        return user_must_keep_mfa(self)
 
     def enable_mfa(self):
         if not self.mfa_level == 2:
