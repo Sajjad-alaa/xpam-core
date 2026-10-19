@@ -90,6 +90,8 @@ class JITPolicy(JMSOrgBaseModel):
     auto_approve_max_hours = models.PositiveIntegerField(default=4, verbose_name=_('Approve automatically up to (hours)'))
     auto_approve_time_period = models.JSONField(default=list, blank=True, verbose_name=_('Approve automatically during'))
     approvals_required = models.PositiveSmallIntegerField(default=1, verbose_name=_('Approvals required'))
+    # Who approves requests for the assets of this rule (empty: the approval flow of Tickets → Flow setup)
+    approvers = JSONManyToManyField('users.User', default=dict, blank=True, verbose_name=_('Approvers'))
     # Security
     require_mfa = models.BooleanField(default=False, verbose_name=_('MFA when connecting'))
     end_sessions_on_expiry = models.BooleanField(default=True, verbose_name=_('End live sessions when access ends'))

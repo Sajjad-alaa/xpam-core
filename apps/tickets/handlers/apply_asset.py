@@ -14,10 +14,10 @@ class Handler(BaseHandler):
 
     def _on_pending(self):
         # XPAM: a just-in-time policy may approve the request by itself, or ask for two approvers
-        from accounts.jit.selfservice import try_auto_approve, require_second_approval
+        from accounts.jit.selfservice import try_auto_approve, route_approvers
         if try_auto_approve(self.ticket):
             return
-        require_second_approval(self.ticket)
+        route_approvers(self.ticket)
         super()._on_pending()
 
     def _on_step_approved(self, step):

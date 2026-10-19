@@ -26,8 +26,13 @@ KEYS = {
     'telegram_token': ('XPAM_APPROVAL_TELEGRAM_TOKEN', True),
     'telegram_chat': ('XPAM_APPROVAL_TELEGRAM_CHAT', False),
     'link_hours': ('XPAM_APPROVAL_LINK_HOURS', False),
+    'remind_minutes': ('XPAM_APPROVAL_REMIND_MINUTES', False),
+    'escalate_minutes': ('XPAM_APPROVAL_ESCALATE_MINUTES', False),
+    'expire_hours': ('XPAM_APPROVAL_EXPIRE_HOURS', False),
 }
 DEFAULT_LINK_HOURS = 24
+NUMBER_DEFAULTS = {'link_hours': (24, 1, 168), 'remind_minutes': (30, 0, 1440),
+                   'escalate_minutes': (120, 0, 10080), 'expire_hours': (24, 0, 720)}
 TIMEOUT = 10
 
 
@@ -41,10 +46,11 @@ def get_config():
             values[names[s.name]] = s.cleaned_value
         except Exception:
             values[names[s.name]] = ''
-    try:
-        values['link_hours'] = int(values['link_hours'] or DEFAULT_LINK_HOURS)
-    except (TypeError, ValueError):
-        values['link_hours'] = DEFAULT_LINK_HOURS
+    for key, (default, _lo, _hi) in NUMBER_DEFAULTS.items():
+        try:
+            values[key] = int(values[key]) if values[key] not in ('', None) else default
+        except (TypeError, ValueError):
+            values[key] = default
     return values
 
 
@@ -54,8 +60,9 @@ def save_config(data):
         if key not in data:
             continue
         value = data[key]
-        if key == 'link_hours':
-            value = str(max(1, min(int(value or DEFAULT_LINK_HOURS), 168)))
+        if key in NUMBER_DEFAULTS:
+            default, lo, hi = NUMBER_DEFAULTS[key]
+            value = str(max(lo, min(int(value if value not in ('', None) else default), hi)))
         Setting.update_or_create(name=name, value=(value or '').strip() if isinstance(value, str) else value,
                                  encrypted=encrypted, category='xpam_approval')
 
@@ -183,7 +190,7 @@ def notify(ticket):
         logger.warning('XPAM approval chat messages for %s not queued: %s', ticket, e)
 
 
-def send_for_ticket(ticket_id):
+def send_for_ticket(ticket_id, prefix=''):
     from orgs.utils import tmp_to_root_org
     from tickets.models import Ticket
     with tmp_to_root_org():
@@ -191,6 +198,8 @@ def send_for_ticket(ticket_id):
         if not ticket or ticket.status != 'open':
             return {}
         title, rows, reason = _summary(ticket)
+        if prefix:
+            title = f'{prefix}: {title}'
         link = _approval_link(ticket, _page_content(ticket))
     results = {}
     for channel, url, payload in deliveries(title, rows, reason, link):

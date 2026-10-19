@@ -171,6 +171,9 @@ class JITApprovalChannelsViewSet(viewsets.ViewSet):
             'telegram_token_set': bool(config.get('telegram_token')),
             'telegram_chat': config.get('telegram_chat') or '',
             'link_hours': config.get('link_hours'),
+            'remind_minutes': config.get('remind_minutes'),
+            'escalate_minutes': config.get('escalate_minutes'),
+            'expire_hours': config.get('expire_hours'),
             'direct_approve': bool(direct.cleaned_value) if direct else bool(dj_settings.TICKETS_DIRECT_APPROVE),
             'site_url': dj_settings.SITE_URL,
         }
@@ -193,8 +196,9 @@ class JITApprovalChannelsViewSet(viewsets.ViewSet):
                 out[key] = value
         if 'telegram_chat' in data:
             out['telegram_chat'] = str(data.get('telegram_chat') or '').strip()[:64]
-        if data.get('link_hours') not in (None, ''):
-            out['link_hours'] = int(data['link_hours'])
+        for key in ('link_hours', 'remind_minutes', 'escalate_minutes', 'expire_hours'):
+            if data.get(key) not in (None, ''):
+                out[key] = int(data[key])
         merged = dict(current)
         merged.update(out)
         return out, merged

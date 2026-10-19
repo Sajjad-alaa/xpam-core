@@ -4,7 +4,7 @@ from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from ..jit import selfservice
+from ..jit import approvals, selfservice
 
 __all__ = ['JITAccessViewSet']
 
@@ -79,3 +79,24 @@ class JITAccessViewSet(viewsets.ViewSet):
         except selfservice.SelfServiceError as e:
             return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
         return Response({'ok': True})
+
+    @action(methods=['get'], detail=False)
+    def approvals(self, request):
+        """Requests waiting for the current user's approval."""
+        return Response(approvals.pending_for(request.user))
+
+    @action(methods=['post'], detail=True)
+    def approve(self, request, pk=None):
+        return self._decide(request, pk, 'approve')
+
+    @action(methods=['post'], detail=True)
+    def reject(self, request, pk=None):
+        return self._decide(request, pk, 'reject')
+
+    @staticmethod
+    def _decide(request, pk, act):
+        try:
+            ticket = approvals.decide(request.user, pk, act, request.data.get('comment') or '')
+        except approvals.ApprovalError as e:
+            return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(_ticket_brief(ticket))

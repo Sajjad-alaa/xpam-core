@@ -14,6 +14,21 @@ from ..models import JITPolicy, JITAccount
 __all__ = ['JITPolicySerializer', 'JITAccountSerializer']
 
 
+class OptionalUsersField(JSONManyToManyField):
+    """Users selector where "nobody chosen" is allowed and means "use the approval flow"."""
+
+    def to_internal_value(self, data):
+        if not data or (isinstance(data, dict) and data.get('type') == 'ids' and not data.get('ids')):
+            return {}
+        return super().to_internal_value(data)
+
+    def to_representation(self, manager):
+        value = getattr(manager, 'value', manager)
+        if not isinstance(value, dict) or not value.get('type'):
+            return {'type': 'ids', 'ids': []}
+        return super().to_representation(manager)
+
+
 class JITPolicySerializer(BulkOrgResourceModelSerializer):
     mode = LabeledChoiceField(choices=JITPolicy.Mode.choices, default=JITPolicy.Mode.per_session,
                               label=_('Account lifetime'))
@@ -22,6 +37,7 @@ class JITPolicySerializer(BulkOrgResourceModelSerializer):
     scope = LabeledChoiceField(choices=JITPolicy.Scope.choices, default=JITPolicy.Scope.all,
                                label=_('Applies to'))
     users = JSONManyToManyField(label=_('Users'), required=False)
+    approvers = OptionalUsersField(label=_('Approvers'), required=False, allow_null=True)
     assets = JSONManyToManyField(label=_('Assets'), required=False)
     permissions = ObjectRelatedField(
         source='asset_permissions', many=True, required=False,
@@ -46,7 +62,7 @@ class JITPolicySerializer(BulkOrgResourceModelSerializer):
             'privileged', 'linux_shell', 'linux_groups', 'windows_groups', 'remove_home',
             'scope', 'users', 'assets', 'priority', 'is_active', 'permissions',
             'jit_only', 'self_service', 'max_hours', 'require_reason', 'auto_approve', 'auto_approve_max_hours',
-            'auto_approve_time_period', 'approvals_required', 'require_mfa', 'end_sessions_on_expiry',
+            'auto_approve_time_period', 'approvals_required', 'approvers', 'require_mfa', 'end_sessions_on_expiry',
             'expiry_warning_minutes', 'command_groups', 'command_action', 'credential_type',
             'db_privilege', 'db_custom_sql', 'device_create_commands', 'device_remove_commands', 'permissions_amount', 'live_accounts_amount',
             'comment', 'created_by', 'date_created', 'date_updated',
@@ -121,6 +137,9 @@ class JITPolicySerializer(BulkOrgResourceModelSerializer):
 
     validate_linux_groups = _validate_groups
     validate_windows_groups = _validate_groups
+
+    def validate_approvers(self, value):
+        return value or {}
 
     def validate(self, attrs):
         attrs = super().validate(attrs)

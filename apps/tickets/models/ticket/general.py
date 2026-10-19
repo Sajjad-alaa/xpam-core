@@ -245,10 +245,16 @@ class StatusMixin:
         return process_map
 
     def exclude_applicant(self, assignees, applicant=None):
+        # XPAM: nobody approves their own request; without other approvers the administrators approve
         applicant = applicant if applicant else self.applicant
-        if len(assignees) != 1:
-            assignees = set(assignees) - {applicant, }
-        return list(assignees)
+        others = list(set(assignees) - {applicant, })
+        if others or not applicant:
+            return others
+        from users.models import User
+        org = Organization.get_instance(self.org_id) if self.org_id else None
+        admins = set(org.admins if org else []) | set(User.get_super_admins())
+        admins = [u for u in admins if u != applicant and u.is_valid]
+        return admins or list(assignees)
 
     def create_process_steps_by_flow(self):
         org_id = self.flow.org_id

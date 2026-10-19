@@ -159,36 +159,97 @@ def _comment(ticket, body, kind='common'):
         logger.debug('JIT ticket comment failed: %s', e)
 
 
-def require_second_approval(ticket):
-    """Policies with "two approvers": add a second approval step (someone other than the first)."""
+MAX_LEVELS = 5  # TicketLevel
+
+
+def _approver_ids(policy, ticket):
+    """Users the rule names as approvers (members of the ticket's organization), or None for "the flow"."""
+    value = policy.approvers.value if policy else None
+    if not isinstance(value, dict) or not value.get('type'):
+        return None
+    from users.models import User
+    from common.db.fields import RelatedManager
+    from orgs.models import Organization
+    org = Organization.get_instance(ticket.org_id)
+    qs = User.get_org_users(org=org).filter(is_active=True)
+    with tmp_to_org(org):
+        for q in RelatedManager.get_to_filter_qs(value, User):
+            qs = qs.filter(q)
+    return list(qs.distinct().values_list('id', flat=True)[:500])
+
+
+def route_approvers(ticket):
+    """
+    Build the approval steps from the rules of the requested assets:
+    - each rule with its own approvers gets a step with those people (assets of several teams: each
+      team approves its part, one after the other);
+    - assets whose rule names nobody keep the approval flow's first level;
+    - "two approvers": a second step with the same people (someone other than the first approver);
+    - never the requester; without anybody else the administrators approve.
+    """
     from tickets.models import TicketAssignee, TicketStep
     try:
         mapping = ticket_policies(ticket)
     except Exception as e:
-        logger.warning('JIT approval check of %s failed: %s', ticket, e)
+        logger.warning('JIT approval routing of %s failed: %s', ticket, e)
         return
-    if not any(p and p.approvals_required >= 2 for p in mapping.values()):
-        return
+    policies = [p for p in dict.fromkeys(p for p in mapping.values() if p)]
+    custom = [(p, _approver_ids(p, ticket)) for p in policies]
     steps = list(TicketStep.objects.filter(ticket=ticket).order_by('level'))
-    if not steps or len(steps) >= 2:
+    flow_sets = [[uid for uid in st.ticket_assignees.values_list('assignee_id', flat=True)
+                  if uid != ticket.applicant_id] or _admin_ids(ticket) for st in steps]
+    two = any(p.approvals_required >= 2 for p in policies)
+    if not any(ids is not None for _p, ids in custom):
+        # the approval flow as it is; "two approvers" adds a second step when the flow has only one
+        if two and len(flow_sets) == 1:
+            sets = flow_sets * 2
+        else:
+            return
+    else:
+        sets = []
+        uses_flow = any(p is None for p in mapping.values()) or any(ids is None for _p, ids in custom)
+        if uses_flow:
+            sets.extend(flow_sets)
+        for policy, ids in sorted(custom, key=lambda item: item[0].priority):
+            if ids is None:
+                continue
+            group = [uid for uid in ids if uid != ticket.applicant_id] or _admin_ids(ticket)
+            for _i in range(2 if policy.approvals_required >= 2 else 1):
+                sets.append(group)
+        if two and len(sets) == 1:
+            sets = sets * 2
+    sets = [g for g in sets if g]
+    if not sets:
         return
-    first = steps[0]
+    if len(sets) > MAX_LEVELS:
+        merged = list(dict.fromkeys(uid for group in sets[MAX_LEVELS - 1:] for uid in group))
+        sets = sets[:MAX_LEVELS - 1] + [merged]
+    with transaction.atomic():
+        TicketStep.objects.filter(ticket=ticket).delete()
+        for level, group in enumerate(sets, start=1):
+            step = TicketStep.objects.create(ticket=ticket, level=level, status='active' if level == 1 else 'pending')
+            TicketAssignee.objects.bulk_create([TicketAssignee(assignee_id=uid, step=step) for uid in group])
+        if ticket.approval_step != 1:
+            ticket.approval_step = 1
+            ticket.save(update_fields=['approval_step'])
+    if len(sets) > 1 or any(ids is not None for _p, ids in custom):
+        names = ', '.join(p.name for p, ids in custom if ids is not None) or '-'
+        _comment(ticket, _('Approval route: %(n)s step(s); approvers from the just-in-time rules: %(names)s') % {
+            'n': len(sets), 'names': names})
+
+
+def _admin_ids(ticket):
     from orgs.models import Organization
     from users.models import User
-    first_ids = list(first.ticket_assignees.values_list('assignee_id', flat=True))
     org = Organization.get_instance(ticket.org_id)
-    candidates = list(first_ids) + [u.id for u in (org.admins if org else [])] + \
-        [u.id for u in User.get_super_admins()]
-    candidates = [uid for uid in dict.fromkeys(candidates) if uid != ticket.applicant_id]
-    second = TicketStep.objects.create(ticket=ticket, level=first.level + 1)
-    TicketAssignee.objects.bulk_create([TicketAssignee(assignee_id=uid, step=second) for uid in candidates])
-    if len(candidates) < 2:
-        logger.warning('JIT: %s needs two approvers but only one person can approve', ticket)
-        _comment(ticket, _('Two approvals are required by the just-in-time policy, but only one person can '
-                           'approve: add another approver to the approval flow'))
-    else:
-        _comment(ticket, _('Two approvals are required by the just-in-time policy: a second person approves '
-                           'after the first'))
+    admins = set(org.admins if org else []) | set(User.get_super_admins())
+    ids = [u.id for u in admins if u.id != ticket.applicant_id and u.is_valid]
+    return ids
+
+
+def require_second_approval(ticket):
+    """Kept for compatibility: the routing above handles "two approvers"."""
+    route_approvers(ticket)
 
 
 def drop_first_approver(ticket, step):
@@ -310,14 +371,16 @@ def my_access(user):
         for t in ApplyAssetTicket.objects.filter(applicant=user, status='closed',
                                                  date_updated__gt=now - timezone.timedelta(days=7)) \
                 .order_by('-date_updated')[:10]:
+            from .approvals import decision_note
             recent.append({'id': str(t.id), 'title': t.title, 'state': t.state, 'auto': t.apply_jit_auto,
-                           'date_updated': t.date_updated})
+                           'date_updated': t.date_updated, 'note': decision_note(t)})
         accounts = [{
             'id': str(j.id), 'username': j.username, 'asset': j.asset_display, 'asset_id': str(j.asset_id or ''),
             'mode': j.mode, 'status': j.status, 'date_ready': j.date_ready, 'date_expired': j.date_expired,
         } for j in JITAccount.objects.filter(user=user, status__in=['pending', 'pushing', 'ready'])]
+    from .approvals import pending_count
     return {'grants': grants, 'pending': pending, 'recent': recent, 'accounts': accounts,
-            'server_time': now}
+            'approvals_waiting': pending_count(user), 'server_time': now}
 
 
 def _own_grant(user, perm_id):
