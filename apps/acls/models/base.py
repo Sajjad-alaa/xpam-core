@@ -114,9 +114,14 @@ class UserAssetAccountBaseACL(OrgModelMixin, UserBaseACL):
         if account and not account_username:
             account_username = account.username
         if account_username:
-            q &= models.Q(accounts__contains=account_username) | \
-                 models.Q(accounts__contains='*') | \
-                 models.Q(accounts__contains='@ALL')
+            account_q = models.Q(accounts__contains=account_username) | \
+                models.Q(accounts__contains='*') | \
+                models.Q(accounts__contains='@ALL')
+            # XPAM: rules written for just-in-time accounts ("@JIT", "@JIT:<policy>")
+            from accounts.jit.commands import markers_for_account
+            for name in markers_for_account(account):
+                account_q |= models.Q(accounts__contains=name)
+            q &= account_q
         if kwargs:
             q &= models.Q(**kwargs)
         queryset = queryset.filter(q)

@@ -11,6 +11,7 @@ approved window: user the asset, and removed when that permission ends, is delet
 import uuid
 
 from django.db import transaction
+from django.db.models import Q
 from django.utils import timezone
 from django.utils.translation import gettext as _, gettext_noop
 
@@ -18,7 +19,7 @@ from common.utils import get_logger
 from common.utils.lock import DistributedLock
 from orgs.utils import tmp_to_org, tmp_to_root_org
 from .naming import build_username, generate_password, JITNameError
-from .policy import PolicyMatcher, select_policy, push_params, remove_params, asset_supports_jit
+from .policy import PolicyMatcher, select_policy, push_params, remove_params, asset_supports_jit, target_kind
 
 logger = get_logger(__name__)
 
@@ -38,8 +39,27 @@ def _run_automation(tp, task_name, snapshot):
     return quickstart_automation_by_snapshot(task_name, tp, snapshot)
 
 
-def _push(account, policy):
-    """Push `account` to its asset now, in this process. Returns (ok, error)."""
+def _push(account, policy, valid_until=None):
+    """Create `account` on its asset now, in this process. Returns (ok, error)."""
+    kind = target_kind(account.asset)
+    if kind in ('database', 'device'):
+        from .targets import create_database_account, create_device_account, TargetError
+        try:
+            if kind == 'database':
+                valid_until = valid_until or timezone.now() + timezone.timedelta(days=7)
+                create_database_account(account.asset, account.username, account.secret, policy, valid_until)
+            else:
+                create_device_account(account.asset, account.username, account.secret, policy)
+            return True, ''
+        except TargetError as e:
+            return False, str(e)
+        except Exception as e:
+            logger.exception('JIT %s account %s failed', kind, account)
+            return False, str(e)
+    return _push_host(account, policy)
+
+
+def _push_host(account, policy):
     from accounts.const import AutomationTypes, ChangeSecretRecordStatusChoice
     from accounts.models import PushSecretRecord
     snapshot = {
@@ -63,9 +83,28 @@ def _push(account, policy):
     return False, str(error)
 
 
-def _create_account_row(policy, asset, username, secret):
+def username_for(policy, user, asset, new_session=False):
+    """The account name on `asset` (databases: letters, digits and "_" only)."""
+    from .targets import db_username
+    name = build_username(policy, user, new_session=new_session)
+    return db_username(name) if target_kind(asset) == 'database' else name
+
+
+def _new_secret(policy, asset, username):
+    """(secret_type, secret): an SSH key when the policy asks for one on Linux/Unix, else a password."""
+    if policy.credential_type == 'ssh_key' and target_kind(asset) == 'host' and asset.platform.type != 'windows':
+        from common.utils.encode import ssh_key_gen
+        private_key, _public = ssh_key_gen(length=3072, type='rsa', username=username)
+        return 'ssh_key', private_key
+    if target_kind(asset) == 'device':
+        from .naming import DEVICE_PASSWORD_SPECIALS
+        return 'password', generate_password(specials=DEVICE_PASSWORD_SPECIALS)
+    return 'password', generate_password()
+
+
+def _create_account_row(policy, asset, username, secret, secret_type='password'):
     from accounts.models import Account
-    existing = Account.objects.filter(asset=asset, username=username, secret_type='password').first()
+    existing = Account.objects.filter(asset=asset, username=username).first()
     if existing and existing.source != 'jit':
         raise JITError(_('An account named "%(name)s" already exists on %(asset)s and is not managed by '
                          'just-in-time access') % {'name': username, 'asset': asset})
@@ -73,13 +112,14 @@ def _create_account_row(policy, asset, username, secret):
     # never is one (it may not exist on the asset yet); its sudo/Administrators rights come from the
     # policy and are recorded on the JIT record.
     if existing:
+        existing.secret_type = secret_type
         existing.secret = secret
         existing.privileged = False
         existing.is_active = True
         existing.save()
         return existing
     return Account.objects.create(
-        asset=asset, username=username, name=f'JIT-{username}', secret_type='password',
+        asset=asset, username=username, name=f'JIT-{username}', secret_type=secret_type,
         secret=secret, privileged=False, source='jit', is_active=True,
         org_id=asset.org_id,
     )
@@ -88,19 +128,23 @@ def _create_account_row(policy, asset, username, secret):
 def _provision(policy, user, asset, username, perm, mode):
     """Create the account in XPAM, push it to the asset, and record it. Raises JITError."""
     from accounts.models import JITAccount
-    secret = generate_password()
+    secret_type, secret = _new_secret(policy, asset, username)
     with transaction.atomic():
-        account = _create_account_row(policy, asset, username, secret)
+        account = _create_account_row(policy, asset, username, secret, secret_type)
         jit = JITAccount.objects.create(
             policy=policy, mode=mode, user=user, user_display=str(user) if user else '',
             asset=asset, asset_display=str(asset), account=account, username=username,
+            kind=target_kind(asset) or 'host',
             privileged=policy.privileged, permission_id=perm.id if perm else None,
             date_expired=perm.date_expired if (perm and mode != policy.Mode.per_session) else None,
             status=JITAccount.Status.pushing, org_id=asset.org_id,
         )
         account.source_id = str(jit.id)
         account.save(update_fields=['source_id'])
-    ok, error = _push(account, policy)
+    valid_until = None
+    if jit.date_expired:
+        valid_until = jit.date_expired + timezone.timedelta(hours=1)
+    ok, error = _push(account, policy, valid_until)
     if not ok:
         jit.set_status(JITAccount.Status.failed, error)
         # Do not leave a half-created account behind
@@ -123,7 +167,7 @@ def provision_for_connection(user, asset):
         if not policy:
             raise JITError(_('No just-in-time policy gives you an account on this asset'))
         try:
-            username = build_username(policy, user, new_session=True)
+            username = username_for(policy, user, asset, new_session=True)
         except JITNameError as e:
             raise JITError(str(e))
 
@@ -171,9 +215,9 @@ def account_for_token(token):
 
 # ---------------------------------------------------------------- removal
 
-def _schedule_release(jit_id, countdown=0):
+def _schedule_release(jit_id, countdown=0, reason=''):
     from accounts.tasks.jit import jit_release_task
-    jit_release_task.apply_async(args=(str(jit_id),), countdown=countdown)
+    jit_release_task.apply_async(args=(str(jit_id),), kwargs={'reason': str(reason)}, countdown=countdown)
 
 
 def release(jit, reason=''):
@@ -191,7 +235,7 @@ def _release(jit, reason=''):
         # The asset is gone and its accounts with it
         jit.set_status(JITAccount.Status.removed, reason)
         return True
-    if jit.username.lower() in ('root', 'administrator'):
+    if jit.username.lower() in ('root', 'administrator', 'admin', 'sa', 'sys', 'system', 'postgres', 'mysql'):
         jit.set_status(JITAccount.Status.remove_failed, 'Refusing to remove a system account')
         return False
 
@@ -211,21 +255,37 @@ def _release(jit, reason=''):
             return True
 
         jit.set_status(JITAccount.Status.removing, reason)
-        asset_id = str(jit.asset_id)
-        snapshot = {
-            'assets': [asset_id],
-            'accounts': [{'asset': asset_id, 'username': jit.username}],
-            'delete': 'both',
-            'params': remove_params(jit.policy),
-        }
+        end_sessions(jit)
+        kind = jit.kind or target_kind(jit.asset) or 'host'
         error = ''
-        try:
-            _run_automation(AutomationTypes.remove_account,
-                            f"{gettext_noop('Just-in-time account removal')} {uuid.uuid4().hex[:8]}",
-                            snapshot)
-        except Exception as e:
-            logger.exception('JIT removal of %s failed to run', jit)
-            error = str(e)
+        if kind in ('database', 'device'):
+            from .targets import remove_database_account, remove_device_account, TargetError
+            try:
+                if kind == 'database':
+                    remove_database_account(jit.asset, jit.username)
+                else:
+                    remove_device_account(jit.asset, jit.username, jit.policy)
+                Account.objects.filter(asset_id=jit.asset_id, username=jit.username, source='jit').delete()
+            except TargetError as e:
+                error = str(e)
+            except Exception as e:
+                logger.exception('JIT removal of %s failed', jit)
+                error = str(e)
+        else:
+            asset_id = str(jit.asset_id)
+            snapshot = {
+                'assets': [asset_id],
+                'accounts': [{'asset': asset_id, 'username': jit.username}],
+                'delete': 'both',
+                'params': remove_params(jit.policy),
+            }
+            try:
+                _run_automation(AutomationTypes.remove_account,
+                                f"{gettext_noop('Just-in-time account removal')} {uuid.uuid4().hex[:8]}",
+                                snapshot)
+            except Exception as e:
+                logger.exception('JIT removal of %s failed to run', jit)
+                error = str(e)
         still_there = Account.objects.filter(asset_id=jit.asset_id, username=jit.username, source='jit').exists()
         jit.attempts += 1
         jit.save(update_fields=['attempts'])
@@ -236,6 +296,26 @@ def _release(jit, reason=''):
         jit.set_status(JITAccount.Status.removed, reason)
         logger.info('JIT account %s removed from %s (%s)', jit.username, jit.asset_display, reason)
         return True
+
+
+def end_sessions(jit):
+    """End the XPAM sessions that still use this just-in-time account (the access is over)."""
+    from terminal.models import Session
+    if not jit.account_id:
+        return 0
+    if jit.policy and not jit.policy.end_sessions_on_expiry:
+        return 0
+    try:
+        from terminal.api.session.task import create_sessions_tasks
+        ids = list(Session.objects.filter(account_id=str(jit.account_id), is_finished=False)
+                   .values_list('id', flat=True))
+        if ids:
+            create_sessions_tasks(ids, 'XPAM just-in-time access')
+            logger.info('JIT %s: ending %s live session(s)', jit, len(ids))
+        return len(ids)
+    except Exception as e:
+        logger.warning('JIT %s: live sessions could not be ended: %s', jit, e)
+        return 0
 
 
 def release_if_idle(jit):
@@ -347,6 +427,9 @@ def reconcile():
             if release_if_idle(jit):
                 summary['idle'] += 1
 
+        # Per connection accounts whose access ended while a session is still open
+        summary['ended'] = end_expired_per_session()
+
         for jit in JITAccount.objects.filter(status__in=[JITAccount.Status.remove_failed,
                                                          JITAccount.Status.failed], attempts__lt=5,
                                              date_updated__lt=timezone.now() - timezone.timedelta(minutes=10)):
@@ -354,6 +437,64 @@ def reconcile():
                 _schedule_release(jit.id)
                 summary['retry'] += 1
     return summary
+
+
+def end_expired_per_session():
+    """Per connection accounts outlive their session only until the access behind them ends."""
+    from accounts.models import JITAccount
+    from perms.models import AssetPermission
+    now = timezone.now()
+    count = 0
+    with tmp_to_root_org():
+        for jit in JITAccount.objects.filter(mode='per_session', status=JITAccount.Status.ready) \
+                .select_related('policy', 'user', 'asset'):
+            perm = AssetPermission.objects.filter(id=jit.permission_id).first() if jit.permission_id else None
+            if perm and perm.is_active and perm.date_start <= now <= perm.date_expired:
+                continue
+            # another valid permission may still give the user the account
+            if jit.user and jit.asset:
+                with tmp_to_org(jit.org_id):
+                    policy, other = select_policy(jit.user, jit.asset)
+                if policy and other:
+                    JITAccount.objects.filter(id=jit.id).update(permission_id=other.id)
+                    continue
+            _schedule_release(jit.id, reason=_('Access ended'))
+            count += 1
+    return count
+
+
+def expiring_soon():
+    """[(user, permission, minutes)] whose time-boxed access ends within the policy's warning time."""
+    from django.core.cache import cache
+    from perms.models import AssetPermission
+    now = timezone.now()
+    matcher = PolicyMatcher()
+    if not matcher:
+        return []
+    longest = max([p.expiry_warning_minutes for p in matcher.by_id.values()] + [0])
+    if not longest:
+        return []
+    result = []
+    with tmp_to_root_org():
+        perms = AssetPermission.objects.filter(
+            is_active=True, date_start__lte=now, date_expired__gt=now,
+            date_expired__lte=now + timezone.timedelta(minutes=longest),
+        ).filter(Q(from_ticket=True) | Q(jit_policy__isnull=False))
+        for perm in perms:
+            assets = list(perm.get_all_assets()[:20])
+            for user in perm.get_all_users().filter(is_active=True):
+                policy = next((matcher.policy_for(perm, user, a) for a in assets
+                               if matcher.policy_for(perm, user, a)), None)
+                if not policy or not policy.expiry_warning_minutes:
+                    continue
+                left = (perm.date_expired - now).total_seconds() / 60
+                if left > policy.expiry_warning_minutes:
+                    continue
+                key = f'xpam-jit-warned:{perm.id}:{user.id}:{int(perm.date_expired.timestamp())}'
+                if not cache.add(key, 1, timeout=24 * 3600):
+                    continue
+                result.append((user, perm, assets, max(1, round(left))))
+    return result
 
 
 def provision_granted(policy_id, user_id, asset_id, perm_id):
@@ -369,7 +510,7 @@ def provision_granted(policy_id, user_id, asset_id, perm_id):
     if not (policy and user and asset and perm):
         return
     with tmp_to_org(asset.org_id):
-        username = build_username(policy, user)
+        username = username_for(policy, user, asset)
         with _lock(asset.id, username):
             if JITAccount.objects.filter(policy=policy, user=user, asset=asset, status__in=[
                 JITAccount.Status.ready, JITAccount.Status.pushing

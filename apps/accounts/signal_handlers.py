@@ -163,6 +163,22 @@ def on_session_finished_release_jit(sender, instance, created=False, **kwargs):
 @receiver(post_delete, sender='accounts.JITPolicy')
 def on_jit_policy_change(sender, instance=None, **kwargs):
     _schedule_jit_reconcile()
+    if instance is not None:
+        deleted = kwargs.get('signal') is post_delete
+        transaction.on_commit(lambda: _safe_sync_commands(instance, deleted))
+
+
+def _safe_sync_commands(policy, deleted=False):
+    from accounts.jit.commands import sync
+    try:
+        sync(policy, deleted=deleted)
+    except Exception as e:
+        logger.warning('JIT command filter of policy %s could not be updated: %s', policy, e)
+
+
+def _on_jit_command_groups_change(sender, instance=None, action=None, **kwargs):
+    if action in ('post_add', 'post_remove', 'post_clear') and instance is not None:
+        transaction.on_commit(lambda: _safe_sync_commands(instance))
 
 
 @receiver(post_save, sender='perms.AssetPermission')
@@ -185,6 +201,9 @@ def _connect_jit_m2m_signals():
         m2m_changed.connect(_on_m2m_change, sender=getattr(AssetPermission, field).through,
                             dispatch_uid=f'xpam-jit-perm-{field}')
     m2m_changed.connect(_on_m2m_change, sender=User.groups.through, dispatch_uid='xpam-jit-user-groups')
+    from accounts.models import JITPolicy
+    m2m_changed.connect(_on_jit_command_groups_change, sender=JITPolicy.command_groups.through,
+                        dispatch_uid='xpam-jit-command-groups')
     # policy rules can select assets by node
     from assets.models import Asset
     m2m_changed.connect(_on_m2m_change, sender=Asset.nodes.through, dispatch_uid='xpam-jit-asset-nodes')

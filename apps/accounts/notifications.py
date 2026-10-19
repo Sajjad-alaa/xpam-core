@@ -126,3 +126,35 @@ class ChangeSecretReportMsg(UserMessage):
     def gen_test_msg(cls):
         user = User.objects.first()
         return cls(user, {})
+
+
+class JITAccessEndingMsg(UserMessage):
+    """XPAM: time-boxed access ends soon."""
+    subject = _('Your access ends soon')
+
+    def __init__(self, user, assets, date_expired, minutes):
+        self.assets = assets
+        self.date_expired = date_expired
+        self.minutes = minutes
+        super().__init__(user)
+
+    def get_html_msg(self) -> dict:
+        from django.utils.html import escape
+        from common.utils.timezone import as_current_tz
+        names = ', '.join(escape(str(a)) for a in self.assets[:10])
+        if len(self.assets) > 10:
+            names += ' …'
+        end = as_current_tz(self.date_expired).strftime('%Y-%m-%d %H:%M')
+        message = str(_(
+            'Hello %(name)s,<br><br>your access to <b>%(assets)s</b> ends at <b>%(end)s</b> '
+            '(in about %(minutes)s minutes). Open sessions are ended and just-in-time accounts are '
+            'removed at that time.<br><br>To keep working, open the workspace, go to <b>Access</b> and '
+            'choose <b>Extend</b>.'
+        )) % {'name': escape(self.user.name), 'assets': names, 'end': end, 'minutes': self.minutes}
+        return {'subject': str(self.subject), 'message': message}
+
+    @classmethod
+    def gen_test_msg(cls):
+        from django.utils import timezone
+        user = User.objects.first()
+        return cls(user, ['web-01'], timezone.now(), 15)

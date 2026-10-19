@@ -6,6 +6,7 @@ from rest_framework import serializers
 
 from common.serializers.fields import JSONManyToManyField, LabeledChoiceField, ObjectRelatedField
 from orgs.mixins.serializers import BulkOrgResourceModelSerializer
+from acls.models import CommandGroup
 from perms.models import AssetPermission
 from ..jit.naming import validate_username, JITNameError
 from ..models import JITPolicy, JITAccount
@@ -26,6 +27,15 @@ class JITPolicySerializer(BulkOrgResourceModelSerializer):
         source='asset_permissions', many=True, required=False,
         queryset=AssetPermission.objects, label=_('Linked asset permissions'),
     )
+    command_groups = ObjectRelatedField(
+        many=True, required=False, queryset=CommandGroup.objects, label=_('Command groups')
+    )
+    command_action = LabeledChoiceField(choices=JITPolicy.CommandAction.choices,
+                                        default=JITPolicy.CommandAction.reject, label=_('Command action'))
+    credential_type = LabeledChoiceField(choices=JITPolicy.CredentialType.choices,
+                                         default=JITPolicy.CredentialType.password, label=_('Credential'))
+    db_privilege = LabeledChoiceField(choices=JITPolicy.DBPrivilege.choices,
+                                      default=JITPolicy.DBPrivilege.read_only, label=_('Database rights'))
     permissions_amount = serializers.SerializerMethodField(label=_('Permissions'))
     live_accounts_amount = serializers.SerializerMethodField(label=_('Live accounts'))
 
@@ -34,7 +44,11 @@ class JITPolicySerializer(BulkOrgResourceModelSerializer):
         fields = [
             'id', 'name', 'mode', 'username_mode', 'specific_username', 'username_prefix',
             'privileged', 'linux_shell', 'linux_groups', 'windows_groups', 'remove_home',
-            'scope', 'users', 'assets', 'priority', 'is_active', 'permissions', 'permissions_amount', 'live_accounts_amount',
+            'scope', 'users', 'assets', 'priority', 'is_active', 'permissions',
+            'jit_only', 'self_service', 'max_hours', 'require_reason', 'auto_approve', 'auto_approve_max_hours',
+            'auto_approve_time_period', 'approvals_required', 'require_mfa', 'end_sessions_on_expiry',
+            'expiry_warning_minutes', 'command_groups', 'command_action', 'credential_type',
+            'db_privilege', 'db_custom_sql', 'device_create_commands', 'device_remove_commands', 'permissions_amount', 'live_accounts_amount',
             'comment', 'created_by', 'date_created', 'date_updated',
         ]
         read_only_fields = ['created_by', 'date_created', 'date_updated']
@@ -51,6 +65,23 @@ class JITPolicySerializer(BulkOrgResourceModelSerializer):
                                            'with the account (otherwise kept as a backup)')},
             'priority': {'default': 50, 'help_text': _('When several policies match, the lowest value wins '
                                                        '(1-100)')},
+            'jit_only': {'help_text': _('Zero standing privilege: the users this policy covers see only the '
+                                        'just-in-time account on its assets, no shared accounts')},
+            'self_service': {'help_text': _('Users find the assets of this policy under "Access" in the workspace '
+                                            'and ask for time-boxed access themselves')},
+            'max_hours': {'help_text': _('Longest access a user can ask for at once')},
+            'auto_approve': {'help_text': _('Requests that fit the limits below are approved at once, '
+                                            'without waiting for an approver')},
+            'auto_approve_time_period': {'help_text': _('Leave empty for any time')},
+            'approvals_required': {'help_text': _('2 = a second person must also approve (four-eyes)')},
+            'require_mfa': {'help_text': _('Users verify their MFA before the just-in-time account is used')},
+            'expiry_warning_minutes': {'help_text': _('The user is told this long before the access ends; 0 = off')},
+            'db_custom_sql': {'help_text': _('One statement per line, ending with ";". Placeholders: {username}, '
+                                             '{database}')},
+            'device_create_commands': {'help_text': _('One command per line. Placeholders: {username}, {password}, '
+                                                      '{login_password} (enable password of the admin account)')},
+            'device_remove_commands': {'help_text': _('One command per line. Placeholders: {username}, '
+                                                      '{login_password}')},
         }
 
     @staticmethod
@@ -103,6 +134,26 @@ class JITPolicySerializer(BulkOrgResourceModelSerializer):
             raise serializers.ValidationError({
                 'username_mode': _('"Random per session" needs the account lifetime "Per connection"')
             })
+        max_hours = get('max_hours', 8) or 8
+        if not 1 <= max_hours <= 720:
+            raise serializers.ValidationError({'max_hours': _('Between 1 and 720 hours')})
+        if get('auto_approve', False):
+            auto_hours = get('auto_approve_max_hours', 4) or 0
+            if not 1 <= auto_hours <= max_hours:
+                raise serializers.ValidationError({'auto_approve_max_hours': _(
+                    'Between 1 hour and the longest access (%s hours)') % max_hours})
+            if (get('approvals_required', 1) or 1) > 1:
+                raise serializers.ValidationError({'auto_approve': _(
+                    'A policy cannot approve by itself and also ask for two approvers')})
+        if (get('approvals_required', 1) or 1) not in (1, 2):
+            raise serializers.ValidationError({'approvals_required': _('1 or 2')})
+        if not 0 <= (get('expiry_warning_minutes', 15) or 0) <= 240:
+            raise serializers.ValidationError({'expiry_warning_minutes': _('Between 0 and 240 minutes')})
+        if get('db_privilege', 'read_only') == 'custom' and not (get('db_custom_sql') or '').strip():
+            raise serializers.ValidationError({'db_custom_sql': _('Enter the SQL that gives the rights')})
+        if (get('device_create_commands') or '').strip() and not (get('device_remove_commands') or '').strip():
+            raise serializers.ValidationError({'device_remove_commands': _(
+                'Enter the commands that remove the account again')})
         scope = get('scope', JITPolicy.Scope.all)
         if mode == JITPolicy.Mode.approved_window:
             if scope == JITPolicy.Scope.all:
@@ -160,7 +211,7 @@ class JITAccountSerializer(serializers.ModelSerializer):
     class Meta:
         model = JITAccount
         fields = [
-            'id', 'policy', 'mode', 'user', 'asset', 'username', 'privileged', 'status', 'error',
+            'id', 'policy', 'mode', 'user', 'asset', 'username', 'kind', 'privileged', 'status', 'error',
             'attempts', 'date_created', 'date_ready', 'date_expired', 'date_removed', 'org_id',
         ]
         read_only_fields = fields

@@ -29,6 +29,20 @@ class JITPolicy(JMSOrgBaseModel):
         random_fixed = 'random_fixed', _('Random, fixed per user')
         random_session = 'random_session', _('Random per session')
 
+    class CommandAction(models.TextChoices):
+        reject = 'reject', _('Block the command')
+        warning = 'warning', _('Allow and warn')
+
+    class CredentialType(models.TextChoices):
+        password = 'password', _('Password')
+        ssh_key = 'ssh_key', _('SSH key (Linux/Unix)')
+
+    class DBPrivilege(models.TextChoices):
+        read_only = 'read_only', _('Read only')
+        read_write = 'read_write', _('Read and write')
+        admin = 'admin', _('Administrator')
+        custom = 'custom', _('Custom SQL')
+
     class Scope(models.TextChoices):
         linked = 'linked', _('Only the asset permissions linked to it')
         requests = 'requests', _('Approved access requests')
@@ -66,6 +80,37 @@ class JITPolicy(JMSOrgBaseModel):
         help_text=_('1-100, the lower the value will be match first'),
         validators=[MinValueValidator(1), MaxValueValidator(100)]
     )
+    # Zero standing privilege: users the policy covers get only the just-in-time account
+    jit_only = models.BooleanField(default=False, verbose_name=_('Just-in-time account only'))
+    # Self-service requests and approval
+    self_service = models.BooleanField(default=True, verbose_name=_('Users can request access'))
+    max_hours = models.PositiveIntegerField(default=8, verbose_name=_('Longest access (hours)'))
+    require_reason = models.BooleanField(default=True, verbose_name=_('Reason required'))
+    auto_approve = models.BooleanField(default=False, verbose_name=_('Approve automatically'))
+    auto_approve_max_hours = models.PositiveIntegerField(default=4, verbose_name=_('Approve automatically up to (hours)'))
+    auto_approve_time_period = models.JSONField(default=list, blank=True, verbose_name=_('Approve automatically during'))
+    approvals_required = models.PositiveSmallIntegerField(default=1, verbose_name=_('Approvals required'))
+    # Security
+    require_mfa = models.BooleanField(default=False, verbose_name=_('MFA when connecting'))
+    end_sessions_on_expiry = models.BooleanField(default=True, verbose_name=_('End live sessions when access ends'))
+    expiry_warning_minutes = models.PositiveIntegerField(default=15, verbose_name=_('Warn before access ends (minutes)'))
+    command_groups = models.ManyToManyField(
+        'acls.CommandGroup', blank=True, related_name='jit_policies', verbose_name=_('Command groups')
+    )
+    command_action = models.CharField(
+        max_length=16, choices=CommandAction.choices, default=CommandAction.reject, verbose_name=_('Command action')
+    )
+    credential_type = models.CharField(
+        max_length=16, choices=CredentialType.choices, default=CredentialType.password, verbose_name=_('Credential')
+    )
+    # Databases
+    db_privilege = models.CharField(
+        max_length=16, choices=DBPrivilege.choices, default=DBPrivilege.read_only, verbose_name=_('Database rights')
+    )
+    db_custom_sql = models.TextField(blank=True, default='', verbose_name=_('Custom SQL'))
+    # Network devices and other SSH devices
+    device_create_commands = models.TextField(blank=True, default='', verbose_name=_('Commands to create the account'))
+    device_remove_commands = models.TextField(blank=True, default='', verbose_name=_('Commands to remove the account'))
     is_active = models.BooleanField(default=True, verbose_name=_('Active'))
 
     class Meta:
@@ -83,6 +128,11 @@ class JITPolicy(JMSOrgBaseModel):
     @property
     def is_rule_based(self):
         return self.scope != self.Scope.linked
+
+    def in_auto_approve_window(self, now=None):
+        from common.utils.timezone import contains_time_period
+        periods = self.auto_approve_time_period or []
+        return contains_time_period(periods) if periods else True
 
     def applies_to_permission(self, perm):
         """The policy's rules cover this kind of permission (users and assets are checked separately)."""
@@ -123,6 +173,7 @@ class JITAccount(JMSOrgBaseModel):
         related_name='jit_records', verbose_name=_('Account')
     )
     username = models.CharField(max_length=128, verbose_name=_('Username'), db_index=True)
+    kind = models.CharField(max_length=16, default='host', verbose_name=_('Target'))
     privileged = models.BooleanField(default=False, verbose_name=_('Administrator rights'))
     permission_id = models.UUIDField(null=True, blank=True, verbose_name=_('Permission'))
     connection_tokens = models.JSONField(default=list, blank=True, verbose_name=_('Connection tokens'))

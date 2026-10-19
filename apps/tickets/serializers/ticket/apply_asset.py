@@ -42,7 +42,7 @@ class ApplyAssetSerializer(BaseApplyAssetSerializer, TicketApplySerializer):
             'apply_date_expired', 'comment', 'org_id'
         ]
         read_only_fields = TicketApplySerializer.Meta.read_only_fields + [
-            'apply_permission_name', 'apply_jit', 'apply_jit_display'
+            'apply_permission_name', 'apply_jit', 'apply_jit_display', 'apply_jit_auto'
         ]
         fields = TicketApplySerializer.Meta.fields_small + \
                  TicketApplySerializer.Meta.fields_m2m + writeable_fields + read_only_fields
@@ -85,16 +85,7 @@ class ApplyAssetSerializer(BaseApplyAssetSerializer, TicketApplySerializer):
 
     @staticmethod
     def get_apply_jit_display(obj):
-        value = getattr(obj, 'apply_jit', '') or 'auto'
-        if value == 'auto':
-            return str(_('Automatic (just-in-time policy rules)'))
-        if value == 'none':
-            return str(_('No just-in-time account'))
-        from accounts.models import JITPolicy
-        from orgs.utils import tmp_to_root_org
-        with tmp_to_root_org():
-            policy = JITPolicy.objects.filter(id=value).first()
-        return policy.name if policy else value
+        return obj.get_apply_jit_display()
 
     @classmethod
     def setup_eager_loading(cls, queryset):

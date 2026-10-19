@@ -155,7 +155,7 @@ class PermAssetDetailUtil:
         alias_action_bit_mapper, alias_date_expired_mapper = cls.parse_alias_action_date_expire(perms, asset)
         # XPAM: permissions with a just-in-time policy offer the @JIT account
         from accounts.jit.policy import jit_grant_for_perms
-        jit_actions, jit_expired = jit_grant_for_perms(perms, user, asset)
+        jit_actions, jit_expired, jit_only = jit_grant_for_perms(perms, user, asset)
         if jit_actions:
             alias_action_bit_mapper[AliasAccount.JIT.value] = (
                 alias_action_bit_mapper.get(AliasAccount.JIT.value, 0) | jit_actions
@@ -181,6 +181,9 @@ class PermAssetDetailUtil:
                 accounts.append(account)
         accounts.sort(key=lambda x: x.username)
         virtual_accounts.sort(key=lambda x: x.username)
+        if jit_actions and jit_only:
+            # XPAM zero standing privilege: only the just-in-time account is offered
+            return [a for a in virtual_accounts if a.username == AliasAccount.JIT.value]
         return accounts + virtual_accounts
 
     def check_perm_protocols(self, protocols):

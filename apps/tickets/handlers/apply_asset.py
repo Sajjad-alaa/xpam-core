@@ -12,7 +12,17 @@ logger = get_logger(__file__)
 class Handler(BaseHandler):
     ticket: ApplyAssetTicket
 
+    def _on_pending(self):
+        # XPAM: a just-in-time policy may approve the request by itself, or ask for two approvers
+        from accounts.jit.selfservice import try_auto_approve, require_second_approval
+        if try_auto_approve(self.ticket):
+            return
+        require_second_approval(self.ticket)
+        super()._on_pending()
+
     def _on_step_approved(self, step):
+        from accounts.jit.selfservice import drop_first_approver
+        drop_first_approver(self.ticket, step)
         is_finished = super()._on_step_approved(step)
         if is_finished:
             self._create_asset_permission()

@@ -17,6 +17,8 @@ RESERVED_USERNAMES = {
 LINUX_MAX = 32
 WINDOWS_MAX = 20
 PASSWORD_SPECIALS = '-_.!@#%^+='
+# Network device CLIs give meaning to "!", "?", "#" and similar characters
+DEVICE_PASSWORD_SPECIALS = '-_.'
 
 
 class JITNameError(ValueError):
@@ -74,12 +76,12 @@ def build_username(policy, user, new_session=False):
     return validate_username(clean_username(name))
 
 
-def generate_password(length=24):
+def generate_password(length=24, specials=PASSWORD_SPECIALS):
     """Meets the Windows complexity rules and is safe to pass through Ansible."""
-    alphabet = string.ascii_letters + string.digits + PASSWORD_SPECIALS
+    alphabet = string.ascii_letters + string.digits + specials
     while True:
         value = ''.join(secrets.choice(alphabet) for _ in range(length))
         if (any(c.islower() for c in value) and any(c.isupper() for c in value)
-                and any(c.isdigit() for c in value) and any(c in PASSWORD_SPECIALS for c in value)
+                and any(c.isdigit() for c in value) and any(c in specials for c in value)
                 and value[0].isalnum()):
             return value

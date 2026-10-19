@@ -7,7 +7,8 @@ from orgs.utils import tmp_to_root_org
 
 logger = get_logger(__file__)
 
-__all__ = ['jit_release_task', 'jit_release_if_idle_task', 'jit_provision_task', 'jit_reconcile_task']
+__all__ = ['jit_release_task', 'jit_release_if_idle_task', 'jit_provision_task', 'jit_reconcile_task',
+           'jit_expiry_task']
 
 
 @shared_task(queue='ansible', verbose_name=_('Remove just-in-time account'))
@@ -51,3 +52,32 @@ def jit_reconcile_task():
     if any(summary.values()):
         logger.info('JIT reconcile: %s', summary)
     return summary
+
+
+@shared_task(
+    verbose_name=_('Just-in-time access ending'),
+    description=_('Warns users shortly before their time-boxed access ends and ends it on time. '
+                  'Runs every minute.')
+)
+@register_as_period_task(interval=60)
+def jit_expiry_task():
+    from django.core.cache import cache
+    from django.utils import timezone
+    from accounts.jit.service import expiring_soon
+    from accounts.models import JITAccount
+    from accounts.notifications import JITAccessEndingMsg
+    from perms.models import AssetPermission
+    for user, perm, assets, minutes in expiring_soon():
+        try:
+            JITAccessEndingMsg(user, assets, perm.date_expired, minutes).publish()
+        except Exception as e:
+            logger.warning('JIT expiry warning for %s failed: %s', user, e)
+    # Access that just ended: reconcile now instead of waiting for the five-minute run
+    now = timezone.now()
+    with tmp_to_root_org():
+        ended = AssetPermission.objects.filter(
+            date_expired__gt=now - timezone.timedelta(seconds=90), date_expired__lte=now
+        ).values_list('id', flat=True)
+        live = JITAccount.objects.filter(permission_id__in=list(ended), status=JITAccount.Status.ready).exists()
+    if live and cache.add('xpam-jit-reconcile-scheduled', 1, timeout=120):
+        jit_reconcile_task.apply_async(countdown=1)

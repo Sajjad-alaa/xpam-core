@@ -3,14 +3,16 @@ from django.utils.translation import gettext_lazy as _
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
-from rest_framework import mixins
+from rest_framework import mixins, viewsets
+
+from rbac.permissions import RBACPermission
 
 from common.utils import is_uuid
 from orgs.mixins.api import OrgBulkModelViewSet, OrgGenericViewSet
 from ..models import JITPolicy, JITAccount
 from ..serializers.jit import JITPolicySerializer, JITAccountSerializer
 
-__all__ = ['JITPolicyViewSet', 'JITAccountViewSet']
+__all__ = ['JITPolicyViewSet', 'JITAccountViewSet', 'JITDashboardViewSet']
 
 
 class JITPolicyViewSet(OrgBulkModelViewSet):
@@ -81,6 +83,7 @@ class JITAccountViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, OrgGen
     ordering = ('-date_created',)
     rbac_perms = {
         'remove': 'accounts.delete_jitaccount',
+        'trail': 'accounts.view_jitaccount',
     }
 
     def get_queryset(self):
@@ -100,3 +103,49 @@ class JITAccountViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, OrgGen
             return Response({'msg': _('Already removed')})
         jit_release_task.delay(str(jit.id), reason=str(_('Removed by %s') % request.user))
         return Response({'msg': _('The account is being removed from the asset')})
+
+    @action(methods=['get'], detail=True, url_path='trail')
+    def trail(self, request, *args, **kwargs):
+        from ..jit.insights import trail
+        jit = self.get_object()
+        return Response({'id': str(jit.id), 'username': jit.username, 'asset': jit.asset_display,
+                         'user': jit.user_display, 'events': trail(jit)})
+
+
+class JITDashboardViewSet(viewsets.ViewSet):
+    """Zero standing privilege overview of the current organization."""
+    permission_classes = (RBACPermission,)
+    rbac_perms = {
+        'list': 'accounts.view_jitaccount',
+        'convert': 'perms.change_assetpermission',
+    }
+
+    def list(self, request):
+        from django.core.cache import cache
+        from orgs.utils import current_org
+        from ..jit.insights import dashboard
+        key = f'xpam-jit-dashboard:{current_org.id}'
+        data = None if request.query_params.get('refresh') else cache.get(key)
+        if data is None:
+            data = dashboard()
+            cache.set(key, data, 60)
+        return Response(data)
+
+    @action(methods=['post'], detail=False)
+    def convert(self, request):
+        """Take the standing accounts out of a permission; its users keep access just-in-time."""
+        from django.core.cache import cache
+        from orgs.utils import current_org
+        from perms.models import AssetPermission
+        from ..jit.insights import convert_to_jit, coverage_after_convert
+        perm = AssetPermission.objects.filter(id=request.data.get('permission')).first()
+        if not perm:
+            return Response({'detail': _('Permission not found')}, status=404)
+        policy = coverage_after_convert(perm)
+        if not policy and not request.data.get('force'):
+            return Response({'detail': _('No just-in-time policy covers the users and assets of this '
+                                         'permission; create one first or they lose access'),
+                             'code': 'no_policy'}, status=400)
+        removed = convert_to_jit(perm, request.user)
+        cache.delete(f'xpam-jit-dashboard:{current_org.id}')
+        return Response({'removed_accounts': removed, 'policy': policy.name if policy else None})

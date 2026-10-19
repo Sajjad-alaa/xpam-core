@@ -1075,7 +1075,7 @@ class ConnectionTokenViewSet(AuthFaceMixin, ExtraActionApiMixin, RootOrgViewMixi
         return {api_settings.NON_FIELD_ERRORS_KEY: [str(detail)]}
 
     def prepare_jit_account(self, raw_data):
-        return _jit_prepare(self.request.user, raw_data)
+        return _jit_prepare(self.request.user, raw_data, request=self.request)
 
     def create(self, request, *args, **kwargs):
         self.personal_credential_audit_context = None
@@ -1126,6 +1126,9 @@ class ConnectionTokenViewSet(AuthFaceMixin, ExtraActionApiMixin, RootOrgViewMixi
         jit_record = None
         if raw_data.get('account') == AliasAccount.JIT:
             jit_record, jit_error = self.prepare_jit_account(raw_data)
+            if jit_error == 'jit_mfa_required':
+                return Response({'code': 'jit_mfa_required',
+                                 'detail': _('Verify your MFA to use the just-in-time account')}, status=400)
             if jit_error:
                 return Response({'code': 'jit_account_failed', 'detail': jit_error}, status=400)
         try:
@@ -1174,7 +1177,7 @@ class ConnectionTokenViewSet(AuthFaceMixin, ExtraActionApiMixin, RootOrgViewMixi
         return response
 
 
-def _jit_prepare(user, raw_data):
+def _jit_prepare(user, raw_data, request=None):
     """(JITAccount, error) for a connection request that chose the @JIT account."""
     from accounts.jit.service import provision_for_connection, JITError
     asset_id = raw_data.get('asset')
@@ -1185,10 +1188,27 @@ def _jit_prepare(user, raw_data):
     asset = Asset.objects.filter(id=asset_id).first()
     if not asset:
         return None, _('Asset not found')
+    if request is not None and not _jit_mfa_ok(user, asset, request):
+        return None, 'jit_mfa_required'
     try:
         return provision_for_connection(user, asset), None
     except JITError as e:
         return None, str(e)
+
+
+def _jit_mfa_ok(user, asset, request):
+    """A policy may ask for MFA before its just-in-time account is used (verified in the last minutes)."""
+    import time
+    from accounts.jit.policy import select_policy
+    from authentication.const import ConfirmType
+    with tmp_to_org(asset.org_id):
+        policy, _perm = select_policy(user, asset)
+    if not policy or not policy.require_mfa:
+        return True
+    session = getattr(request, 'session', None) or {}
+    confirmed = session.get('CONFIRM_TYPE') == ConfirmType.MFA and \
+        int(session.get('CONFIRM_TIME') or 0) >= int(time.time()) - int(settings.SECURITY_MFA_VERIFY_TTL or 300)
+    return bool(confirmed)
 
 
 class SuperConnectionTokenViewSet(ConnectionTokenViewSet):
