@@ -100,3 +100,9 @@ class JITAccessViewSet(viewsets.ViewSet):
         except approvals.ApprovalError as e:
             return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
         return Response(_ticket_brief(ticket))
+
+    @action(methods=['get'], detail=False)
+    def coverage(self, request):
+        """For the request form: which chosen assets get a just-in-time account."""
+        split = lambda name: [i for i in (request.query_params.get(name) or '').split(',') if i.strip()]  # noqa
+        return Response(selfservice.coverage(request.user, split('assets'), split('nodes')))

@@ -16,7 +16,7 @@ from .policy import PolicyMatcher, asset_supports_jit, target_kind
 
 logger = get_logger(__name__)
 
-REQUEST_ACCOUNTS = ['@SPEC']  # no standing account: the account comes from the policy
+REQUEST_ACCOUNTS = ['@JIT']  # no standing account: the just-in-time account of the rule
 MAX_ASSETS = 200
 
 
@@ -80,6 +80,29 @@ def _hours(start, end):
     return max(0.0, (end - start).total_seconds() / 3600)
 
 
+def coverage(user, asset_ids, node_ids, limit=MAX_ASSETS):
+    """Which of the chosen assets a rule gives the user a just-in-time account on (request form)."""
+    from assets.models import Asset, Node
+    from common.utils import is_uuid
+    asset_ids = [i for i in asset_ids if is_uuid(i)][:limit]
+    node_ids = [i for i in node_ids if is_uuid(i)][:20]
+    with tmp_to_root_org():
+        assets = list(Asset.objects.filter(id__in=asset_ids).select_related('platform'))
+        for node in Node.objects.filter(id__in=node_ids):
+            assets.extend(node.get_all_assets().select_related('platform')[:limit])
+    unique = list({a.id: a for a in assets}.values())[:limit]
+    matcher = PolicyMatcher()
+    covered, uncovered, jit_only = [], [], False
+    for asset in unique:
+        policy = _request_policy(matcher, user, asset)
+        if policy:
+            covered.append({'id': str(asset.id), 'name': asset.name, 'rule': policy.name})
+            jit_only = jit_only or policy.jit_only
+        else:
+            uncovered.append({'id': str(asset.id), 'name': asset.name})
+    return {'covered': covered, 'uncovered': uncovered, 'jit_only': jit_only}
+
+
 def ticket_policies(ticket):
     """{asset: policy or None} for the assets of an access request (as the rules would apply)."""
     matcher = PolicyMatcher()
@@ -91,7 +114,7 @@ def auto_approve_decision(ticket):
     """(policy names, '') when the policies approve the request by themselves, else (None, why not)."""
     if not ticket.apply_date_expired:
         return None, 'no end date'
-    if any(a not in REQUEST_ACCOUNTS + ['@JIT'] for a in (ticket.apply_accounts or [])):
+    if any(a not in ('@JIT', '@SPEC') for a in (ticket.apply_accounts or [])):
         return None, 'standing accounts requested'
     mapping = ticket_policies(ticket)
     if not mapping or len(mapping) > MAX_ASSETS:
