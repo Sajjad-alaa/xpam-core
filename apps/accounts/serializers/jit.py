@@ -30,7 +30,7 @@ class JITPolicySerializer(BulkOrgResourceModelSerializer):
         fields = [
             'id', 'name', 'mode', 'username_mode', 'specific_username', 'username_prefix',
             'privileged', 'linux_shell', 'linux_groups', 'windows_groups', 'remove_home',
-            'is_active', 'permissions', 'permissions_amount', 'live_accounts_amount',
+            'apply_to_requests', 'is_active', 'permissions', 'permissions_amount', 'live_accounts_amount',
             'comment', 'created_by', 'date_created', 'date_updated',
         ]
         read_only_fields = ['created_by', 'date_created', 'date_updated']
@@ -45,6 +45,8 @@ class JITPolicySerializer(BulkOrgResourceModelSerializer):
                                               'always added')},
             'remove_home': {'help_text': _('Linux home folder / Windows profile is deleted together '
                                            'with the account (otherwise kept as a backup)')},
+            'apply_to_requests': {'help_text': _('When an access request is approved, the permission it '
+                                                 'creates uses this policy automatically')},
         }
 
     @staticmethod
@@ -98,17 +100,24 @@ class JITPolicySerializer(BulkOrgResourceModelSerializer):
                 'username_mode': _('"Random per session" needs the account lifetime "Per connection"')
             })
         if mode == JITPolicy.Mode.approved_window:
+            attrs['apply_to_requests'] = True
             if attrs.get('asset_permissions'):
                 raise serializers.ValidationError({'permissions': _(
                     'An approved time window applies to the permissions created by approved access '
                     'requests; do not select permissions')})
-            if get('is_active', True):
-                others = JITPolicy.objects.filter(mode=JITPolicy.Mode.approved_window, is_active=True)
-                if instance:
-                    others = others.exclude(id=instance.id)
-                if others.exists():
-                    raise serializers.ValidationError({'mode': _(
-                        'Only one active "Approved time window" policy is allowed per organization')})
+        for_requests = get('apply_to_requests', False) or mode == JITPolicy.Mode.approved_window
+        if for_requests and get('is_active', True):
+            from django.db.models import Q
+            others = JITPolicy.objects.filter(is_active=True).filter(
+                Q(apply_to_requests=True) | Q(mode=JITPolicy.Mode.approved_window)
+            )
+            if instance:
+                others = others.exclude(id=instance.id)
+            other = others.first()
+            if other:
+                raise serializers.ValidationError({'apply_to_requests': _(
+                    'Approved access requests already use the policy "%s"; only one policy per '
+                    'organization can apply to them') % other.name})
         return attrs
 
     @transaction.atomic
@@ -117,6 +126,7 @@ class JITPolicySerializer(BulkOrgResourceModelSerializer):
         instance = super().create(validated_data)
         if perms is not None:
             self._set_permissions(instance, perms)
+        self._attach_to_approved_requests(instance)
         return instance
 
     @transaction.atomic
@@ -125,7 +135,19 @@ class JITPolicySerializer(BulkOrgResourceModelSerializer):
         instance = super().update(instance, validated_data)
         if perms is not None:
             self._set_permissions(instance, perms)
+        self._attach_to_approved_requests(instance)
         return instance
+
+    @staticmethod
+    def _attach_to_approved_requests(policy):
+        """Requests approved earlier (and still valid) get the policy too, so nothing is left to do by hand."""
+        from django.utils import timezone
+        if not (policy.is_active and policy.for_requests):
+            return
+        AssetPermission.objects.filter(
+            org_id=policy.org_id, from_ticket=True, jit_policy__isnull=True,
+            is_active=True, date_expired__gt=timezone.now(),
+        ).update(jit_policy=policy)
 
     @staticmethod
     def _set_permissions(policy, perms):

@@ -274,10 +274,12 @@ def desired_granted_pairs():
         for policy in JITPolicy.objects.filter(is_active=True, mode__in=[
             JITPolicy.Mode.while_granted, JITPolicy.Mode.approved_window
         ]):
-            if policy.mode == JITPolicy.Mode.while_granted:
-                perms = AssetPermission.objects.filter(jit_policy=policy)
-            else:
-                perms = AssetPermission.objects.filter(org_id=policy.org_id, from_ticket=True, jit_policy__isnull=True)
+            perms = AssetPermission.objects.filter(jit_policy=policy)
+            if policy.for_requests and JITPolicy.request_policy(policy.org_id) == policy:
+                # approved requests from before the policy existed
+                perms = perms | AssetPermission.objects.filter(
+                    org_id=policy.org_id, from_ticket=True, jit_policy__isnull=True
+                )
             for perm in perms.valid():
                 users = perm.get_all_users().filter(is_active=True)
                 assets = [a for a in perm.get_all_assets() if asset_supports_jit(a)]

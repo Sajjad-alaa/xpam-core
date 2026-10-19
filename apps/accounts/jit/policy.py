@@ -36,11 +36,10 @@ def _policies_for_perms(perms):
             str(p.id): p for p in JITPolicy.objects.filter(id__in=policy_ids, is_active=True)
         } if policy_ids else {}
         approved = {}
-        if ticket_orgs:
-            for p in JITPolicy.objects.filter(
-                    org_id__in=ticket_orgs, is_active=True, mode=JITPolicy.Mode.approved_window
-            ).order_by('date_created'):
-                approved.setdefault(p.org_id, p)
+        for org_id in ticket_orgs:
+            p = JITPolicy.request_policy(org_id)
+            if p:
+                approved[org_id] = p
     result = []
     for perm in perms:
         policy = policies.get(str(perm.jit_policy_id)) if perm.jit_policy_id else None

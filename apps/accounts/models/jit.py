@@ -48,6 +48,9 @@ class JITPolicy(JMSOrgBaseModel):
         max_length=256, default='Users,Remote Desktop Users', verbose_name=_('Windows groups')
     )
     remove_home = models.BooleanField(default=True, verbose_name=_('Delete home folder on removal'))
+    apply_to_requests = models.BooleanField(
+        default=False, verbose_name=_('Apply automatically to approved access requests')
+    )
     is_active = models.BooleanField(default=True, verbose_name=_('Active'))
 
     class Meta:
@@ -61,6 +64,21 @@ class JITPolicy(JMSOrgBaseModel):
     @property
     def is_granted_mode(self):
         return self.mode in (self.Mode.while_granted, self.Mode.approved_window)
+
+    @property
+    def for_requests(self):
+        """Used for the permissions created by approved access requests."""
+        return self.apply_to_requests or self.mode == self.Mode.approved_window
+
+    @classmethod
+    def request_policy(cls, org_id):
+        """The active policy of an organization that approved access requests get (or None)."""
+        from django.db.models import Q
+        from orgs.utils import tmp_to_root_org
+        with tmp_to_root_org():
+            return cls.objects.filter(org_id=org_id, is_active=True).filter(
+                Q(apply_to_requests=True) | Q(mode=cls.Mode.approved_window)
+            ).order_by('-apply_to_requests', 'date_created').first()
 
 
 class JITAccount(JMSOrgBaseModel):
