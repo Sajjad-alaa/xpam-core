@@ -155,7 +155,7 @@ class PermAssetDetailUtil:
         alias_action_bit_mapper, alias_date_expired_mapper = cls.parse_alias_action_date_expire(perms, asset)
         # XPAM: permissions with a just-in-time policy offer the @JIT account
         from accounts.jit.policy import jit_grant_for_perms
-        jit_actions, jit_expired = jit_grant_for_perms(perms, asset)
+        jit_actions, jit_expired = jit_grant_for_perms(perms, user, asset)
         if jit_actions:
             alias_action_bit_mapper[AliasAccount.JIT.value] = (
                 alias_action_bit_mapper.get(AliasAccount.JIT.value, 0) | jit_actions

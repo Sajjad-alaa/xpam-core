@@ -58,11 +58,19 @@ class Handler(BaseHandler):
             'comment': str(permission_comment),
             'created_by': permission_created_by,
         }
-        # XPAM: the just-in-time policy for approved requests is attached right away
-        from accounts.models import JITPolicy
-        jit_policy = JITPolicy.request_policy(self.ticket.org_id)
-        if jit_policy:
-            permission_data['jit_policy'] = jit_policy
+        # XPAM: just-in-time account chosen by the approver; "auto" leaves it to the policy rules
+        apply_jit = (self.ticket.apply_jit or 'auto').strip()
+        if apply_jit == 'none':
+            permission_data['jit_disabled'] = True
+        elif apply_jit != 'auto':
+            from accounts.models import JITPolicy
+            from orgs.utils import tmp_to_root_org
+            with tmp_to_root_org():
+                jit_policy = JITPolicy.objects.filter(
+                    id=apply_jit, org_id=self.ticket.org_id, is_active=True
+                ).first()
+            if jit_policy:
+                permission_data['jit_policy'] = jit_policy
         with tmp_to_org(self.ticket.org_id):
             asset_permission = AssetPermission.objects.create(**permission_data)
             asset_permission.nodes.set(apply_nodes)

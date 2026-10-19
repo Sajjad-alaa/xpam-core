@@ -29,6 +29,9 @@ class ApplyAssetSerializer(BaseApplyAssetSerializer, TicketApplySerializer):
         label=_('Apply nodes'), help_text=apply_help_text
     )
     apply_actions = ActionChoicesField(required=False, allow_null=True, label=_("Apply actions"))
+    # XPAM: only the approver chooses the just-in-time account (see ApproveAssetSerializer)
+    apply_jit = serializers.CharField(read_only=True, label=_('Just-in-time account'))
+    apply_jit_display = serializers.SerializerMethodField(label=_('Just-in-time account'))
     permission_model = AssetPermission
 
     class Meta(TicketApplySerializer.Meta):
@@ -38,7 +41,9 @@ class ApplyAssetSerializer(BaseApplyAssetSerializer, TicketApplySerializer):
             'apply_accounts', 'apply_actions', 'apply_date_start',
             'apply_date_expired', 'comment', 'org_id'
         ]
-        read_only_fields = TicketApplySerializer.Meta.read_only_fields + ['apply_permission_name', ]
+        read_only_fields = TicketApplySerializer.Meta.read_only_fields + [
+            'apply_permission_name', 'apply_jit', 'apply_jit_display'
+        ]
         fields = TicketApplySerializer.Meta.fields_small + \
                  TicketApplySerializer.Meta.fields_m2m + writeable_fields + read_only_fields
         ticket_extra_kwargs = TicketApplySerializer.Meta.extra_kwargs
@@ -78,6 +83,19 @@ class ApplyAssetSerializer(BaseApplyAssetSerializer, TicketApplySerializer):
 
         return attrs
 
+    @staticmethod
+    def get_apply_jit_display(obj):
+        value = getattr(obj, 'apply_jit', '') or 'auto'
+        if value == 'auto':
+            return str(_('Automatic (just-in-time policy rules)'))
+        if value == 'none':
+            return str(_('No just-in-time account'))
+        from accounts.models import JITPolicy
+        from orgs.utils import tmp_to_root_org
+        with tmp_to_root_org():
+            policy = JITPolicy.objects.filter(id=value).first()
+        return policy.name if policy else value
+
     @classmethod
     def setup_eager_loading(cls, queryset):
         queryset = queryset.prefetch_related('apply_nodes', 'apply_assets')
@@ -88,3 +106,31 @@ class ApproveAssetSerializer(ApplyAssetSerializer):
     class Meta(ApplyAssetSerializer.Meta):
         read_only_fields = TicketApplySerializer.Meta.fields_small + \
                            ApplyAssetSerializer.Meta.read_only_fields
+
+    apply_jit = serializers.CharField(
+        required=False, allow_blank=True, max_length=64, label=_('Just-in-time account'),
+        help_text=_('"auto" = chosen by the just-in-time policy rules, "none", or the id of a policy')
+    )
+
+    def validate_apply_jit(self, value):
+        value = (value or '').strip() or 'auto'
+        if value in ('auto', 'none'):
+            return value
+        from accounts.models import JITPolicy
+        from orgs.utils import tmp_to_root_org
+        org_id = self.instance.org_id if self.instance else self.initial_data.get('org_id')
+        with tmp_to_root_org():
+            exists = JITPolicy.objects.filter(id=value, org_id=org_id, is_active=True).exists() \
+                if _is_uuid(value) else False
+        if not exists:
+            raise serializers.ValidationError(_('Choose an active just-in-time policy of this organization'))
+        return value
+
+
+def _is_uuid(value):
+    import uuid
+    try:
+        uuid.UUID(str(value))
+        return True
+    except ValueError:
+        return False

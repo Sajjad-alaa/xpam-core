@@ -6,10 +6,12 @@ called and which rights it gets, and when the account is removed again. The acco
 because of a policy are tracked as JITAccount rows; the credentials themselves are ordinary
 asset accounts (source "jit") so that the existing push and remove automations can be used.
 """
+from django.core.validators import MinValueValidator, MaxValueValidator
 from django.db import models
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
+from common.db.fields import JSONManyToManyField
 from orgs.mixins.models import JMSOrgBaseModel
 
 __all__ = ['JITPolicy', 'JITAccount']
@@ -26,6 +28,11 @@ class JITPolicy(JMSOrgBaseModel):
         specific = 'specific', _('Specific name')
         random_fixed = 'random_fixed', _('Random, fixed per user')
         random_session = 'random_session', _('Random per session')
+
+    class Scope(models.TextChoices):
+        linked = 'linked', _('Only the asset permissions linked to it')
+        requests = 'requests', _('Approved access requests')
+        all = 'all', _('Asset permissions and approved access requests')
 
     name = models.CharField(max_length=128, verbose_name=_('Name'))
     mode = models.CharField(
@@ -48,15 +55,23 @@ class JITPolicy(JMSOrgBaseModel):
         max_length=256, default='Users,Remote Desktop Users', verbose_name=_('Windows groups')
     )
     remove_home = models.BooleanField(default=True, verbose_name=_('Delete home folder on removal'))
-    apply_to_requests = models.BooleanField(
-        default=False, verbose_name=_('Apply automatically to approved access requests')
+    # Rules: which users and assets the policy applies to by itself (no linking needed)
+    scope = models.CharField(
+        max_length=16, choices=Scope.choices, default=Scope.all, verbose_name=_('Applies to')
+    )
+    users = JSONManyToManyField('users.User', default=dict, verbose_name=_('Users'))
+    assets = JSONManyToManyField('assets.Asset', default=dict, verbose_name=_('Assets'))
+    priority = models.IntegerField(
+        default=50, verbose_name=_('Priority'),
+        help_text=_('1-100, the lower the value will be match first'),
+        validators=[MinValueValidator(1), MaxValueValidator(100)]
     )
     is_active = models.BooleanField(default=True, verbose_name=_('Active'))
 
     class Meta:
         verbose_name = _('Just-in-time policy')
         unique_together = [('name', 'org_id')]
-        ordering = ['name']
+        ordering = ['priority', 'name']
 
     def __str__(self):
         return self.name
@@ -66,19 +81,14 @@ class JITPolicy(JMSOrgBaseModel):
         return self.mode in (self.Mode.while_granted, self.Mode.approved_window)
 
     @property
-    def for_requests(self):
-        """Used for the permissions created by approved access requests."""
-        return self.apply_to_requests or self.mode == self.Mode.approved_window
+    def is_rule_based(self):
+        return self.scope != self.Scope.linked
 
-    @classmethod
-    def request_policy(cls, org_id):
-        """The active policy of an organization that approved access requests get (or None)."""
-        from django.db.models import Q
-        from orgs.utils import tmp_to_root_org
-        with tmp_to_root_org():
-            return cls.objects.filter(org_id=org_id, is_active=True).filter(
-                Q(apply_to_requests=True) | Q(mode=cls.Mode.approved_window)
-            ).order_by('-apply_to_requests', 'date_created').first()
+    def applies_to_permission(self, perm):
+        """The policy's rules cover this kind of permission (users and assets are checked separately)."""
+        if self.scope == self.Scope.all:
+            return True
+        return self.scope == self.Scope.requests and bool(getattr(perm, 'from_ticket', False))
 
 
 class JITAccount(JMSOrgBaseModel):

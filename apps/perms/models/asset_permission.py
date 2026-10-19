@@ -86,6 +86,8 @@ class AssetPermission(LabeledMixin, JMSOrgBaseModel):
         'accounts.JITPolicy', null=True, blank=True, on_delete=models.SET_NULL,
         related_name='asset_permissions', verbose_name=_('Just-in-time policy')
     )
+    # XPAM: never offer a just-in-time account through this permission (policy rules included)
+    jit_disabled = models.BooleanField(default=False, verbose_name=_('No just-in-time account'))
 
     objects = AssetPermissionManager.from_queryset(AssetPermissionQuerySet)()
 

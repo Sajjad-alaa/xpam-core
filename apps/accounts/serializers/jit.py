@@ -4,7 +4,7 @@ from django.db import transaction
 from django.utils.translation import gettext_lazy as _
 from rest_framework import serializers
 
-from common.serializers.fields import LabeledChoiceField, ObjectRelatedField
+from common.serializers.fields import JSONManyToManyField, LabeledChoiceField, ObjectRelatedField
 from orgs.mixins.serializers import BulkOrgResourceModelSerializer
 from perms.models import AssetPermission
 from ..jit.naming import validate_username, JITNameError
@@ -18,9 +18,13 @@ class JITPolicySerializer(BulkOrgResourceModelSerializer):
                               label=_('Account lifetime'))
     username_mode = LabeledChoiceField(choices=JITPolicy.UsernameMode.choices,
                                        default=JITPolicy.UsernameMode.same_as_user, label=_('Account name'))
+    scope = LabeledChoiceField(choices=JITPolicy.Scope.choices, default=JITPolicy.Scope.all,
+                               label=_('Applies to'))
+    users = JSONManyToManyField(label=_('Users'), required=False)
+    assets = JSONManyToManyField(label=_('Assets'), required=False)
     permissions = ObjectRelatedField(
         source='asset_permissions', many=True, required=False,
-        queryset=AssetPermission.objects, label=_('Asset permissions'),
+        queryset=AssetPermission.objects, label=_('Linked asset permissions'),
     )
     permissions_amount = serializers.SerializerMethodField(label=_('Permissions'))
     live_accounts_amount = serializers.SerializerMethodField(label=_('Live accounts'))
@@ -30,7 +34,7 @@ class JITPolicySerializer(BulkOrgResourceModelSerializer):
         fields = [
             'id', 'name', 'mode', 'username_mode', 'specific_username', 'username_prefix',
             'privileged', 'linux_shell', 'linux_groups', 'windows_groups', 'remove_home',
-            'apply_to_requests', 'is_active', 'permissions', 'permissions_amount', 'live_accounts_amount',
+            'scope', 'users', 'assets', 'priority', 'is_active', 'permissions', 'permissions_amount', 'live_accounts_amount',
             'comment', 'created_by', 'date_created', 'date_updated',
         ]
         read_only_fields = ['created_by', 'date_created', 'date_updated']
@@ -45,8 +49,8 @@ class JITPolicySerializer(BulkOrgResourceModelSerializer):
                                               'always added')},
             'remove_home': {'help_text': _('Linux home folder / Windows profile is deleted together '
                                            'with the account (otherwise kept as a backup)')},
-            'apply_to_requests': {'help_text': _('When an access request is approved, the permission it '
-                                                 'creates uses this policy automatically')},
+            'priority': {'default': 50, 'help_text': _('When several policies match, the lowest value wins '
+                                                       '(1-100)')},
         }
 
     @staticmethod
@@ -99,25 +103,23 @@ class JITPolicySerializer(BulkOrgResourceModelSerializer):
             raise serializers.ValidationError({
                 'username_mode': _('"Random per session" needs the account lifetime "Per connection"')
             })
+        scope = get('scope', JITPolicy.Scope.all)
         if mode == JITPolicy.Mode.approved_window:
-            attrs['apply_to_requests'] = True
-            if attrs.get('asset_permissions'):
+            if scope == JITPolicy.Scope.all:
+                raise serializers.ValidationError({'scope': _(
+                    'An approved time window is for approved access requests; choose "Approved access '
+                    'requests" or "Only the asset permissions linked to it"')})
+            perms = attrs.get('asset_permissions') or []
+            if any(not p.from_ticket for p in perms):
                 raise serializers.ValidationError({'permissions': _(
-                    'An approved time window applies to the permissions created by approved access '
-                    'requests; do not select permissions')})
-        for_requests = get('apply_to_requests', False) or mode == JITPolicy.Mode.approved_window
-        if for_requests and get('is_active', True):
-            from django.db.models import Q
-            others = JITPolicy.objects.filter(is_active=True).filter(
-                Q(apply_to_requests=True) | Q(mode=JITPolicy.Mode.approved_window)
-            )
-            if instance:
-                others = others.exclude(id=instance.id)
-            other = others.first()
-            if other:
-                raise serializers.ValidationError({'apply_to_requests': _(
-                    'Approved access requests already use the policy "%s"; only one policy per '
-                    'organization can apply to them') % other.name})
+                    'An approved time window applies to approved access requests; do not select '
+                    'ordinary asset permissions')})
+        if scope != JITPolicy.Scope.linked:
+            for field in ('users', 'assets'):
+                value = get(field)
+                value = getattr(value, 'value', value)
+                if not isinstance(value, dict) or not value.get('type'):
+                    raise serializers.ValidationError({field: _('This field is required.')})
         return attrs
 
     @transaction.atomic
@@ -126,7 +128,6 @@ class JITPolicySerializer(BulkOrgResourceModelSerializer):
         instance = super().create(validated_data)
         if perms is not None:
             self._set_permissions(instance, perms)
-        self._attach_to_approved_requests(instance)
         return instance
 
     @transaction.atomic
@@ -135,25 +136,15 @@ class JITPolicySerializer(BulkOrgResourceModelSerializer):
         instance = super().update(instance, validated_data)
         if perms is not None:
             self._set_permissions(instance, perms)
-        self._attach_to_approved_requests(instance)
         return instance
-
-    @staticmethod
-    def _attach_to_approved_requests(policy):
-        """Requests approved earlier (and still valid) get the policy too, so nothing is left to do by hand."""
-        from django.utils import timezone
-        if not (policy.is_active and policy.for_requests):
-            return
-        AssetPermission.objects.filter(
-            org_id=policy.org_id, from_ticket=True, jit_policy__isnull=True,
-            is_active=True, date_expired__gt=timezone.now(),
-        ).update(jit_policy=policy)
 
     @staticmethod
     def _set_permissions(policy, perms):
         from perms.models import AssetPermission
         ids = [p.id for p in perms]
-        AssetPermission.objects.filter(jit_policy=policy).exclude(id__in=ids).update(jit_policy=None)
+        # approved requests keep the policy their approver chose
+        AssetPermission.objects.filter(jit_policy=policy, from_ticket=False).exclude(id__in=ids) \
+            .update(jit_policy=None)
         for perm in AssetPermission.objects.filter(id__in=ids):
             perm.jit_policy = policy
             perm.save(update_fields=['jit_policy'])

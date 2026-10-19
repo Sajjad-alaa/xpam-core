@@ -18,7 +18,7 @@ from common.utils import get_logger
 from common.utils.lock import DistributedLock
 from orgs.utils import tmp_to_org, tmp_to_root_org
 from .naming import build_username, generate_password, JITNameError
-from .policy import select_policy, push_params, remove_params, asset_supports_jit
+from .policy import PolicyMatcher, select_policy, push_params, remove_params, asset_supports_jit
 
 logger = get_logger(__name__)
 
@@ -267,31 +267,41 @@ def _release_if_idle(jit):
 
 def desired_granted_pairs():
     """{(policy_id, user_id, asset_id): permission} that should have a just-in-time account now."""
-    from accounts.models import JITPolicy
+    from django.db.models import Q
     from perms.models import AssetPermission
-    desired = {}
+    matcher = PolicyMatcher()
+    if not any(p.is_granted_mode for p in matcher.by_id.values()):
+        return {}
+    # Organizations whose rule policies may keep accounts while access is granted
+    rule_orgs = [org_id for org_id, policies in matcher.rules_by_org.items()
+                 if any(p.is_granted_mode for p in policies)]
+    supported = {}
+    best = {}  # (user, asset) -> (policy, perm): chosen exactly like at connect time
     with tmp_to_root_org():
-        for policy in JITPolicy.objects.filter(is_active=True, mode__in=[
-            JITPolicy.Mode.while_granted, JITPolicy.Mode.approved_window
-        ]):
-            perms = AssetPermission.objects.filter(jit_policy=policy)
-            if policy.for_requests and JITPolicy.request_policy(policy.org_id) == policy:
-                # approved requests from before the policy existed
-                perms = perms | AssetPermission.objects.filter(
-                    org_id=policy.org_id, from_ticket=True, jit_policy__isnull=True
-                )
-            for perm in perms.valid():
-                users = perm.get_all_users().filter(is_active=True)
-                assets = [a for a in perm.get_all_assets() if asset_supports_jit(a)]
+        q = Q(jit_policy__isnull=False)
+        if rule_orgs:
+            q |= Q(jit_policy__isnull=True, org_id__in=rule_orgs)
+        for perm in AssetPermission.objects.valid().filter(q, jit_disabled=False):
+            users = [u for u in perm.get_all_users().filter(is_active=True) if u.is_valid]
+            if not users:
+                continue
+            for asset in perm.get_all_assets():
+                if asset.id not in supported:
+                    supported[asset.id] = asset_supports_jit(asset)
+                if not supported[asset.id]:
+                    continue
                 for user in users:
-                    if not user.is_valid:
+                    policy = matcher.policy_for(perm, user, asset)
+                    if not policy:
                         continue
-                    for asset in assets:
-                        key = (str(policy.id), str(user.id), str(asset.id))
-                        current = desired.get(key)
-                        if not current or current.date_expired < perm.date_expired:
-                            desired[key] = perm
-    return desired
+                    key = (user.id, asset.id)
+                    current = best.get(key)
+                    if not current or current[1].date_expired < perm.date_expired:
+                        best[key] = (policy, perm)
+    return {
+        (str(policy.id), str(user_id), str(asset_id)): perm
+        for (user_id, asset_id), (policy, perm) in best.items() if policy.is_granted_mode
+    }
 
 
 def reconcile():

@@ -2,7 +2,7 @@
 from django.utils import timezone
 
 from common.utils import get_logger
-from orgs.utils import tmp_to_root_org
+from orgs.utils import tmp_to_org, tmp_to_root_org
 
 logger = get_logger(__name__)
 
@@ -23,42 +23,104 @@ def asset_supports_jit(asset):
         return False
 
 
-def _policies_for_perms(perms):
-    """[(perm, policy)] for the permissions that grant a just-in-time account."""
-    from accounts.models import JITPolicy
-    perms = list(perms)
-    if not perms:
-        return []
-    policy_ids = {p.jit_policy_id for p in perms if getattr(p, 'jit_policy_id', None)}
-    ticket_orgs = {p.org_id for p in perms if getattr(p, 'from_ticket', False)}
-    with tmp_to_root_org():
-        policies = {
-            str(p.id): p for p in JITPolicy.objects.filter(id__in=policy_ids, is_active=True)
-        } if policy_ids else {}
-        approved = {}
-        for org_id in ticket_orgs:
-            p = JITPolicy.request_policy(org_id)
-            if p:
-                approved[org_id] = p
-    result = []
-    for perm in perms:
-        policy = policies.get(str(perm.jit_policy_id)) if perm.jit_policy_id else None
-        if not policy and perm.from_ticket:
-            policy = approved.get(perm.org_id)
-        if policy:
-            result.append((perm, policy))
-    return result
+class PolicyMatcher:
+    """
+    Decides which just-in-time policy a permission gives a user on an asset:
+
+    1. the permission says "no just-in-time account"           -> none
+    2. a policy is linked to the permission (or chosen by the
+       approver of an access request)                          -> that policy
+    3. otherwise the active rule policies of the organization,
+       lowest priority value first: the first one whose users
+       and assets include this user and asset                  -> that policy
+    """
+
+    def __init__(self):
+        from accounts.models import JITPolicy
+        with tmp_to_root_org():
+            policies = list(JITPolicy.objects.filter(is_active=True).order_by('priority', 'name'))
+        self.by_id = {str(p.id): p for p in policies}
+        self.rules_by_org = {}
+        for p in policies:
+            if p.is_rule_based:
+                self.rules_by_org.setdefault(str(p.org_id), []).append(p)
+        self._memo = {}
+
+    def __bool__(self):
+        return bool(self.by_id)
+
+    def _includes(self, policy, field, obj):
+        manager = getattr(policy, field)
+        value = manager.value
+        if not isinstance(value, dict) or not value.get('type'):
+            return False  # nothing chosen yet: the rule applies to nobody
+        if value['type'] == 'all':
+            return True
+        if value['type'] == 'ids':
+            return str(obj.id) in {str(i) for i in value.get('ids') or []}
+        key = (str(policy.id), field, str(obj.id))
+        if key not in self._memo:
+            org_id = policy.org_id if field == 'assets' else None
+            ctx = tmp_to_org(org_id) if org_id else tmp_to_root_org()
+            try:
+                with ctx:
+                    self._memo[key] = manager.all().filter(id=obj.id).exists()
+            except Exception as e:  # a broken rule must not break connecting
+                logger.warning('JIT policy %s: %s rule could not be checked: %s', policy, field, e)
+                self._memo[key] = False
+        return self._memo[key]
+
+    def rule_policy(self, user, asset, org_id, from_ticket):
+        """(policy, None) of the first rule that covers user and asset for this kind of permission."""
+        for policy in self.rules_by_org.get(str(org_id), []):
+            if policy.scope == policy.Scope.requests and not from_ticket:
+                continue
+            if self._includes(policy, 'users', user) and self._includes(policy, 'assets', asset):
+                return policy
+        return None
+
+    def explain(self, perm, user, asset):
+        """(policy, how): how is "disabled", "linked", "rule" or None."""
+        if getattr(perm, 'jit_disabled', False):
+            return None, 'disabled'
+        if perm.jit_policy_id:
+            policy = self.by_id.get(str(perm.jit_policy_id))
+            return (policy, 'linked') if policy else (None, None)
+        policy = self.rule_policy(user, asset, perm.org_id, perm.from_ticket)
+        return (policy, 'rule') if policy else (None, None)
+
+    def policy_for(self, perm, user, asset):
+        return self.explain(perm, user, asset)[0]
 
 
-def jit_grant_for_perms(perms, asset):
+def jit_grant_for_perms(perms, user, asset):
     """(actions, [date_expired]) of the just-in-time account these permissions grant on `asset`."""
-    if not asset_supports_jit(asset):
+    perms = list(perms)
+    if not perms or not asset_supports_jit(asset):
+        return 0, []
+    matcher = PolicyMatcher()
+    if not matcher:
         return 0, []
     actions, expired = 0, []
-    for perm, _policy in _policies_for_perms(perms):
-        actions |= perm.actions
-        expired.append(perm.date_expired)
+    for perm in perms:
+        if matcher.policy_for(perm, user, asset):
+            actions |= perm.actions
+            expired.append(perm.date_expired)
     return actions, expired
+
+
+def choose(perms, user, asset, matcher=None, now=None):
+    """(policy, permission) from the valid permissions; the one that lasts longest decides."""
+    matcher = matcher or PolicyMatcher()
+    now = now or timezone.now()
+    best = None
+    for perm in perms:
+        if not (perm.is_active and perm.date_start <= now <= perm.date_expired):
+            continue
+        policy = matcher.policy_for(perm, user, asset)
+        if policy and (best is None or perm.date_expired > best[1].date_expired):
+            best = (policy, perm)
+    return best or (None, None)
 
 
 def select_policy(user, asset):
@@ -67,16 +129,74 @@ def select_policy(user, asset):
     if not asset_supports_jit(asset):
         return None, None
     perms = PermAssetDetailUtil(user, asset).user_asset_perms
+    return choose(perms, user, asset)
+
+
+def unsupported_reason(asset):
+    """Why just-in-time accounts cannot be used on `asset` ('' when they can)."""
+    from django.utils.translation import gettext as _
+    if not asset.is_active:
+        return _('The asset is disabled')
+    if asset.platform.type not in SUPPORTED_TYPES:
+        return _('Just-in-time accounts work on Linux/Unix and Windows assets only')
+    auto = asset.auto_config or {}
+    if not (auto.get('ansible_enabled') and auto.get('push_account_enabled')):
+        return _('Account push is turned off in the platform of this asset')
+    return ''
+
+
+def _policy_brief(policy):
+    return {'id': str(policy.id), 'name': policy.name, 'mode': policy.mode,
+            'mode_display': str(policy.get_mode_display())}
+
+
+def explain(user, asset, request=False, matcher=None):
+    """
+    Which policy gives `user` a just-in-time account on `asset`, and why, for the console.
+    request=True: as if an access request for the asset were approved now (policy rules only).
+    """
+    from django.utils.translation import gettext as _
+    from perms.utils import PermAssetDetailUtil
+    matcher = matcher or PolicyMatcher()
+    result = {'asset': {'id': str(asset.id), 'name': str(asset)}, 'policy': None,
+              'how': None, 'permission': None, 'reason': ''}
+    reason = unsupported_reason(asset)
+    if reason:
+        result['reason'] = reason
+        return result
+    if request:
+        policy = matcher.rule_policy(user, asset, asset.org_id, from_ticket=True)
+        if policy:
+            result.update(policy=_policy_brief(policy), how='rule',
+                          reason=_('Policy rule, priority %s') % policy.priority)
+        else:
+            result['reason'] = _('No policy rule covers this user and asset')
+        return result
+
+    perms = list(PermAssetDetailUtil(user, asset).user_asset_perms)
     now = timezone.now()
-    candidates = [
-        (perm, policy) for perm, policy in _policies_for_perms(perms)
-        if perm.is_active and perm.date_start <= now <= perm.date_expired
-    ]
-    if not candidates:
-        return None, None
-    # The permission that lasts longest decides (its end is when a granted account is removed)
-    perm, policy = max(candidates, key=lambda item: item[0].date_expired)
-    return policy, perm
+    perms = [p for p in perms if p.is_active and p.date_start <= now <= p.date_expired]
+    if not perms:
+        result['reason'] = _('The user has no valid permission on this asset')
+        return result
+    policy, perm = choose(perms, user, asset, matcher, now)
+    if not policy:
+        if all(getattr(p, 'jit_disabled', False) for p in perms):
+            result['reason'] = _('Just-in-time accounts are turned off on the permission')
+        else:
+            result['reason'] = _('No policy rule covers this user and asset, and no policy is linked '
+                                 'to the permission')
+        return result
+    how = matcher.explain(perm, user, asset)[1]
+    if how == 'rule':
+        reason = _('Policy rule, priority %s') % policy.priority
+    elif perm.from_ticket:
+        reason = _('Chosen when the access request was approved')
+    else:
+        reason = _('Linked to the permission')
+    result.update(policy=_policy_brief(policy), how=how, reason=reason,
+                  permission={'id': str(perm.id), 'name': perm.name})
+    return result
 
 
 def push_params(policy):

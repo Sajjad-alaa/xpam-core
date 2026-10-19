@@ -185,6 +185,9 @@ def _connect_jit_m2m_signals():
         m2m_changed.connect(_on_m2m_change, sender=getattr(AssetPermission, field).through,
                             dispatch_uid=f'xpam-jit-perm-{field}')
     m2m_changed.connect(_on_m2m_change, sender=User.groups.through, dispatch_uid='xpam-jit-user-groups')
+    # policy rules can select assets by node
+    from assets.models import Asset
+    m2m_changed.connect(_on_m2m_change, sender=Asset.nodes.through, dispatch_uid='xpam-jit-asset-nodes')
 
 
 _connect_jit_m2m_signals()
