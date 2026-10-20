@@ -177,9 +177,42 @@ def deliveries(title, rows, reason, link, config=None):
     return out
 
 
+def webhook_problem(url):
+    """'' when url may receive messages, else the reason. Teams, Slack and Telegram are public services:
+    an address that resolves to a private, loopback, link-local or otherwise non-public IP is refused,
+    so the settings and their test button cannot reach XPAM's containers or the internal network."""
+    import ipaddress
+    import socket
+    from urllib.parse import urlsplit
+    try:
+        parts = urlsplit(url)
+        host, port = parts.hostname, parts.port or 443
+    except ValueError:
+        return _('The webhook address is not valid')
+    if parts.scheme != 'https' or not host:
+        return _('The webhook address must start with https://')
+    try:
+        infos = socket.getaddrinfo(host, port, socket.AF_UNSPEC, socket.SOCK_STREAM)
+    except (socket.gaierror, UnicodeError):
+        import requests
+        if requests.utils.get_environ_proxies(url):
+            return ''  # (resolved by the outgoing proxy)
+        return _('The webhook host cannot be resolved')
+    for info in infos:
+        ip = ipaddress.ip_address(info[4][0].split('%')[0])
+        if ip.version == 6 and ip.ipv4_mapped:
+            ip = ip.ipv4_mapped
+        if not ip.is_global:
+            return _('The webhook address must be a public internet address')
+    return ''
+
+
 def post(channel, url, payload):
     """(ok, message) — the URL is never logged (it holds the secret)."""
     import requests
+    problem = webhook_problem(url)
+    if problem:
+        return False, problem
     try:
         # no redirects (a 307 would replay the POST elsewhere) and never the response body back to the
         # caller: the test button must not become a way to read internal services

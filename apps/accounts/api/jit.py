@@ -195,8 +195,11 @@ class JITApprovalChannelsViewSet(viewsets.ViewSet):
             if value == '-':
                 out[key] = ''
             elif value:
-                if key != 'telegram_token' and not value.startswith('https://'):
-                    raise ValueError(_('The webhook address must start with https://'))
+                if key != 'telegram_token':
+                    from tickets.channels import webhook_problem
+                    problem = webhook_problem(value)
+                    if problem:
+                        raise ValueError(problem)
                 out[key] = value
         if 'telegram_chat' in data:
             out['telegram_chat'] = str(data.get('telegram_chat') or '').strip()[:64]
