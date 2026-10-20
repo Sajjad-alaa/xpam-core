@@ -7,4 +7,5 @@ from .node import *
 from .platform import *
 from .protocol import *
 from .tree import *
+from .xpam_tools import *
 from .zone import *
