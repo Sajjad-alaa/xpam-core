@@ -445,9 +445,12 @@ def reconcile():
                 continue
             have.add(key)
             if jit.date_expired != perm.date_expired or str(jit.permission_id) != str(perm.id):
+                longer = jit.date_expired and perm.date_expired > jit.date_expired
                 jit.date_expired = perm.date_expired
                 jit.permission_id = perm.id
                 jit.save(update_fields=['date_expired', 'permission_id', 'date_updated'])
+                if longer and jit.kind == 'database' and jit.status == JITAccount.Status.ready:
+                    _extend_target(jit)
         for key, perm in desired.items():
             if key in have:
                 continue
@@ -477,6 +480,16 @@ def reconcile():
                 _schedule_release(jit.id)
                 summary['retry'] += 1
     return summary
+
+
+def _extend_target(jit):
+    """The access was extended: the database login must not expire on its own at the old time."""
+    from .targets import extend_database_account
+    try:
+        with tmp_to_org(jit.org_id):
+            extend_database_account(jit.asset, jit.username, jit.date_expired + timezone.timedelta(hours=1))
+    except Exception as e:
+        logger.warning('JIT %s: the database login could not be extended: %s', jit, e)
 
 
 def end_expired_per_session():

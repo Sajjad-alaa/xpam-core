@@ -23,6 +23,8 @@ class ApplyAssetTicket(Ticket):
     apply_jit = models.CharField(max_length=64, default='auto', blank=True, verbose_name=_('Just-in-time account'))
     # XPAM: name of the just-in-time policy that approved the request by itself ('' = approved by people)
     apply_jit_auto = models.CharField(max_length=128, default='', blank=True, verbose_name=_('Approved automatically by'))
+    # XPAM: the access (permission id) this request extends: approved, that access just lasts longer
+    apply_extends = models.CharField(max_length=36, default='', blank=True, verbose_name=_('Extends access'))
 
     TICKET_TYPE = TicketType.apply_asset
 

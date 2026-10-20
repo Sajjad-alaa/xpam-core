@@ -340,6 +340,25 @@ def create_database_account(asset, username, password, policy, valid_until, allo
         raise TargetError(_redact(e, password, admin.secret))
 
 
+def extend_database_account(asset, username, valid_until):
+    """The access was extended: move PostgreSQL's VALID UNTIL (the other databases have no expiry)."""
+    tp, port, database, db = _db_spec(asset)
+    if tp != 'postgresql':
+        return
+    from psycopg2 import sql
+    _ident_check(username)
+    admin = _admin(asset)
+    try:
+        conn = _pg_conn(asset, admin.username, admin.secret, port, database, db)
+        try:
+            conn.cursor().execute(sql.SQL('ALTER ROLE {} VALID UNTIL %s').format(sql.Identifier(username)),
+                                  (valid_until.isoformat(),))
+        finally:
+            conn.close()
+    except Exception as e:
+        raise TargetError(_redact(e, admin.secret))
+
+
 def remove_database_account(asset, username):
     _ident_check(username)
     tp, port, database, db = _db_spec(asset)

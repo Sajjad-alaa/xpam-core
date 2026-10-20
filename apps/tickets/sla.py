@@ -62,6 +62,9 @@ def run():
                              if too_old else _('Closed automatically: the requested time is already over'))
                     ticket.close()
                     summary['expired'] += 1
+                    # the requester is told (otherwise the request just disappears from "Waiting")
+                    from tickets.utils import send_ticket_processed_mail_to_applicant
+                    send_ticket_processed_mail_to_applicant(ticket, 'XPAM')
                 except Exception as e:
                     logger.warning('Closing the expired request %s failed: %s', ticket, e)
                 continue

@@ -27,8 +27,28 @@ class Handler(BaseHandler):
         if is_finished:
             self._create_asset_permission()
 
+    def _extend_asset_permission(self):
+        """XPAM: an approved extension makes the access it extends last longer (one access, one end
+        time). None when that access is gone or already over: a new permission is created instead."""
+        from django.utils import timezone
+        with tmp_to_org(self.ticket.org_id):
+            perm = AssetPermission.objects.filter(
+                id=self.ticket.apply_extends, from_ticket=True, users=self.ticket.applicant, is_active=True,
+                date_expired__gt=timezone.now(),
+            ).first()
+            if not perm:
+                return None
+            if self.ticket.apply_date_expired and self.ticket.apply_date_expired > perm.date_expired:
+                perm.date_expired = self.ticket.apply_date_expired
+                perm.save(update_fields=['date_expired'])
+        return perm
+
     def _create_asset_permission(self):
         self.ticket.refresh_from_db()
+        if self.ticket.apply_extends:
+            perm = self._extend_asset_permission()
+            if perm:
+                return perm
         org_id = self.ticket.org_id
         with tmp_to_org(org_id):
             asset_permission = AssetPermission.objects.filter(id=self.ticket.id).first()

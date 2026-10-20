@@ -289,7 +289,7 @@ def drop_first_approver(ticket, step):
 
 # ---------------------------------------------------------------- the user's side
 
-def submit(request, asset_ids, hours, reason='', title='', start=None, end=None):
+def submit(request, asset_ids, hours, reason='', title='', start=None, end=None, extends=None):
     """Create an access request for `asset_ids`; it may be approved by itself. Returns the ticket."""
     from assets.models import Asset
     with tmp_to_root_org():
@@ -304,10 +304,33 @@ def submit(request, asset_ids, hours, reason='', title='', start=None, end=None)
     if not PolicyMatcher()._member(org_id, request.user):
         raise SelfServiceError(_('Choose at least one asset you can request'))
     with tmp_to_org(org_id):
-        return _submit(request, assets, hours, reason, title, start, end)
+        return _submit(request, assets, hours, reason, title, start, end, extends)
 
 
-def _submit(request, assets, hours, reason, title, start, end):
+def _already(user, assets, extends):
+    """Why a new request is pointless ('' when it is not): the same request is already waiting, or the
+    user already has access to all these assets (then: extend it)."""
+    from perms.models import AssetPermission
+    from tickets.models import ApplyAssetTicket
+    wanted = {a.id for a in assets}
+    open_requests = ApplyAssetTicket.objects.filter(applicant=user, status='open')
+    if extends:
+        if open_requests.filter(apply_extends=str(extends)).exists():
+            return _('An extension of this access is already waiting for approval')
+        return ''
+    for t in open_requests.filter(apply_extends='').prefetch_related('apply_assets')[:50]:
+        if {a.id for a in t.apply_assets.all()} == wanted:
+            return _('A request for these assets is already waiting for approval')
+    now = timezone.now()
+    for perm in AssetPermission.objects.filter(from_ticket=True, users=user, is_active=True,
+                                               date_start__lte=now, date_expired__gt=now):
+        if wanted <= set(perm.get_all_assets().filter(id__in=wanted).values_list('id', flat=True)):
+            return _('You already have access to these assets until %s; extend it instead') % \
+                timezone.localtime(perm.date_expired).strftime('%Y-%m-%d %H:%M')
+    return ''
+
+
+def _submit(request, assets, hours, reason, title, start, end, extends=None):
     from orgs.utils import current_org
     from tickets.models import TicketFlow
     from tickets.serializers import ApplyAssetSerializer
@@ -331,6 +354,9 @@ def _submit(request, assets, hours, reason, title, start, end):
         raise SelfServiceError(_('You can request at most %s hours for these assets') % max_hours)
     if any(p.require_reason for p in policies.values()) and not (reason or '').strip():
         raise SelfServiceError(_('Enter the reason for the access'))
+    why = _already(user, assets, extends)
+    if why:
+        raise SelfServiceError(why)
     flow = TicketFlow.get_org_related_flows(org_id=current_org.id).filter(type='apply_asset') \
         .order_by('date_created').first()
     if not flow:
@@ -349,7 +375,8 @@ def _submit(request, assets, hours, reason, title, start, end):
     if not serializer.is_valid():
         raise SelfServiceError('; '.join(f'{k}: {v}' for k, v in serializer.errors.items()))
     ticket = serializer.save()
-    ticket.save(update_fields=['applicant'])
+    ticket.apply_extends = str(extends or '')
+    ticket.save(update_fields=['applicant', 'apply_extends'])
     ticket.open()
     ticket.refresh_from_db()
     return ticket
@@ -393,7 +420,7 @@ def my_access(user):
                 'id': str(t.id), 'title': t.title, 'serial_num': t.serial_num, 'org_id': str(t.org_id),
                 'assets': [a.name for a in t.apply_assets.all()[:10]],
                 'date_start': t.apply_date_start, 'date_expired': t.apply_date_expired,
-                'date_created': t.date_created, 'reason': t.comment,
+                'date_created': t.date_created, 'reason': t.comment, 'extends': t.apply_extends,
             })
         recent = []
         for t in ApplyAssetTicket.objects.filter(applicant=user, status='closed',
@@ -421,7 +448,9 @@ def _own_grant(user, perm_id):
 
 
 def extend(request, perm_id, hours, reason=''):
-    """Ask for more time: a new request for the same assets, ending `hours` after the current end."""
+    """Ask for more time. Approved (or approved by the rule), the same access ends `hours` later; the
+    hours count from the current end, so they are checked against the rule's maximum on their own."""
+    from tickets.models import ApplyAssetTicket
     perm = _own_grant(request.user, perm_id)
     try:
         hours = float(hours)
@@ -429,30 +458,42 @@ def extend(request, perm_id, hours, reason=''):
         raise SelfServiceError(_('Choose how long you need access'))
     if hours <= 0:
         raise SelfServiceError(_('Choose how long you need access'))
-    now = timezone.now()
-    end = max(perm.date_expired, now) + timezone.timedelta(hours=hours)
+    start = max(perm.date_expired, timezone.now())
+    end = start + timezone.timedelta(hours=hours)
     with tmp_to_org(perm.org_id):
         asset_ids = [str(a.id) for a in perm.get_all_assets()[:MAX_ASSETS]]
     with tmp_to_root_org():
         names = ', '.join(perm.get_all_assets().values_list('name', flat=True)[:3])
-    return submit(request, asset_ids, None, reason=reason or _('Extension'), start=now, end=end,
+        first = ApplyAssetTicket.objects.filter(id=perm.id).first()  # (the permission has the request's id)
+    if not (reason or '').strip():
+        reason = _('Extension') + (f': {first.comment}' if first and first.comment else '')
+    return submit(request, asset_ids, None, reason=reason, start=start, end=end, extends=perm.id,
                   title=_('Extend access to %(assets)s by %(hours)s h') % {'assets': names, 'hours': hours})
 
 
 def end_now(user, perm_id):
-    """The user is done: the access ends now, sessions end and just-in-time accounts are removed."""
+    """The user is done: the access ends now, and the just-in-time accounts it gave are removed (their
+    sessions end) unless another access of the user still covers them. A waiting extension is cancelled."""
     from accounts.models import JITAccount
     from accounts.tasks.jit import jit_release_task
+    from tickets.models import ApplyAssetTicket
+    from .policy import select_policy
     perm = _own_grant(user, perm_id)
     now = timezone.now()
     with tmp_to_org(perm.org_id):
         perm.date_expired = now
         perm.save(update_fields=['date_expired'])
-        asset_ids = list(perm.get_all_assets().values_list('id', flat=True)[:MAX_ASSETS])
     with tmp_to_root_org():
-        jits = JITAccount.objects.filter(user=user, asset_id__in=asset_ids, status='ready')
-        for jit in jits:
-            jit_release_task.delay(str(jit.id), reason=str(_('Ended by %s') % user))
+        for ticket in ApplyAssetTicket.objects.filter(applicant=user, status='open', apply_extends=str(perm.id)):
+            ticket.close()
+        jits = JITAccount.objects.filter(user=user, permission_id=perm.id, status='ready').select_related('asset')
+    for jit in jits:
+        with tmp_to_org(jit.org_id):
+            policy, other = select_policy(user, jit.asset) if jit.asset else (None, None)
+        if policy and other:
+            JITAccount.objects.filter(id=jit.id).update(permission_id=other.id)
+            continue
+        jit_release_task.delay(str(jit.id), reason=str(_('Ended by %s') % user))
     return perm
 
 

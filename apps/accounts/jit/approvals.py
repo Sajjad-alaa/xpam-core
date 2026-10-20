@@ -102,9 +102,17 @@ def decide(user, ticket_id, action, comment=''):
 def decision_note(ticket):
     """The last comment of an approver (for the requester)."""
     from tickets.models import Comment
-    c = Comment.objects.filter(ticket=ticket, type='common').exclude(user_id=ticket.applicant_id) \
-        .exclude(user_display='XPAM').order_by('-date_created').first()
-    return {'by': c.user_display, 'text': c.body} if c else None
+    # comments without a user are XPAM's own (approval route, escalation...), not an approver's note
+    c = Comment.objects.filter(ticket=ticket, type='common', user__isnull=False) \
+        .exclude(user_id=ticket.applicant_id).order_by('-date_created').first()
+    if c:
+        return {'by': c.user_display, 'text': c.body}
+    if ticket.state == 'closed':
+        # closed by XPAM (nobody approved in time, the time was over): say so
+        c = Comment.objects.filter(ticket=ticket, type='common', user__isnull=True).order_by('-date_created').first()
+        if c:
+            return {'by': 'XPAM', 'text': c.body}
+    return None
 
 
 def pending_count(user):

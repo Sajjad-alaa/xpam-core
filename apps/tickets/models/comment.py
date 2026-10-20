@@ -32,7 +32,8 @@ class Comment(JMSBaseModel):
         verbose_name = _("Comment")
 
     def set_display_fields(self):
-        self.user_display = str(self.user)
+        if self.user_id or not self.user_display:
+            self.user_display = str(self.user)  # (XPAM: comments by the system keep their name, "XPAM")
 
     def __str__(self):
         return str(self.ticket)
