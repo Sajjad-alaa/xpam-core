@@ -357,5 +357,16 @@ class ConnectMethodUtil:
                 method['component'] = TerminalType.panda.value
             methods[protocol].extend(virtual_app_methods)
 
+        # XPAM: web assets in the browser service, shown through Lion like a remote desktop
+        # (works in any browser and in the client, without showing the site address)
+        if getattr(settings, 'XPAM_BROWSER_ENABLED', True):
+            methods[str(Protocol.http)].insert(0, {
+                'component': TerminalType.lion.value,
+                'type': 'web',
+                'endpoint_protocol': 'http',
+                'value': 'web_browser',
+                'label': _('Remote browser'),
+            })
+
         cls._all_methods[os] = methods
         return methods

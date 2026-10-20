@@ -789,6 +789,8 @@ class Config(dict):
 
         'TICKETS_ENABLED': True,
         'TICKETS_DIRECT_APPROVE': False,
+        # XPAM: web assets through the browser service (Remote browser connect method)
+        'XPAM_BROWSER_ENABLED': True,
 
         # 废弃的
         'DEFAULT_ORG_SHOW_ALL_USERS': True,
