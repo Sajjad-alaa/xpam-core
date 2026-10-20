@@ -30,7 +30,8 @@ class DeviceTypes(BaseType):
     def _get_protocol_constrains(cls) -> dict:
         return {
             '*': {
-                'choices': ['ssh', 'telnet', 'sftp']
+                # XPAM: http = the device's web admin page (FortiGate, PAN-OS...) in the Remote browser
+                'choices': ['ssh', 'telnet', 'sftp', 'http']
             }
         }
 

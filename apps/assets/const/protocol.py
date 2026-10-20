@@ -342,7 +342,15 @@ class Protocol(ChoicesMixin, models.TextChoices):
                         'type': 'text',
                         'default': [],
                         'label': _('Script'),
-                    }
+                    },
+                    # XPAM: devices (web assets have their own "Verify certificate" field)
+                    'verify_cert': {
+                        'type': 'bool',
+                        'default': False,
+                        'label': _('Verify certificate'),
+                        'help_text': _('Devices: Remote browser refuses the web admin page when its certificate is '
+                                       'not trusted. Leave off for devices with their factory self-signed certificate.')
+                    },
                 }
             },
         }

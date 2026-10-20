@@ -177,6 +177,36 @@ class ConnectionTokenSecretSerializer(OrgResourceModelSerializerMixin):
             'value': {'read_only': True},
         }
 
+    def to_representation(self, token):
+        data = super().to_representation(token)
+        asset = token.asset
+        if token.protocol == 'http' and asset and asset.category == 'device' and data.get('asset'):
+            self._device_web_admin(data['asset'], asset)
+        return data
+
+    @staticmethod
+    def _device_web_admin(data, asset):
+        """XPAM: a device's web admin page (FortiGate, PAN-OS...) in the Remote browser. Sign-in settings
+        come from the HTTP protocol of the device's platform; the address (an IP or host name) gets
+        https:// unless the port is 80/8080."""
+        proto = asset.platform.protocols.filter(name='http').first()
+        setting = (proto.setting if proto else None) or {}
+        spec = {k: str(setting.get(k) or '') for k in (
+            'autofill', 'username_selector', 'password_selector', 'submit_selector', 'success_selector',
+            'interactive_selector')}
+        spec['autofill'] = spec['autofill'] or 'basic'
+        script = setting.get('script')
+        spec['script'] = script if isinstance(script, list) else []
+        spec['verify_cert'] = bool(setting.get('verify_cert', False))
+        spec['allowed_urls'] = []
+        data['spec_info'] = spec
+        address = (data.get('address') or '').strip()
+        if address and '://' not in address:
+            if ':' in address and not address.startswith('['):
+                address = f'[{address}]'  # IPv6
+            scheme = 'http' if asset.get_protocol_port('http') in (80, 8080) else 'https'
+            data['address'] = f'{scheme}://{address}'
+
     @staticmethod
     def get_ssh_certificate(token):
         return getattr(token, 'ssh_certificate', None)

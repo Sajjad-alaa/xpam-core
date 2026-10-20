@@ -315,6 +315,8 @@ class PlatformProtocol(models.Model):
     @lazyproperty
     def port_from_addr(self):
         from assets.const.protocol import Protocol as ProtocolConst
+        if self.platform.category == 'device':
+            return False  # XPAM: a device's address is its IP; the web admin port is set on the asset
         return ProtocolConst.settings().get(self.name, {}).get('port_from_addr', False)
 
 
