@@ -368,6 +368,20 @@ class GatherAccountsFilter:
                 result[username] = user
         return result
 
+    @staticmethod
+    def network_filter(info):
+        # network_account already reports {username: {'detail': {...}}}
+        result = {}
+        for username, user in (info or {}).items():
+            if not username or not isinstance(user, dict):
+                continue
+            detail = user.get('detail') if isinstance(user.get('detail'), dict) else {}
+            result[str(username)] = {
+                'date_password_change': None, 'date_password_expired': None, 'date_last_login': None,
+                'detail': {k: detail.get(k) for k in ('groups', 'vendor', 'role', 'admin')},
+            }
+        return result
+
     def run(self, method_id_meta_mapper, info):
         run_method_name = None
         for k, v in method_id_meta_mapper.items():

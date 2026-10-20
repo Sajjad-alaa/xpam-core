@@ -7,10 +7,14 @@ from the worker, with the privileged account of the asset:
 database  MySQL/MariaDB, PostgreSQL, SQL Server, Oracle: a login with the rights the policy chooses
           (read only, read and write, administrator or custom SQL); removal ends the user's
           database sessions and drops the login.
-device    any SSH device (Cisco, Huawei, Fortinet, ...): the policy's command templates are run
+device    FortiGate, Palo Alto, Cisco IOS/ASA/NX-OS, Juniper, Huawei, H3C: the built-in drivers
+          (libs/ansible/modules_utils/network_device.py) create the account with the policy's role,
+          also through the asset's gateway. Other SSH devices: the policy's command templates are run
           in an interactive shell, like the "SSH account push" automation.
 """
+import contextlib
 import re
+import tempfile
 
 from django.utils.translation import gettext as _
 
@@ -379,7 +383,107 @@ def _device_login_works(asset, username, password):
         c.close()
 
 
+def device_vendor(asset):
+    """Vendor and driver options: the platform's network method settings, else the platform name."""
+    from libs.ansible.modules_utils.network_device import vendor_from_name
+    params = {}
+    auto = getattr(asset.platform, 'automation', None)
+    for kind in ('push_account', 'change_secret', 'remove_account', 'gather_accounts'):
+        method = (getattr(auto, f'{kind}_method', '') or '') if auto else ''
+        if method.endswith('_network'):
+            params = (getattr(auto, f'{kind}_params', None) or {}).get(method) or {}
+            if params:
+                break
+    vendor = params.get('vendor') or 'auto'
+    if vendor == 'auto':
+        vendor = vendor_from_name(asset.platform.name) or 'auto'
+    return vendor, {'commit': params.get('commit') or 'partial', 'vdom': params.get('vdom') or 'root'}
+
+
+def _device_gateway(asset, tmp):
+    if not (getattr(asset, 'zone_id', None) and asset.platform.gateway_enabled):
+        return None
+    gateway = asset.zone.select_gateway()
+    if not gateway:
+        raise TargetError(_('No gateway is available in the zone of the asset'))
+    return {'address': gateway.address, 'port': gateway.port, 'username': gateway.username,
+            'password': gateway.password or None,
+            'key_path': gateway.get_private_key_path(tmp) if gateway.private_key else None}
+
+
+def _device_credentials(asset, admin, tmp):
+    """(ssh user, password, key file, enable password): "su from" signs in, the privileged secret enables."""
+    login = admin.su_from if (admin.su_from_id and asset.platform.su_enabled) else admin
+    password = login.secret if login.secret_type == 'password' else ''
+    key = login.get_private_key_path(tmp) if login.secret_type == 'ssh_key' else None
+    enable = admin.secret if admin.secret_type == 'password' else ''
+    return login.username, password or '', key, enable or ''
+
+
+@contextlib.contextmanager
+def _device_session(asset):
+    from libs.ansible.modules_utils.network_device import DeviceError, session
+    admin = _admin(asset)
+    vendor, options = device_vendor(asset)
+    with tempfile.TemporaryDirectory(prefix='xpam-jit-') as tmp:
+        user, password, key, enable = _device_credentials(asset, admin, tmp)
+        gateway = _device_gateway(asset, tmp)
+        try:
+            with session(vendor, asset.address, asset.get_protocol_port('ssh') or 22, user, password, key_file=key,
+                         enable_password=enable, gateway=gateway, timeout=CONNECT_TIMEOUT * 2,
+                         options=options) as dev:
+                yield dev
+        except DeviceError as e:
+            raise TargetError(_redact(e, password, enable))
+
+
+def _device_login_works_via(asset, username, password):
+    """Signs in with the new account (password or keyboard-interactive), through the gateway if any."""
+    import paramiko
+    from libs.ansible.modules_utils.network_device import tunnel
+    with tempfile.TemporaryDirectory(prefix='xpam-jit-') as tmp:
+        gateway = _device_gateway(asset, tmp)
+        with tunnel(gateway, asset.address, asset.get_protocol_port('ssh') or 22) as (host, port):
+            t = paramiko.Transport((host, int(port)))
+            try:
+                t.start_client(timeout=CONNECT_TIMEOUT)
+                try:
+                    t.auth_password(username, password)
+                except paramiko.BadAuthenticationType:
+                    t.auth_interactive(username, lambda title, instructions, prompts: [password] * len(prompts))
+                return t.is_authenticated()
+            except Exception as e:
+                logger.debug('JIT device login check for %s failed: %s', username, e)
+                return False
+            finally:
+                t.close()
+
+
 def create_device_account(asset, username, password, policy):
+    if (policy.device_create_commands or '').strip():
+        return _create_device_account_by_commands(asset, username, password, policy)
+    from accounts.models import JITAccount
+    with _device_session(asset) as dev:
+        if dev.user(username) and not JITAccount.objects.filter(asset=asset, username=username).exists():
+            # never take over an account XPAM did not create
+            raise TargetError(_('An account named %s already exists on the device') % username)
+        dev.push(username, password, policy.device_role or 'read_only', policy.device_custom_role or '')
+    for _attempt in range(3):  # (PAN-OS and Junos apply the account a moment after the commit)
+        if _device_login_works_via(asset, username, password):
+            return
+        import time
+        time.sleep(3)
+    raise TargetError(_('The account was created, but it cannot sign in to the device'))
+
+
+def remove_device_account(asset, username, policy):
+    if policy and (policy.device_remove_commands or '').strip():
+        return _remove_device_account_by_commands(asset, username, policy)
+    with _device_session(asset) as dev:
+        dev.remove(username)
+
+
+def _create_device_account_by_commands(asset, username, password, policy):
     admin = _admin(asset)
     values = {'username': username, 'password': password, 'login_password': admin.secret or ''}
     commands = _device_commands(policy.device_create_commands, values)
@@ -393,10 +497,10 @@ def create_device_account(asset, username, password, policy):
         raise TargetError(_('The commands ran, but the new account cannot sign in; check the commands'))
 
 
-def remove_device_account(asset, username, policy):
+def _remove_device_account_by_commands(asset, username, policy):
     admin = _admin(asset)
-    text = policy.device_remove_commands if policy else ''
-    commands = _device_commands(text, {'username': username, 'password': '', 'login_password': admin.secret or ''})
+    commands = _device_commands(policy.device_remove_commands,
+                                {'username': username, 'password': '', 'login_password': admin.secret or ''})
     if not commands:
         raise TargetError(_('The policy has no commands to remove the account from the device'))
     try:

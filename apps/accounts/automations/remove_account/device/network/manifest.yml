@@ -1,0 +1,68 @@
+id: remove_account_network
+name: "{{ 'Network device remove account' | trans }}"
+category:
+  - device
+type:
+  - general
+  - switch
+  - router
+  - firewall
+  - cisco
+  - huawei
+  - h3c
+  - juniper
+method: remove_account
+protocol: ssh
+priority: 10
+params:
+  - name: vendor
+    type: choice
+    label: "{{ 'Vendor' | trans }}"
+    default: auto
+    choices:
+      - [auto, "Recognise automatically"]
+      - [fortinet, "FortiGate (FortiOS)"]
+      - [paloalto, "Palo Alto (PAN-OS)"]
+      - [cisco_ios, "Cisco IOS / IOS-XE"]
+      - [cisco_asa, "Cisco ASA"]
+      - [cisco_nxos, "Cisco NX-OS"]
+      - [juniper, "Juniper (Junos)"]
+      - [huawei, "Huawei (VRP)"]
+      - [h3c, "H3C (Comware)"]
+    help_text: "{{ 'Vendor help' | trans }}"
+  - name: commit
+    type: choice
+    label: "{{ 'Palo Alto commit' | trans }}"
+    default: partial
+    choices:
+      - [partial, "Only XPAM's change (commit partial admin)"]
+      - [full, "Full commit"]
+    help_text: "{{ 'Commit help' | trans }}"
+  - name: vdom
+    type: str
+    label: "{{ 'FortiGate VDOM' | trans }}"
+    default: root
+    help_text: "{{ 'VDOM help' | trans }}"
+
+i18n:
+  Network device remove account:
+    en: "Network device: remove the account (FortiGate, Palo Alto, Cisco, Juniper, Huawei, H3C)"
+    zh: "网络设备：删除账号（FortiGate、Palo Alto、Cisco、Juniper、华为、H3C）"
+  Vendor:
+    en: Vendor
+    zh: 厂商
+  Vendor help:
+    en: "FortiGate, Palo Alto, Cisco IOS/ASA/NX-OS, Juniper, Huawei or H3C; automatic recognition uses the platform name and the device's version"
+    zh: "自动识别根据平台名称和设备版本信息"
+  Palo Alto commit:
+    en: Palo Alto commit
+    zh: Palo Alto 提交方式
+  Commit help:
+    en: "Partial commits only XPAM's own change, never other administrators' pending changes"
+    zh: 部分提交只提交 XPAM 自己的修改
+  FortiGate VDOM:
+    en: FortiGate VDOM
+    zh: FortiGate VDOM
+  VDOM help:
+    en: VDOM of new accounts when the FortiGate uses VDOMs
+    zh: 启用多 VDOM 时新账号所属的 VDOM

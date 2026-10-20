@@ -46,18 +46,16 @@ def unsupported_reason(asset, policy=None):
                 return _('SSH keys work on Linux/Unix only; choose "Password" for Windows assets')
             return ''
         if kind in ('database', 'device'):
-            if getattr(asset, 'zone_id', None) and asset.platform.gateway_enabled:
+            if kind == 'database' and getattr(asset, 'zone_id', None) and asset.platform.gateway_enabled:
                 return _('Assets reached through a gateway are not supported for this target yet')
             if not admin_account(asset):
                 return _('Add a privileged account on the asset that may create users')
-            if kind == 'device':
-                if not asset.protocols.filter(name='ssh').exists():
-                    return _('The device needs the SSH protocol')
-                if policy and not (policy.device_create_commands or '').strip():
-                    return _('The policy has no commands for network devices')
+            if kind == 'device' and not asset.protocols.filter(name='ssh').exists():
+                return _('The device needs the SSH protocol')
             return ''
         return _('Just-in-time accounts work on Linux/Unix and Windows hosts, databases (MySQL, '
-                 'MariaDB, PostgreSQL, SQL Server, Oracle) and SSH network devices')
+                 'MariaDB, PostgreSQL, SQL Server, Oracle) and network devices (FortiGate, Palo Alto, '
+                 'Cisco, Juniper, Huawei, H3C and other SSH devices)')
     except Exception as e:  # never break permission listing because of JIT
         logger.debug('JIT support check failed for %s: %s', asset, e)
         return 'error'

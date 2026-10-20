@@ -1,0 +1,95 @@
+id: push_account_network
+name: "{{ 'Network device account push' | trans }}"
+category:
+  - device
+type:
+  - general
+  - switch
+  - router
+  - firewall
+  - cisco
+  - huawei
+  - h3c
+  - juniper
+method: push_account
+protocol: ssh
+priority: 10
+params:
+  - name: vendor
+    type: choice
+    label: "{{ 'Vendor' | trans }}"
+    default: auto
+    choices:
+      - [auto, "Recognise automatically"]
+      - [fortinet, "FortiGate (FortiOS)"]
+      - [paloalto, "Palo Alto (PAN-OS)"]
+      - [cisco_ios, "Cisco IOS / IOS-XE"]
+      - [cisco_asa, "Cisco ASA"]
+      - [cisco_nxos, "Cisco NX-OS"]
+      - [juniper, "Juniper (Junos)"]
+      - [huawei, "Huawei (VRP)"]
+      - [h3c, "H3C (Comware)"]
+    help_text: "{{ 'Vendor help' | trans }}"
+  - name: role
+    type: choice
+    label: "{{ 'Device role' | trans }}"
+    default: read_only
+    choices:
+      - [read_only, "Read only"]
+      - [operator, "Operator"]
+      - [admin, "Administrator"]
+      - [custom, "Custom"]
+    help_text: "{{ 'Role help' | trans }}"
+  - name: custom_role
+    type: str
+    label: "{{ 'Custom role' | trans }}"
+    default: ''
+    help_text: "{{ 'Custom role help' | trans }}"
+  - name: commit
+    type: choice
+    label: "{{ 'Palo Alto commit' | trans }}"
+    default: partial
+    choices:
+      - [partial, "Only XPAM's change (commit partial admin)"]
+      - [full, "Full commit"]
+    help_text: "{{ 'Commit help' | trans }}"
+  - name: vdom
+    type: str
+    label: "{{ 'FortiGate VDOM' | trans }}"
+    default: root
+    help_text: "{{ 'VDOM help' | trans }}"
+
+i18n:
+  Network device account push:
+    en: "Network device: push the account with its role (FortiGate, Palo Alto, Cisco, Juniper, Huawei, H3C)"
+    zh: "网络设备：推送账号及角色（FortiGate、Palo Alto、Cisco、Juniper、华为、H3C）"
+  Device role:
+    en: Role on the device
+    zh: 设备上的角色
+  Role help:
+    en: "Read only: FortiGate profile xpam_read_only (created), PAN-OS superreader, Cisco privilege 1 (ASA 5), NX-OS network-operator, Junos read-only, Huawei level 1, H3C network-operator. Administrator: super_admin, superuser, privilege 15, network-admin, super-user, level 15"
+    zh: "只读 / 操作员 / 管理员，按厂商映射到对应的配置文件、权限级别或角色"
+  Custom role:
+    en: Custom role
+    zh: 自定义角色
+  Custom role help:
+    en: "For the Custom role: FortiGate admin profile, PAN-OS admin role profile, Cisco/Huawei privilege level (0-15), NX-OS role, Junos login class or H3C user role"
+    zh: "自定义角色：FortiGate 管理配置文件、PAN-OS 角色、Cisco/华为权限级别、NX-OS 角色、Junos 登录类或 H3C 用户角色"
+  Vendor:
+    en: Vendor
+    zh: 厂商
+  Vendor help:
+    en: "FortiGate, Palo Alto, Cisco IOS/ASA/NX-OS, Juniper, Huawei or H3C; automatic recognition uses the platform name and the device's version"
+    zh: "自动识别根据平台名称和设备版本信息"
+  Palo Alto commit:
+    en: Palo Alto commit
+    zh: Palo Alto 提交方式
+  Commit help:
+    en: "Partial commits only XPAM's own change, never other administrators' pending changes"
+    zh: 部分提交只提交 XPAM 自己的修改
+  FortiGate VDOM:
+    en: FortiGate VDOM
+    zh: FortiGate VDOM
+  VDOM help:
+    en: VDOM of new accounts when the FortiGate uses VDOMs
+    zh: 启用多 VDOM 时新账号所属的 VDOM

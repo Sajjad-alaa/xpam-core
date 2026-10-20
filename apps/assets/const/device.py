@@ -44,11 +44,11 @@ class DeviceTypes(BaseType):
                 },
                 'ping_enabled': True,
                 'gather_facts_enabled': False,
-                'gather_accounts_enabled': False,
+                'gather_accounts_enabled': True,
                 'verify_account_enabled': True,
                 'change_secret_enabled': True,
-                'push_account_enabled': False,
-                'remove_account_enabled': False,
+                'push_account_enabled': True,
+                'remove_account_enabled': True,
             }
         }
 

@@ -64,7 +64,8 @@ class JITPolicySerializer(BulkOrgResourceModelSerializer):
             'jit_only', 'self_service', 'max_hours', 'require_reason', 'auto_approve', 'auto_approve_max_hours',
             'auto_approve_time_period', 'approvals_required', 'approvers', 'require_mfa', 'end_sessions_on_expiry',
             'expiry_warning_minutes', 'command_groups', 'command_action', 'credential_type',
-            'db_privilege', 'db_custom_sql', 'device_create_commands', 'device_remove_commands', 'permissions_amount', 'live_accounts_amount',
+            'db_privilege', 'db_custom_sql', 'device_role', 'device_custom_role', 'device_create_commands',
+            'device_remove_commands', 'permissions_amount', 'live_accounts_amount',
             'comment', 'created_by', 'date_created', 'date_updated',
         ]
         read_only_fields = ['created_by', 'date_created', 'date_updated']
@@ -94,8 +95,15 @@ class JITPolicySerializer(BulkOrgResourceModelSerializer):
             'expiry_warning_minutes': {'help_text': _('The user is told this long before the access ends; 0 = off')},
             'db_custom_sql': {'help_text': _('One statement per line, ending with ";". Placeholders: {username}, '
                                              '{database}')},
-            'device_create_commands': {'help_text': _('One command per line. Placeholders: {username}, {password}, '
-                                                      '{login_password} (enable password of the admin account)')},
+            'device_role': {'help_text': _('Role of the account on FortiGate, Palo Alto, Cisco, Juniper, Huawei and H3C '
+                                           'devices (read only, operator, administrator or a custom role)')},
+            'device_custom_role': {'help_text': _('For the Custom role: FortiGate admin profile, PAN-OS role profile, '
+                                                  'Cisco/Huawei privilege level (0-15), NX-OS role, Junos login class '
+                                                  'or H3C user role')},
+            'device_create_commands': {'help_text': _('Only for other SSH devices (the built-in drivers are used when '
+                                                      'empty). One command per line. Placeholders: {username}, '
+                                                      '{password}, {login_password} (enable password of the admin '
+                                                      'account)')},
             'device_remove_commands': {'help_text': _('One command per line. Placeholders: {username}, '
                                                       '{login_password}')},
         }
@@ -170,6 +178,8 @@ class JITPolicySerializer(BulkOrgResourceModelSerializer):
             raise serializers.ValidationError({'expiry_warning_minutes': _('Between 0 and 240 minutes')})
         if get('db_privilege', 'read_only') == 'custom' and not (get('db_custom_sql') or '').strip():
             raise serializers.ValidationError({'db_custom_sql': _('Enter the SQL that gives the rights')})
+        if get('device_role', 'read_only') == 'custom' and not (get('device_custom_role') or '').strip():
+            raise serializers.ValidationError({'device_custom_role': _('Enter the role name or privilege level')})
         if (get('device_create_commands') or '').strip() and not (get('device_remove_commands') or '').strip():
             raise serializers.ValidationError({'device_remove_commands': _(
                 'Enter the commands that remove the account again')})

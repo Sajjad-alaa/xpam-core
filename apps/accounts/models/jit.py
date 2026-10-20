@@ -43,6 +43,12 @@ class JITPolicy(JMSOrgBaseModel):
         admin = 'admin', _('Administrator')
         custom = 'custom', _('Custom SQL')
 
+    class DeviceRole(models.TextChoices):
+        read_only = 'read_only', _('Read only')
+        operator = 'operator', _('Operator')
+        admin = 'admin', _('Administrator')
+        custom = 'custom', _('Custom')
+
     class Scope(models.TextChoices):
         linked = 'linked', _('Only the asset permissions linked to it')
         requests = 'requests', _('Approved access requests')
@@ -110,7 +116,12 @@ class JITPolicy(JMSOrgBaseModel):
         max_length=16, choices=DBPrivilege.choices, default=DBPrivilege.read_only, verbose_name=_('Database rights')
     )
     db_custom_sql = models.TextField(blank=True, default='', verbose_name=_('Custom SQL'))
-    # Network devices and other SSH devices
+    # Network devices: the role on FortiGate, Palo Alto, Cisco, Juniper, Huawei, H3C (built-in drivers);
+    # the commands below replace the built-in driver when filled in (other SSH devices)
+    device_role = models.CharField(
+        max_length=16, choices=DeviceRole.choices, default=DeviceRole.read_only, verbose_name=_('Device role')
+    )
+    device_custom_role = models.CharField(max_length=128, blank=True, default='', verbose_name=_('Custom device role'))
     device_create_commands = models.TextField(blank=True, default='', verbose_name=_('Commands to create the account'))
     device_remove_commands = models.TextField(blank=True, default='', verbose_name=_('Commands to remove the account'))
     is_active = models.BooleanField(default=True, verbose_name=_('Active'))

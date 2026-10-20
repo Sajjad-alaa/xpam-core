@@ -1,0 +1,54 @@
+- hosts: all
+  gather_facts: no
+  vars:
+    ansible_connection: local
+    ansible_python_interpreter: "{{ local_python_interpreter }}"
+    ansible_become: false
+
+  tasks:
+
+    - name: Network devices take passwords only
+      ansible.builtin.fail:
+        msg: "Network device accounts use passwords; SSH keys cannot be pushed to this device"
+      when: account.secret_type != "password"
+
+    - name: Push the account to the network device
+      network_account:
+        login_host: "{{ jms_asset.address }}"
+        login_port: "{{ jms_asset.ssh_port | default(jms_asset.port) }}"
+        login_user: "{{ jms_account.username }}"
+        login_password: "{{ jms_account.secret if jms_account.secret_type == 'password' else '' }}"
+        login_secret_type: "{{ jms_account.secret_type }}"
+        login_private_key_path: "{{ jms_account.private_key_path }}"
+        become: "{{ jms_custom_become | default(False) }}"
+        become_method: "{{ jms_custom_become_method | default('') }}"
+        become_user: "{{ jms_custom_become_user | default('') }}"
+        become_password: "{{ jms_custom_become_password | default('') }}"
+        become_private_key_path: "{{ jms_custom_become_private_key_path | default(None) }}"
+        gateway_args: "{{ jms_asset.ansible_ssh_common_args | default('') }}"
+        platform: "{{ jms_asset.platform | default('') }}"
+        vendor: "{{ params.vendor | default('auto') }}"
+        commit: "{{ params.commit | default('partial') }}"
+        vdom: "{{ params.vdom | default('root') }}"
+        action: push
+        name: "{{ account.username }}"
+        password: "{{ account.secret }}"
+        role: "{{ params.role | default('read_only') }}"
+        custom_role: "{{ params.custom_role | default('') }}"
+      delegate_to: localhost
+      connection: local
+
+    - name: Verify the account can sign in (paramiko)
+      ssh_ping:
+        login_user: "{{ account.username }}"
+        login_password: "{{ account.secret }}"
+        login_secret_type: password
+        login_host: "{{ jms_asset.address }}"
+        login_port: "{{ jms_asset.ssh_port | default(jms_asset.port) }}"
+        gateway_args: "{{ jms_asset.ansible_ssh_common_args | default(None) }}"
+        old_ssh_version: "{{ jms_asset.old_ssh_version | default(False) }}"
+        auth_only: true
+        fail_on_unknown: false
+      delegate_to: localhost
+      connection: local
+      when: check_conn_after_change | default(false)

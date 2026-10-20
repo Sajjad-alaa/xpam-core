@@ -218,9 +218,13 @@ class BaseChangeSecretPushManager(AccountBasePlaybookManager):
         if self.secret_strategy == SecretStrategy.custom:
             new_secret = self.execution.snapshot.get('secret')
         else:
+            rules = self.execution.snapshot.get('password_rules')
+            if getattr(getattr(account, 'asset', None), 'category', '') == 'device':
+                # device command lines read "?" as a request for help
+                rules = dict(rules or {})
+                rules['exclude_symbols'] = (rules.get('exclude_symbols') or '') + '?'
             generator = SecretGenerator(
-                self.secret_strategy, self.secret_type,
-                self.execution.snapshot.get('password_rules')
+                self.secret_strategy, self.secret_type, rules
             )
             new_secret = generator.get_secret()
         return new_secret
