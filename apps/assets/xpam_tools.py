@@ -85,8 +85,12 @@ def _license_room(n):
 
 def bulk_add(request, platform_id, text, node_ids, account=None, db_name=''):
     """Create one asset per line. Returns {created: [...], failed: [{line, error}]}."""
+    from common.utils import is_uuid
+    from orgs.utils import current_org
     from assets.models import Platform, Node
-    platform = Platform.objects.filter(id=platform_id).first()
+    if current_org.is_root():
+        raise ToolError(_('Choose an organization first: assets cannot be created in "All organizations"'))
+    platform = Platform.objects.filter(id=platform_id).first() if str(platform_id or '').isdigit() else None
     if not platform:
         raise ToolError(_('Choose a platform'))
     cls = _serializer_class(platform.category)
@@ -96,7 +100,8 @@ def bulk_add(request, platform_id, text, node_ids, account=None, db_name=''):
     why = _license_room(len(rows))
     if why:
         raise ToolError(why)
-    nodes = [str(n.id) for n in Node.objects.filter(id__in=node_ids or [])] or [str(Node.org_root().id)]
+    node_ids = [i for i in (node_ids or []) if is_uuid(i)]
+    nodes = [str(n.id) for n in Node.objects.filter(id__in=node_ids)] or [str(Node.org_root().id)]
     accounts = []
     if account and account.get('username'):
         accounts = [{
@@ -126,10 +131,9 @@ def bulk_add(request, platform_id, text, node_ids, account=None, db_name=''):
 
 # ---------------------------------------------------------------- detect the platform of network devices
 
-def _detect_one(asset):
-    """(platform name, '') or (None, reason)."""
+def _detect_params(asset):
+    """(SSH parameters, '') or (None, reason). Reads the database: runs in the request thread."""
     from accounts.jit.policy import admin_account
-    from libs.ansible.modules_utils.network_device import detect_vendor
     if asset.platform.category != 'device':
         return None, _('Not a network device')
     if getattr(asset, 'zone_id', None) and asset.platform.gateway_enabled:
@@ -138,14 +142,19 @@ def _detect_one(asset):
     if not account or account.secret_type != 'password':
         return None, _('Add a privileged account with a password on the device')
     port = asset.get_protocol_port('ssh') or 22
-    params = dict(host=asset.address, port=int(port), username=account.username, password=account.secret or '',
-                  secret=account.secret or '', allow_agent=False, use_keys=False, ssh_strict=False,
-                  system_host_keys=False, conn_timeout=20, auth_timeout=20, banner_timeout=20, timeout=60,
-                  fast_cli=False)
+    return dict(host=asset.address, port=int(port), username=account.username, password=account.secret or '',
+                secret=account.secret or '', allow_agent=False, use_keys=False, ssh_strict=False,
+                system_host_keys=False, conn_timeout=20, auth_timeout=20, banner_timeout=20, timeout=60,
+                fast_cli=False), ''
+
+
+def _detect_vendor(params):
+    """(platform name, '') or (None, reason). Network only (runs in a worker thread, no database)."""
+    from libs.ansible.modules_utils.network_device import detect_vendor
     try:
         vendor = detect_vendor(params)
     except Exception as e:
-        msg = str(e).replace(account.secret or '\0', '***')
+        msg = str(e).replace(params['password'] or '\0', '***')
         return None, _('Cannot sign in to the device: %s') % msg[:200]
     name = PLATFORM_OF_VENDOR.get(vendor)
     if not name:
@@ -155,13 +164,18 @@ def _detect_one(asset):
 
 def detect_platforms(asset_ids):
     """Sign in to each device and move it to its platform. [{id, name, before, after, changed, error}]"""
+    from common.utils import is_uuid
     from assets.models import Asset, Platform
     from assets.serializers.asset.common import AssetSerializer
-    assets = list(Asset.objects.filter(id__in=list(asset_ids)[:MAX_DETECT]).select_related('platform'))
+    ids = [i for i in list(asset_ids)[:MAX_DETECT] if is_uuid(i)]
+    assets = list(Asset.objects.filter(id__in=ids).select_related('platform'))
     if not assets:
         raise ToolError(_('Choose the devices to detect'))
-    with ThreadPoolExecutor(max_workers=min(8, len(assets))) as pool:
-        found = list(pool.map(_detect_one, assets))
+    prepared = [_detect_params(a) for a in assets]  # database work here, in the request's organization
+    todo = [p for p, _why in prepared if p]
+    with ThreadPoolExecutor(max_workers=max(1, min(8, len(todo)))) as pool:
+        detected = iter(list(pool.map(_detect_vendor, todo)))
+    found = [next(detected) if p else (None, why) for p, why in prepared]
     results = []
     for asset, (name, error) in zip(assets, found):
         item = {'id': str(asset.id), 'name': asset.name, 'before': asset.platform.name, 'after': name or '',

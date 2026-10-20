@@ -90,10 +90,15 @@ class JITPolicyViewSet(OrgBulkModelViewSet):
         if not isinstance(value, dict) or not value.get('type'):
             return Response({'total': 0, 'ready': 0, 'checked': 0, 'problems': []})
         qs = Asset.objects.all()
-        if value['type'] != 'all':
-            for q in RelatedManager.get_to_filter_qs(value, Asset):
-                qs = qs.filter(q)
-        total = qs.distinct().count()
+        if value['type'] == 'ids':
+            value = {**value, 'ids': [i for i in value.get('ids') or [] if is_uuid(i)]}
+        try:
+            if value['type'] != 'all':
+                for q in RelatedManager.get_to_filter_qs(value, Asset):
+                    qs = qs.filter(q)
+            total = qs.distinct().count()
+        except Exception as e:  # a malformed attribute rule
+            return Response({'detail': str(e)[:200]}, status=400)
         policy = JITPolicy(credential_type=request.data.get('credential_type') or 'password')
         problems, ready, checked = {}, 0, 0
         for asset in qs.distinct().select_related('platform').prefetch_related('protocols')[:limit]:
