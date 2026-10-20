@@ -35,6 +35,7 @@
         password: "{{ account.secret }}"
         role: "{{ params.role | default('read_only') }}"
         custom_role: "{{ params.custom_role | default('') }}"
+        update_role: "{{ params.update_role | default(false) }}"
       delegate_to: localhost
       connection: local
 

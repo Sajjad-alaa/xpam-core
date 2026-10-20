@@ -182,9 +182,22 @@ class StatusMixin:
                     raise TicketStateChanged
                 raise PermissionError('Only assignees can do this')
 
+            current_step = self.current_step
+            if state == StepState.approved:
+                # XPAM: four eyes on every path (inbox, e-mail link, ticket API): never the requester
+                # (superusers may grant themselves access directly anyway), and never someone who
+                # already approved an earlier step of the same request
+                if processor.id == self.applicant_id and not processor.is_superuser:
+                    raise PermissionError('You cannot approve your own request')
+                earlier = TicketAssignee.objects.filter(
+                    step__ticket_id=self.pk, step__level__lt=current_step.level,
+                    state=StepState.approved, assignee_id=processor.id,
+                )
+                if earlier.exists():
+                    raise PermissionError('Another person must approve this step')
+
             if update_rel_snapshot:
                 self.set_rel_snapshot()
-            current_step = self.current_step
             current_step.change_state(state, processor)
             self._finish_or_next(current_step, state)
 

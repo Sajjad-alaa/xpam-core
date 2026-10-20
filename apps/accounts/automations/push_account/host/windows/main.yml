@@ -1,6 +1,20 @@
 - hosts: demo
   gather_facts: no
   tasks:
+    - name: Look up the user (just-in-time accounts)
+      ansible.windows.win_user:
+        name: "{{ account.username }}"
+        state: query
+      register: existing_user
+      when: params.new_only | default(false) | bool
+
+    - name: Refuse an existing user (just-in-time accounts never take over an account)
+      ansible.builtin.fail:
+        msg: "XPAM_JIT_USER_EXISTS: {{ account.username }} already exists on the asset"
+      when:
+        - params.new_only | default(false) | bool
+        - (existing_user.state | default('absent')) == 'present'
+
     - name: Push user password
       ansible.windows.win_user:
         fullname: "{{ account.username}}"

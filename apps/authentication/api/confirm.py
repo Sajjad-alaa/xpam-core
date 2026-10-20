@@ -67,7 +67,23 @@ class UserConfirmationViewSet(JMSGenericViewSet):
         secret_key = validated_data.get('secret_key')
 
         backend = self.get_confirm_backend(confirm_type)
-        ok, msg = backend.authenticate(secret_key, mfa_type)
+        if backend is None:
+            # (e.g. MFA asked for by a just-in-time rule, but the user has no MFA set up yet)
+            return Response({'error': _('This verification is not available for your account')}, status=400)
+        # XPAM: the same attempt limit as the MFA step at login (this check now guards JIT access)
+        from users.utils import MFABlockUtils
+        from common.utils import get_request_ip
+        block = MFABlockUtils(request.user.username, get_request_ip(request))
+        if block.is_block():
+            return Response({'error': _('Too many failed attempts; try again later')}, status=429)
+        try:
+            ok, msg = backend.authenticate(secret_key, mfa_type)
+        except Exception as e:
+            ok, msg = False, str(e)
+        if not ok:
+            block.incr_failed_count()
+        else:
+            block.clean_failed_count()
         if ok:
             request.session['CONFIRM_LEVEL'] = ConfirmType.values.index(confirm_type) + 1
             request.session['CONFIRM_TYPE'] = confirm_type

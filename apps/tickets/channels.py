@@ -112,13 +112,25 @@ def _summary(ticket):
     return title, rows, reason
 
 
+# Request text comes from the requester: no markup of theirs may reach the approvers' channel (fake
+# links, @channel mentions...)
+def _slack_text(value):
+    return str(value).replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+
+
+def _teams_text(value):
+    # Adaptive Cards have no reliable escaping: break link syntax ([text](url)) instead
+    return str(value).replace('[', '\uff3b').replace(']', '\uff3d')
+
+
 def _teams_payload(title, rows, reason, link):
-    facts = [{'title': k, 'value': v} for k, v in rows]
+    facts = [{'title': _teams_text(k), 'value': _teams_text(v)} for k, v in rows]
     if reason:
-        facts.append({'title': _('Reason'), 'value': reason})
+        facts.append({'title': _('Reason'), 'value': _teams_text(reason)})
     card = {
         '$schema': 'http://adaptivecards.io/schemas/adaptive-card.json', 'type': 'AdaptiveCard', 'version': '1.4',
-        'body': [{'type': 'TextBlock', 'text': title, 'weight': 'Bolder', 'size': 'Medium', 'wrap': True},
+        'body': [{'type': 'TextBlock', 'text': _teams_text(title), 'weight': 'Bolder', 'size': 'Medium',
+                  'wrap': True},
                  {'type': 'FactSet', 'facts': facts}],
         'actions': [{'type': 'Action.OpenUrl', 'title': _('Open approval'), 'url': link}],
     }
@@ -127,11 +139,11 @@ def _teams_payload(title, rows, reason, link):
 
 
 def _slack_payload(title, rows, reason, link):
-    lines = '\n'.join(f'*{k}:* {v}' for k, v in rows)
+    lines = '\n'.join(f'*{_slack_text(k)}:* {_slack_text(v)}' for k, v in rows)
     if reason:
-        lines += f'\n*{_("Reason")}:* {reason}'
+        lines += f'\n*{_("Reason")}:* {_slack_text(reason)}'
     return {
-        'text': f'{title} — {link}',
+        'text': f'{_slack_text(title)} — {link}',
         'blocks': [
             {'type': 'header', 'text': {'type': 'plain_text', 'text': title[:150]}},
             {'type': 'section', 'text': {'type': 'mrkdwn', 'text': lines[:2900]}},
@@ -169,11 +181,13 @@ def post(channel, url, payload):
     """(ok, message) — the URL is never logged (it holds the secret)."""
     import requests
     try:
+        # no redirects (a 307 would replay the POST elsewhere) and never the response body back to the
+        # caller: the test button must not become a way to read internal services
         r = requests.post(url, data=json.dumps(payload), headers={'Content-Type': 'application/json'},
-                          timeout=TIMEOUT)
+                          timeout=TIMEOUT, allow_redirects=False)
         if 200 <= r.status_code < 300:
             return True, ''
-        return False, f'HTTP {r.status_code}: {r.text[:200]}'
+        return False, f'HTTP {r.status_code}'
     except Exception as e:
         return False, e.__class__.__name__
 

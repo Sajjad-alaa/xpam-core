@@ -31,6 +31,10 @@ class TargetError(Exception):
     pass
 
 
+class TargetExists(TargetError):
+    """The name is already taken on the target by an account XPAM did not create: never touch it."""
+
+
 def db_username(name):
     """Database logins: letters, digits and "_" only (Oracle and SQL Server do not like "-")."""
     return name.replace('-', '_')
@@ -285,12 +289,40 @@ def _db_verify(asset, username, password, tp, port, database, db):
     conn.close()
 
 
-def create_database_account(asset, username, password, policy, valid_until):
+def _db_login_exists(asset, admin, username, tp, port, database, db):
+    queries = {
+        'mysql': ("SELECT 1 FROM mysql.user WHERE user = %s", lambda: _mysql_conn(asset, admin.username, admin.secret,
+                                                                                    port, db=db)),
+        'postgresql': ("SELECT 1 FROM pg_roles WHERE rolname = %s",
+                       lambda: _pg_conn(asset, admin.username, admin.secret, port, database, db)),
+        'sqlserver': ("SELECT 1 FROM sys.server_principals WHERE name = %s",
+                      lambda: _mssql_conn(asset, admin.username, admin.secret, port, database)),
+        'oracle': ("SELECT 1 FROM dba_users WHERE username = UPPER(:1)",
+                   lambda: _oracle_conn(asset, admin.username, admin.secret, port, database)),
+    }
+    query, connect = queries['mysql' if tp == 'mariadb' else tp]
+    conn = connect()
+    try:
+        cur = conn.cursor()
+        cur.execute(query, [username] if tp == 'oracle' else (username,))
+        return cur.fetchone() is not None
+    finally:
+        conn.close()
+
+
+def create_database_account(asset, username, password, policy, valid_until, allow_existing=False):
     _ident_check(username)
     tp, port, database, db = _db_spec(asset)
     admin = _admin(asset)
     creators = {'mysql': _mysql_create, 'mariadb': _mysql_create, 'sqlserver': _mssql_create,
                 'oracle': _oracle_create}
+    try:
+        exists = _db_login_exists(asset, admin, username, tp, port, database, db)
+    except Exception as e:
+        raise TargetError(_redact(e, password, admin.secret))
+    if exists and not allow_existing:
+        # a login XPAM did not create: no CREATE, and above all no clean-up (DROP USER ... CASCADE)
+        raise TargetExists(_('A database login named %s already exists') % username)
     try:
         if tp == 'postgresql':
             _pg_create(asset, admin, username, password, policy, port, database, db, valid_until)
@@ -459,14 +491,13 @@ def _device_login_works_via(asset, username, password):
                 t.close()
 
 
-def create_device_account(asset, username, password, policy):
+def create_device_account(asset, username, password, policy, allow_existing=False):
     if (policy.device_create_commands or '').strip():
         return _create_device_account_by_commands(asset, username, password, policy)
-    from accounts.models import JITAccount
     with _device_session(asset) as dev:
-        if dev.user(username) and not JITAccount.objects.filter(asset=asset, username=username).exists():
-            # never take over an account XPAM did not create
-            raise TargetError(_('An account named %s already exists on the device') % username)
+        if dev.user(username) and not allow_existing:
+            # never take over (or later remove) an account XPAM did not create
+            raise TargetExists(_('An account named %s already exists on the device') % username)
         dev.push(username, password, policy.device_role or 'read_only', policy.device_custom_role or '')
     for _attempt in range(3):  # (PAN-OS and Junos apply the account a moment after the commit)
         if _device_login_works_via(asset, username, password):

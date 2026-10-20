@@ -148,8 +148,9 @@ class TicketAppliedToAssigneeMessage(BaseTicketMessage):
             'ticket_id': self.ticket.id,
             'approver_id': self.user.id, 'content': self.content,
         }
-        from tickets.channels import link_seconds
-        cache.set(self.token, data, link_seconds())
+        # an e-mail link bound to this approver approves without signing in (when direct approval is on):
+        # it stays short-lived; the longer "link hours" are for chat links, which always need a sign-in
+        cache.set(self.token, data, 3600)
         return context
 
     @classmethod

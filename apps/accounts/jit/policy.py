@@ -1,4 +1,5 @@
 """Which just-in-time policy applies to a user and an asset."""
+from django.db.models import Q
 from django.utils import timezone
 
 from common.utils import get_logger
@@ -92,11 +93,26 @@ class PolicyMatcher:
     def __bool__(self):
         return bool(self.by_id)
 
+    def _member(self, org_id, user):
+        """Is `user` a member of the organization (a rule never reaches users of other organizations)."""
+        key = ('member', str(org_id), str(user.id))
+        if key not in self._memo:
+            from orgs.models import Organization
+            from users.models import User
+            org = Organization.get_instance(org_id)
+            if not org or org.is_root():
+                self._memo[key] = True
+            else:
+                self._memo[key] = User.get_org_users(org=org).filter(id=user.id).exists()
+        return self._memo[key]
+
     def _includes(self, policy, field, obj):
         manager = getattr(policy, field)
         value = manager.value
         if not isinstance(value, dict) or not value.get('type'):
             return False  # nothing chosen yet: the rule applies to nobody
+        if field == 'users' and not self._member(policy.org_id, obj):
+            return False
         if value['type'] == 'all':
             return True
         if value['type'] == 'ids':
@@ -156,6 +172,9 @@ def jit_grant_for_perms(perms, user, asset):
         if policy.id not in supported:
             supported[policy.id] = asset_supports_jit(asset, policy)
         if not supported[policy.id]:
+            # zero standing privilege fails closed: a "JIT only" rule that cannot run here (privileged
+            # account deleted, push turned off...) must not bring the standing accounts back
+            jit_only = jit_only or policy.jit_only
             continue
         actions |= perm.actions
         expired.append(perm.date_expired)
@@ -274,7 +293,7 @@ def user_must_keep_mfa(user):
         if policies:
             matcher = PolicyMatcher()
             result = any(matcher._includes(p, 'users', user) for p in policies if p.is_rule_based) or \
-                any(p.asset_permissions.filter(users=user).exists() for p in policies)
+                any(p.asset_permissions.filter(Q(users=user) | Q(user_groups__users=user)).exists() for p in policies)
     except Exception as e:
         logger.debug('JIT MFA check for %s failed: %s', user, e)
     cache.set(key, result, 60)

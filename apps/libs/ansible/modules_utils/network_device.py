@@ -24,8 +24,18 @@ class DeviceError(Exception):
     pass
 
 
+ROLE_NAME_RE = re.compile(r'[A-Za-z0-9_.@-]{1,63}')
+
+
+def check_name(value, what):
+    """Role / profile / VDOM names go into device commands: plain names only (no spaces, quotes, newlines)."""
+    if not ROLE_NAME_RE.fullmatch(str(value or '')):
+        raise DeviceError('The %s "%s" is not valid (letters, digits, . _ @ - only)' % (what, value))
+    return value
+
+
 def check_username(username):
-    if not USERNAME_RE.match(username or ''):
+    if not USERNAME_RE.fullmatch(username or ''):
         raise DeviceError('The user name "%s" is not valid on network devices (letters, digits, . _ @ -)' % username)
 
 
@@ -136,13 +146,21 @@ class Driver:
                 return u
         return None
 
-    def push(self, username, password, role, custom_role=''):
-        """Create the account, or update the password (and role) of an existing one."""
+    def push(self, username, password, role, custom_role='', update_role=False):
+        """
+        Create the account with its role, or update the password of an existing one. The role of an
+        existing account is only changed when asked (pushing a discovered admin must not demote it).
+        """
         check_username(username)
         check_password(password)
+        if role == 'custom':
+            check_name(custom_role, 'custom role')
         existing = self.user(username)
-        if existing:
+        if existing and update_role:
             self.update_user(username, password, role, custom_role, existing)
+            changed = 'updated'
+        elif existing:
+            self.set_password(username, password)
             changed = 'updated'
         else:
             self.create_user(username, password, role, custom_role)
@@ -263,7 +281,7 @@ class FortiGate(Driver):
 
     def _vdom_line(self, profile):
         if getattr(self.conn, '_vdoms', False) and profile != 'super_admin':
-            return ['set vdom "%s"' % (self.options.get('vdom') or 'root')]
+            return ['set vdom "%s"' % check_name(self.options.get('vdom') or 'root', 'VDOM')]
         return []
 
     def create_user(self, username, password, role, custom_role=''):
@@ -298,6 +316,19 @@ class PaloAlto(Driver):
         return
 
     config_enter, config_exit = 'configure', 'exit'
+
+    def configure(self, commands, *secrets):
+        try:
+            return super().configure(commands, *secrets)
+        except Exception:
+            # leave nothing of XPAM's in the candidate configuration for the next admin's commit
+            try:
+                self.send('configure')
+                self.send('revert config partial admin %s' % check_name(self.login_user, 'admin name'))
+                self.send('exit')
+            except Exception:
+                pass
+            raise
 
     def phash(self, password):
         out = self.show('request password-hash password "%s"' % password)
@@ -354,7 +385,7 @@ class PaloAlto(Driver):
             command = 'commit'
         else:
             # only XPAM's own change: other administrators' pending changes are not committed
-            command = 'commit partial admin %s' % self.login_user
+            command = 'commit partial admin %s' % check_name(self.login_user, 'admin name')
         self.send('configure')
         try:
             out = self.conn.send_command(command, expect_string=r'100%|[Ff]ail|[Ee]rror|Invalid|successfully',
@@ -555,7 +586,9 @@ class Juniper(Driver):
         return out
 
     def _commit(self, commands, username='', password=''):
-        self.conn.config_mode()
+        # "configure private": XPAM's own candidate; other administrators' pending edits are neither
+        # committed by "commit and-quit" nor thrown away by "rollback 0"
+        self.conn.config_mode(config_command='configure private')
         out = ''
         try:
             for command in commands:

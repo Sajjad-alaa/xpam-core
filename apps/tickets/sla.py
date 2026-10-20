@@ -35,7 +35,9 @@ def _notify(ticket, assignees, prefix):
         send_ticket_applied_mail_to_assignees(ticket, assignees)
     except Exception as e:
         logger.warning('Approval reminder mail for %s failed: %s', ticket, e)
-    xpam_send_approval_messages.delay(str(ticket.id), prefix=prefix)
+    from tickets.channels import deliveries
+    if deliveries('', [], '', ''):  # (only when a chat channel is set up)
+        xpam_send_approval_messages.delay(str(ticket.id), prefix=prefix)
 
 
 def run():
@@ -46,7 +48,9 @@ def run():
     now = timezone.now()
     summary = {'reminded': 0, 'escalated': 0, 'expired': 0}
     with tmp_to_root_org():
-        for ticket in ApplyAssetTicket.objects.filter(status='open').select_related('applicant')[:500]:
+        # oldest first: with more than 500 open requests, none is skipped forever
+        for ticket in ApplyAssetTicket.objects.filter(status='open').select_related('applicant') \
+                .order_by('date_created')[:500]:
             step = ticket.current_step
             if not step:
                 continue
@@ -67,7 +71,12 @@ def run():
             if escalate and waited >= escalate and 'escalated' not in done:
                 from accounts.jit.selfservice import _admin_ids
                 present = set(step.ticket_assignees.values_list('assignee_id', flat=True))
-                new = [uid for uid in _admin_ids(ticket) if uid not in present]
+                # never the requester, nor whoever approved an earlier step (four eyes)
+                earlier = set(TicketAssignee.objects.filter(
+                    step__ticket_id=ticket.id, step__level__lt=step.level, state='approved',
+                ).values_list('assignee_id', flat=True))
+                new = [uid for uid in _admin_ids(ticket)
+                       if uid not in present and uid not in earlier and uid != ticket.applicant_id]
                 if new:
                     TicketAssignee.objects.bulk_create([TicketAssignee(assignee_id=uid, step=step) for uid in new])
                 _comment(ticket, _('Escalated: waiting for %s minutes; the administrators can approve now') % int(waited))

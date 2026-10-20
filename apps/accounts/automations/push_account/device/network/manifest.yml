@@ -40,6 +40,11 @@ params:
       - [admin, "Administrator"]
       - [custom, "Custom"]
     help_text: "{{ 'Role help' | trans }}"
+  - name: update_role
+    type: bool
+    label: "{{ 'Update role label' | trans }}"
+    default: false
+    help_text: "{{ 'Update role help' | trans }}"
   - name: custom_role
     type: str
     label: "{{ 'Custom role' | trans }}"
@@ -69,6 +74,12 @@ i18n:
   Role help:
     en: "Read only: FortiGate profile xpam_read_only (created), PAN-OS superreader, Cisco privilege 1 (ASA 5), NX-OS network-operator, Junos read-only, Huawei level 1, H3C network-operator. Administrator: super_admin, superuser, privilege 15, network-admin, super-user, level 15"
     zh: "只读 / 操作员 / 管理员，按厂商映射到对应的配置文件、权限级别或角色"
+  Update role label:
+    en: Also change the role of existing accounts
+    zh: 同时修改已存在账号的角色
+  Update role help:
+    en: Off = an account that already exists on the device keeps its role (only the password changes)
+    zh: 关闭时，设备上已存在的账号保留原角色，只修改密码
   Custom role:
     en: Custom role
     zh: 自定义角色

@@ -92,6 +92,8 @@ def coverage(user, asset_ids, node_ids, limit=MAX_ASSETS):
             assets.extend(node.get_all_assets().select_related('platform')[:limit])
     unique = list({a.id: a for a in assets}.values())[:limit]
     matcher = PolicyMatcher()
+    # only assets of organizations the user belongs to (no names of other organizations' assets)
+    unique = [a for a in unique if matcher._member(a.org_id, user)]
     covered, uncovered, jit_only = [], [], False
     for asset in unique:
         policy = _request_policy(matcher, user, asset)
@@ -298,7 +300,10 @@ def submit(request, asset_ids, hours, reason='', title='', start=None, end=None)
     orgs = {str(a.org_id) for a in assets}
     if len(orgs) > 1:
         raise SelfServiceError(_('Request assets of one organization at a time'))
-    with tmp_to_org(orgs.pop()):
+    org_id = orgs.pop()
+    if not PolicyMatcher()._member(org_id, request.user):
+        raise SelfServiceError(_('Choose at least one asset you can request'))
+    with tmp_to_org(org_id):
         return _submit(request, assets, hours, reason, title, start, end)
 
 

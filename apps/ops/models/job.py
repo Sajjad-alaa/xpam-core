@@ -35,7 +35,6 @@ from ops.variables import *
 from ops.const import Types, RunasPolicies, JobStatus, JobModules
 from ops.utils import merge_nodes_and_assets
 from orgs.mixins.models import JMSOrgBaseModel
-from perms.models import AssetPermission
 from perms.const import ActionChoices
 from perms.utils.asset_perm import PermAssetDetailUtil
 from perms.utils import UserPermAssetUtil
@@ -136,40 +135,19 @@ class JMSPermedInventory(JMSInventory):
         return list(accounts_sorted)
 
     def get_assets_accounts_mapper(self):
+        """
+        The accounts the user may run jobs with on each asset: the same rules as connecting
+        (PermAssetDetailUtil), so just-in-time accounts of other users are never usable here and a
+        zero-standing-privilege rule ("jit_only") leaves no standing account to run as.
+        """
         mapper = defaultdict(set)
-        asset_ids = self.assets.values_list('id', flat=True)
-        asset_node_keys = Asset.nodes.through.objects \
-            .filter(asset_id__in=asset_ids) \
-            .values_list('asset_id', 'node__key')
-
-        node_asset_map = defaultdict(set)
-        for asset_id, node_key in asset_node_keys:
-            all_keys = get_parent_keys(node_key)
-            for key in all_keys:
-                node_asset_map[key].add(asset_id)
-
-        groups = self.user.groups.all()
-        perms = AssetPermission.objects \
-            .filter(date_expired__gte=timezone.now()) \
-            .filter(is_active=True) \
-            .filter(Q(users=self.user) | Q(user_groups__in=groups)) \
-            .filter(Q(assets__in=asset_ids) | Q(nodes__key__in=node_asset_map.keys())) \
-            .values_list('assets', 'nodes__key', 'accounts')
-
-        asset_permed_accounts_mapper = defaultdict(set)
-        for asset_id, node_key, accounts in perms:
-            if asset_id in asset_ids:
-                asset_permed_accounts_mapper[asset_id].update(accounts)
-            for my_asset in node_asset_map[node_key]:
-                asset_permed_accounts_mapper[my_asset].update(accounts)
-
-        accounts = Account.objects.filter(asset__in=asset_ids)
-        for account in accounts:
-            if account.asset_id not in asset_permed_accounts_mapper:
+        for asset in self.assets.all():
+            permed = PermAssetDetailUtil(self.user, asset).get_permed_accounts_for_user()
+            ids = {a.id for a in permed if not a.username.startswith('@') and getattr(a, 'id', None)}
+            if not ids:
                 continue
-            permed_usernames = asset_permed_accounts_mapper[account.asset_id]
-            if "@ALL" in permed_usernames or account.username in permed_usernames:
-                mapper[account.asset_id].add(account)
+            for account in Account.objects.filter(asset=asset, id__in=ids).exclude(source='jit'):
+                mapper[asset.id].add(account)
         return mapper
 
 

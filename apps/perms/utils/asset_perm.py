@@ -181,9 +181,10 @@ class PermAssetDetailUtil:
                 accounts.append(account)
         accounts.sort(key=lambda x: x.username)
         virtual_accounts.sort(key=lambda x: x.username)
-        if jit_actions and jit_only:
-            # XPAM zero standing privilege: only the just-in-time account is offered
-            return [a for a in virtual_accounts if a.username == AliasAccount.JIT.value]
+        if jit_only:
+            # XPAM zero standing privilege: only the just-in-time account is offered (nothing at all
+            # while the rule cannot create accounts on this asset)
+            return [a for a in virtual_accounts if a.username == AliasAccount.JIT.value] if jit_actions else []
         return accounts + virtual_accounts
 
     def check_perm_protocols(self, protocols):

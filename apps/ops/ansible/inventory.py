@@ -306,7 +306,8 @@ class JMSInventory:
                 'spec_info': asset.spec_info, 'secret_info': secret_info,
                 'protocols': [{'name': p.name, 'port': p.port} for p in protocols],
                 'origin_address': asset.address,
-                'platform': platform.name if platform else '',
+                # (rendered by Ansible: escaped like every other user-controlled value)
+                'platform': type(account).escape_jinja2_syntax(platform.name) if platform and account else '',
             },
             'jms_account': {
                 'id': str(account.id),

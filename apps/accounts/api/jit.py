@@ -138,7 +138,9 @@ class JITDashboardViewSet(viewsets.ViewSet):
         from orgs.utils import current_org
         from perms.models import AssetPermission
         from ..jit.insights import convert_to_jit, coverage_after_convert
-        perm = AssetPermission.objects.filter(id=request.data.get('permission')).first()
+        from common.utils import is_uuid
+        perm_id = request.data.get('permission')
+        perm = AssetPermission.objects.filter(id=perm_id).first() if is_uuid(perm_id) else None
         if not perm:
             return Response({'detail': _('Permission not found')}, status=404)
         policy = coverage_after_convert(perm)
@@ -156,8 +158,10 @@ class JITApprovalChannelsViewSet(viewsets.ViewSet):
     permission_classes = (RBACPermission,)
     rbac_perms = {
         'list': 'accounts.view_jitpolicy',
-        'save': 'accounts.change_jitpolicy',
-        'test': 'accounts.change_jitpolicy',
+        # system-wide settings (webhooks, direct approval): system ticket settings permission, never an
+        # org-level one (an org admin must not receive every org's approval requests)
+        'save': 'settings.change_ticket',
+        'test': 'settings.change_ticket',
     }
 
     @staticmethod

@@ -46,7 +46,19 @@ params:
     default: ''
     help_text: "{{ 'Params uid help text' | trans }}"
 
+  - name: new_only
+    type: bool
+    label: "{{ 'New accounts only label' | trans }}"
+    default: false
+    help_text: "{{ 'New accounts only help text' | trans }}"
+
 i18n:
+  New accounts only label:
+    en: New accounts only
+    zh: 仅新建账号
+  New accounts only help text:
+    en: Refuse to change a user that already exists on the asset (used by just-in-time accounts)
+    zh: 资产上已存在的用户不做修改（即时账号使用）
   Aix account push:
     zh: '使用 AIX chpasswd 执行 Aix 账号推送'
     ja: 'AIX chpasswd を使用して Aix アカウントをプッシュ'

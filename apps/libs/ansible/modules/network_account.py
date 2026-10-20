@@ -98,6 +98,7 @@ def main():
         old_password=dict(type='str', default='', no_log=True),
         role=dict(type='str', default='read_only'),
         custom_role=dict(type='str', default=''),
+        update_role=dict(type='bool', default=False),
         commit=dict(type='str', default='partial'),
         vdom=dict(type='str', default='root'),
         timeout=dict(type='int', default=30),
@@ -122,7 +123,7 @@ def main():
                         'admin': u.get('role') == 'admin'}}
                 module.exit_json(changed=False, vendor=dev.vendor, ansible_facts={'info': info})
             if p['action'] == 'push':
-                result = dev.push(p['name'], p['password'], role, p['custom_role'])
+                result = dev.push(p['name'], p['password'], role, p['custom_role'], update_role=p['update_role'])
                 module.exit_json(changed=True, vendor=dev.vendor, result=result, name=p['name'])
             if p['action'] == 'change':
                 dev.change(p['name'], p['password'], p['old_password'])

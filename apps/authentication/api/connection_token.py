@@ -1141,6 +1141,7 @@ class ConnectionTokenViewSet(AuthFaceMixin, ExtraActionApiMixin, RootOrgViewMixi
             if jit_record and 200 <= response.status_code < 300 and isinstance(response.data, Mapping):
                 from accounts.jit.service import attach_token
                 attach_token(jit_record, response.data.get('id'))
+                jit_record = None  # in use: no clean-up
         except JMSException as e:
             failure_reason = str(e.detail.code)
             data = {'code': e.detail.code, 'detail': e.detail}
@@ -1159,6 +1160,11 @@ class ConnectionTokenViewSet(AuthFaceMixin, ExtraActionApiMixin, RootOrgViewMixi
                 error.__class__.__name__
             )
             raise
+        if jit_record:
+            # the token was refused (ACL, login confirmation, license...): do not leave the account the
+            # request created on the asset (removed once idle, if no other connection uses it)
+            from accounts.tasks.jit import jit_release_if_idle_task
+            jit_release_if_idle_task.apply_async(args=(str(jit_record.id),), countdown=40)
         if failure_reason:
             self.record_personal_credential_failure(failure_reason)
         elif self.personal_credential_saved:
@@ -1190,6 +1196,10 @@ def _jit_prepare(user, raw_data, request=None):
         return None, _('Asset not found')
     if request is not None and not _jit_mfa_ok(user, asset, request):
         return None, 'jit_mfa_required'
+    if request is None and not _jit_component_mfa_ok(user, asset):
+        # tokens made by components (SSH to the SSH component...): the component asks for the user's
+        # MFA at login, so a rule that requires MFA needs MFA to be set up for the user
+        return None, _('This just-in-time account needs MFA: set up MFA for your user first')
     try:
         return provision_for_connection(user, asset), None
     except JITError as e:
@@ -1209,6 +1219,13 @@ def _jit_mfa_ok(user, asset, request):
     confirmed = session.get('CONFIRM_TYPE') == ConfirmType.MFA and \
         int(session.get('CONFIRM_TIME') or 0) >= int(time.time()) - int(settings.SECURITY_MFA_VERIFY_TTL or 300)
     return bool(confirmed)
+
+
+def _jit_component_mfa_ok(user, asset):
+    from accounts.jit.policy import select_policy
+    with tmp_to_org(asset.org_id):
+        policy, _perm = select_policy(user, asset)
+    return not (policy and policy.require_mfa) or bool(getattr(user, 'mfa_enabled', False))
 
 
 class SuperConnectionTokenViewSet(ConnectionTokenViewSet):

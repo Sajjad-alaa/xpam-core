@@ -180,6 +180,20 @@ class JITPolicySerializer(BulkOrgResourceModelSerializer):
             raise serializers.ValidationError({'db_custom_sql': _('Enter the SQL that gives the rights')})
         if get('device_role', 'read_only') == 'custom' and not (get('device_custom_role') or '').strip():
             raise serializers.ValidationError({'device_custom_role': _('Enter the role name or privilege level')})
+        import re
+        if (get('device_custom_role') or '') and not re.fullmatch(r'[A-Za-z0-9_.@-]{1,63}', get('device_custom_role')):
+            raise serializers.ValidationError({'device_custom_role': _('Letters, digits, . _ @ - only')})
+        # Commands and SQL run with the asset's privileged account (and {login_password} is its secret):
+        # only someone allowed to see account secrets may write them.
+        request = self.context.get('request')
+        user = getattr(request, 'user', None)
+        for field in ('device_create_commands', 'device_remove_commands', 'db_custom_sql'):
+            changed = field in attrs and (attrs.get(field) or '') != (getattr(instance, field, '') if instance else '')
+            if changed and (attrs.get(field) or '').strip() and user is not None \
+                    and not user.has_perm('accounts.view_accountsecret'):
+                raise serializers.ValidationError({field: _(
+                    'Only users who may view account secrets can set commands or SQL that run with the '
+                    'privileged account')})
         if (get('device_create_commands') or '').strip() and not (get('device_remove_commands') or '').strip():
             raise serializers.ValidationError({'device_remove_commands': _(
                 'Enter the commands that remove the account again')})
