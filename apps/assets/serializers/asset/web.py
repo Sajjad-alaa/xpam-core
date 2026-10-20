@@ -20,7 +20,7 @@ class WebSerializer(AssetSerializer):
         fields = AssetSerializer.Meta.fields + [
             'autofill', 'username_selector',
             'password_selector', 'submit_selector',
-            'success_selector', 'interactive_selector', 'script', 'allowed_urls'
+            'success_selector', 'interactive_selector', 'script', 'allowed_urls', 'verify_cert'
         ]
         extra_kwargs = {
             **AssetSerializer.Meta.extra_kwargs,

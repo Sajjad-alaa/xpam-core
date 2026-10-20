@@ -23,6 +23,13 @@ class Web(Asset):
         help_text=_("Optional interactive verification area, e.g. css=#mfa-dialog. Exclude credentials and password visibility controls.")
     )
     script = models.JSONField(blank=True, default=list, verbose_name=_("Script"))
+    # XPAM: Remote browser checks the site's certificate (off = self-signed internal sites; the stored
+    # account would then also be sent to a site that only pretends to be this one)
+    verify_cert = models.BooleanField(
+        default=True, verbose_name=_("Verify certificate"),
+        help_text=_("Remote browser refuses the site when its certificate is not trusted. Turn off only for "
+                    "internal sites with a self-signed certificate.")
+    )
 
     class Meta:
         verbose_name = _("Web")
