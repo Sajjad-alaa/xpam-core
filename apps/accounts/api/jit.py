@@ -24,6 +24,7 @@ class JITPolicyViewSet(OrgBulkModelViewSet):
 
     rbac_perms = {
         'match': 'accounts.view_jitpolicy',
+        'readiness': 'accounts.view_jitpolicy',
     }
 
     def get_queryset(self):
@@ -72,6 +73,41 @@ class JITPolicyViewSet(OrgBulkModelViewSet):
         is_request = params.get('request') in ('1', 'true')
         results = [explain(user, asset, request=is_request, matcher=matcher) for asset in assets]
         return Response({'results': results, 'limited': len(assets) >= limit})
+
+
+    @action(methods=['post'], detail=False, url_path='readiness')
+    def readiness(self, request, *args, **kwargs):
+        """
+        Which of the chosen assets can get just-in-time accounts, and what to fix on the others (rule form
+        and wizard). {assets: {type: all|ids|attrs, ...}, credential_type} ->
+        {total, ready, checked, problems: [{reason, count, assets: [{id, name}]}]}
+        """
+        from assets.models import Asset
+        from common.db.fields import RelatedManager
+        from ..jit.policy import unsupported_reason
+        limit = 2000
+        value = request.data.get('assets') or {}
+        if not isinstance(value, dict) or not value.get('type'):
+            return Response({'total': 0, 'ready': 0, 'checked': 0, 'problems': []})
+        qs = Asset.objects.all()
+        if value['type'] != 'all':
+            for q in RelatedManager.get_to_filter_qs(value, Asset):
+                qs = qs.filter(q)
+        total = qs.distinct().count()
+        policy = JITPolicy(credential_type=request.data.get('credential_type') or 'password')
+        problems, ready, checked = {}, 0, 0
+        for asset in qs.distinct().select_related('platform').prefetch_related('protocols')[:limit]:
+            checked += 1
+            reason = unsupported_reason(asset, policy)
+            if not reason:
+                ready += 1
+                continue
+            item = problems.setdefault(reason, {'reason': reason, 'count': 0, 'assets': []})
+            item['count'] += 1
+            if len(item['assets']) < 10:
+                item['assets'].append({'id': str(asset.id), 'name': asset.name})
+        return Response({'total': total, 'ready': ready, 'checked': checked,
+                         'problems': sorted(problems.values(), key=lambda p: -p['count'])})
 
 
 class JITAccountViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, OrgGenericViewSet):

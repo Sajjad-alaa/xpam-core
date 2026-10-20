@@ -27,15 +27,10 @@ class WebSerializer(AssetSerializer):
             'address': {
                 'label': 'URL'
             },
-            'username_selector': {
-                'default': 'name=username'
-            },
-            'password_selector': {
-                'default': 'name=password'
-            },
-            'submit_selector': {
-                'default': 'id=login_button',
-            },
+            # XPAM: empty = found automatically (guessed defaults were usually wrong for the site)
+            'username_selector': {'required': False, 'allow_blank': True, 'default': ''},
+            'password_selector': {'required': False, 'allow_blank': True, 'default': ''},
+            'submit_selector': {'required': False, 'allow_blank': True, 'default': ''},
             'success_selector': {
                 'required': False,
                 'allow_blank': True,
@@ -74,6 +69,31 @@ class WebSerializer(AssetSerializer):
             ):
                 raise serializers.ValidationError({'interactive_selector': _('Invalid selector')})
         return attrs
+
+    def validate_address(self, value):
+        # XPAM: "portal.example.com" means https://portal.example.com
+        value = (value or '').strip()
+        if value and '://' not in value:
+            value = 'https://' + value
+        return super().validate_address(value)
+
+    def is_valid(self, raise_exception=False):
+        # XPAM: the port of the http protocol follows the address (https://x -> 443, http://x:8080 -> 8080,
+        # no scheme = https). Set on the request data: the nested protocol writer reads it from there.
+        from urllib.parse import urlsplit
+        data = getattr(self, 'initial_data', None)
+        address = (data.get('address') or '').strip() if isinstance(data, dict) else ''
+        if address:
+            self._set_protocols_default()
+            try:
+                u = urlsplit(address if '://' in address else 'https://' + address)
+                port = u.port or (443 if u.scheme == 'https' else 80)
+                for p in self.initial_data.get('protocols') or []:
+                    if isinstance(p, dict) and p.get('name') == 'http':
+                        p['port'] = port
+            except (ValueError, TypeError, AttributeError):
+                pass
+        return super().is_valid(raise_exception=raise_exception)
 
     def validate_script(self, value):
         validate_web_script(value)

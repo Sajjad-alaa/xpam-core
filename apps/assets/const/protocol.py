@@ -334,8 +334,8 @@ class Protocol(ChoicesMixin, models.TextChoices):
                         'default': '',
                         'label': _('Success selector'),
                         'help_text': _(
-                            'Selector for an element that appears only after a successful login, e.g. css=#dashboard. '
-                            'Required for basic autofill.'
+                            'Optional: an element that appears only after a successful sign-in, e.g. css=#dashboard. '
+                            'Empty: the sign-in counts as successful once the login form is gone.'
                         )
                     },
                     'script': {
