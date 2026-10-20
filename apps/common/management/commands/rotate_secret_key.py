@@ -19,12 +19,28 @@ from django.db import models, transaction
 from django.db.models.functions import Cast
 
 from common.db.fields import EncryptMixin
-from common.db.utils import Encryptor
 from common.utils.common import text_hmac_sha256
 
 
 class DryRun(Exception):
     pass
+
+
+def read_old(raw):
+    """(plain, readable) with the current key. An encrypted empty string is readable (''), a value
+    that no current algorithm (nor the legacy signer) can open is not."""
+    from common.utils.crypto import crypto
+    from common.utils.encode import signer
+    plain = crypto.decrypt(raw)
+    if plain is not None:
+        return plain, True
+    try:
+        legacy = signer.unsign(raw)
+    except Exception:
+        legacy = None
+    if legacy is not None:
+        return str(legacy), True
+    return '', False
 
 
 def new_cryptor(key):
@@ -68,7 +84,7 @@ class Command(BaseCommand):
             raise CommandError('The new key is the current key')
         cryptor = new_cryptor(new_key)
         stats, samples = {}, []
-        total = empty = 0
+        total = unreadable = 0
         from users.models import User
         try:
             with transaction.atomic():
@@ -81,9 +97,10 @@ class Command(BaseCommand):
                         .values_list('pk', '_xpam_raw')
                     count = 0
                     for pk, raw in raws.iterator(chunk_size=500):
-                        plain = Encryptor(raw).decrypt() or ''
-                        if not plain:
-                            empty += 1
+                        plain, readable = read_old(raw)
+                        if not readable:
+                            unreadable += 1
+                            continue  # (left as it is: it cannot be read with any key XPAM has)
                         new = cryptor.encrypt(plain)
                         model._base_manager.filter(pk=pk).update(
                             **{field.attname: models.Value(new, output_field=models.TextField())})
@@ -98,9 +115,10 @@ class Command(BaseCommand):
                 from settings.models import Setting
                 count = 0
                 for setting in Setting._base_manager.filter(encrypted=True).exclude(value=''):
-                    plain = Encryptor(setting.value).decrypt() or ''
-                    if not plain:
-                        empty += 1
+                    plain, readable = read_old(setting.value)
+                    if not readable:
+                        unreadable += 1
+                        continue
                     Setting._base_manager.filter(pk=setting.pk).update(value=cryptor.encrypt(plain))
                     count += 1
                 total += count
@@ -115,11 +133,12 @@ class Command(BaseCommand):
                     count += 1
                 stats['users.User.email_lookup'] = count
 
-                if total and empty / total > 0.1 and not options['force']:
+                checked = total + unreadable
+                if checked and (unreadable == checked or (unreadable / checked > 0.1 and not options['force'])):
                     raise CommandError(
-                        f'{empty} of {total} encrypted values are empty or unreadable with the current key: '
-                        'is SECRET_KEY the key this database was encrypted with? Nothing was changed '
-                        '(--force to go on anyway).')
+                        f'{unreadable} of {checked} encrypted values cannot be read with the current key: '
+                        'is SECRET_KEY the key this database was encrypted with? Nothing was changed'
+                        + ('.' if unreadable == checked else ' (--force to go on anyway).'))
 
                 # read a sample back with the new key before committing
                 for model, field, pk, plain in samples:
@@ -134,6 +153,7 @@ class Command(BaseCommand):
             self.stdout.write('Dry run: everything checked, nothing changed.')
         for name, count in sorted(stats.items()):
             self.stdout.write(f'  {name}: {count}')
-        self.stdout.write(f'Encrypted values: {total} (empty: {empty}); samples verified: {len(samples)}')
+        self.stdout.write(f'Re-encrypted values: {total}; unreadable and left as they were: {unreadable}; '
+                          f'samples verified: {len(samples)}')
         if not options['dry_run']:
             self.stdout.write(self.style.SUCCESS('Re-encrypted. Put the new key in SECRET_KEY before starting XPAM.'))
