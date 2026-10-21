@@ -14,7 +14,7 @@ from django.utils.translation import gettext as _
 from rest_framework.generics import GenericAPIView
 from rest_framework.response import Response
 
-__all__ = ['HAStatusApi', 'HASwitchoverApi']
+__all__ = ['HAStatusApi', 'HASwitchoverApi', 'ha_alerts']
 
 PATRONI = 'http://postgresql:8008'
 STATUS_FILE = '/opt/jumpserver/data/ha/status.json'
@@ -38,6 +38,39 @@ def _agent():
         return status
     except (OSError, ValueError):
         return None
+
+
+def ha_alerts():
+    """Banner alerts for administrators when the cluster is not fully protected ([] when it is)."""
+    if not ha_enabled():
+        return []
+    alert = lambda key, level, title, message: {  # noqa: E731
+        'id': f'ha_{key}', 'category': 'ha', 'level': level, 'title': title, 'message': message,
+        'action_label': _('High availability'), 'action_path': '/settings/high-availability'}
+    out = []
+    try:
+        members = _cluster().get('members', [])
+    except Exception:
+        return [alert('cluster', 'danger', _('High availability: the database cluster does not answer'),
+                      _('XPAM cannot read the cluster state. Run "xpamctl ha status" on the servers.'))]
+    if not any(m.get('role') == 'sync_standby' and m.get('state') == 'streaming' for m in members):
+        out.append(alert('no_standby', 'danger', _('High availability: no standby in sync'),
+                         _('If this server fails now, XPAM does not move to the other server by itself. '
+                           'Check the other server ("xpamctl ha status").')))
+    agent = _agent()
+    if not agent or agent.get('age', 999) > 60:
+        out.append(alert('agent', 'warning', _('High availability: the agent does not report'),
+                         _('Run "systemctl status xpam-ha" on this server.')))
+    else:
+        if agent.get('witness_reachable') is False:
+            out.append(alert('witness', 'warning', _('High availability: the witness does not answer'),
+                             _('XPAM keeps running, but a second failure would stop the automatic failover. '
+                               'Bring the witness (%s) back.') % agent.get('witness_ip', '')))
+        fs = agent.get('file_sync') or {}
+        if fs.get('ok') is False:
+            out.append(alert('files', 'warning', _('High availability: recordings are not copied to the standby'),
+                             _('The last copy failed: %s') % (fs.get('error') or '-')[:200]))
+    return out
 
 
 class HAStatusApi(GenericAPIView):
