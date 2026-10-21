@@ -78,12 +78,17 @@ class HASwitchoverApi(GenericAPIView):
         if not leader or not candidate:
             return Response({'detail': _('There is no standby in sync to switch to (see the status below)')},
                             status=400)
+        # scheduled a few seconds ahead: this server's services stop during the switch, so the answer
+        # must go out first
+        from datetime import datetime, timedelta, timezone as tz
+        when = (datetime.now(tz.utc) + timedelta(seconds=5)).isoformat()
         try:
-            r = requests.post(f'{PATRONI}/switchover', json={'leader': leader, 'candidate': candidate},
-                              auth=('patroni', os.environ.get('HA_PATRONI_PASSWORD', '')), timeout=60)
+            r = requests.post(f'{PATRONI}/switchover',
+                              json={'leader': leader, 'candidate': candidate, 'scheduled_at': when},
+                              auth=('patroni', os.environ.get('HA_PATRONI_PASSWORD', '')), timeout=15)
         except Exception as e:
             return Response({'detail': str(e)[:200]}, status=503)
-        if r.status_code != 200:
+        if r.status_code not in (200, 202):
             return Response({'detail': _('Switchover refused: %s') % r.text[:200]}, status=400)
-        return Response({'leader': candidate, 'detail': _('%s is now the primary; XPAM moves there in about a minute')
+        return Response({'leader': candidate, 'detail': _('%s becomes the primary in a few seconds; XPAM moves there in about a minute')
                          % candidate})
