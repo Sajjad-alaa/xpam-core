@@ -16,7 +16,10 @@ class VaultTestingAPI(GenericAPIView):
         'openbao': serializers.OpenBaoSerializer,
         'azure': serializers.AzureKVSerializer,
         'aws': serializers.AmazonSMSerializer,
-        'hcp': serializers.HashicorpKVSerializer
+        'hcp': serializers.HashicorpKVSerializer,
+        'cyberark': serializers.CyberArkSerializer,
+        'delinea': serializers.DelineaSerializer,
+        'gcp': serializers.GoogleSMSerializer,
     }
     rbac_perms = {
         'POST': 'settings.change_vault'
@@ -37,7 +40,13 @@ class VaultTestingAPI(GenericAPIView):
         return data
 
     def post(self, request, backend):
-        config = self.get_config(request, backend)
+        if settings.VAULT_LOCKED:
+            # XPAM: locked — test the configured vault only, never one given in the request
+            names = [k for k in dir(settings) if k.startswith('VAULT_')]
+            config = {k: getattr(settings, k) for k in names}
+            backend = settings.VAULT_BACKEND
+        else:
+            config = self.get_config(request, backend)
         config['VAULT_ENABLED'] = settings.VAULT_ENABLED
         config['VAULT_BACKEND'] = backend
         try:
@@ -71,6 +80,13 @@ class VaultSyncDataAPI(APIView):
 
 
 class VaultRestoreDataAPI(VaultSyncDataAPI):
+    def post(self, request, *args, **kwargs):
+        if settings.VAULT_LOCKED:
+            # XPAM: secrets do not come back into the database from the console
+            return Response({'detail': _('The vault is managed on the XPAM server (xpamctl vault): secrets cannot be '
+                                         'restored into the database from here')}, status=status.HTTP_403_FORBIDDEN)
+        return super().post(request, *args, **kwargs)
+
     @staticmethod
     def _run_task():
         task = restore_secret_from_vault.delay()

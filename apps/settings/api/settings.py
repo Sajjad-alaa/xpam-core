@@ -3,10 +3,11 @@
 from django.conf import settings
 from django.core.cache import cache
 from django.http import HttpResponse
+from django.utils.translation import gettext_lazy as _
 from django.views.static import serve
 from rest_framework import generics
 from rest_framework import status
-from rest_framework.exceptions import ValidationError
+from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -22,6 +23,9 @@ from ..signals import category_setting_updated
 from ..utils import get_interface_setting_or_default
 
 logger = get_logger(__file__)
+
+# XPAM: the account-storage settings locked by VAULT_LOCKED (ssh_ca is a separate feature)
+VAULT_LOCKED_CATEGORIES = ('vault', 'openbao', 'azure_kv', 'aws_sm', 'hcp', 'cyberark', 'delinea', 'gcp_sm')
 
 
 class SettingsApi(generics.RetrieveUpdateAPIView):
@@ -70,6 +74,9 @@ class SettingsApi(generics.RetrieveUpdateAPIView):
         'azure_kv': serializers.AzureKVSerializer,
         'aws_sm': serializers.AmazonSMSerializer,
         'hcp': serializers.HashicorpKVSerializer,
+        'cyberark': serializers.CyberArkSerializer,
+        'delinea': serializers.DelineaSerializer,
+        'gcp_sm': serializers.GoogleSMSerializer,
         'chat': serializers.ChatAISettingSerializer,
         'announcement': serializers.AnnouncementSettingSerializer,
         'ticket': serializers.TicketSettingSerializer,
@@ -128,10 +135,23 @@ class SettingsApi(generics.RetrieveUpdateAPIView):
         'azure_kv': 'settings.change_vault',
         'aws_sm': 'settings.change_vault',
         'hcp': 'settings.change_vault',
+        'cyberark': 'settings.change_vault',
+        'delinea': 'settings.change_vault',
+        'gcp_sm': 'settings.change_vault',
     }
 
     def get_queryset(self):
         return Setting.objects.all()
+
+    def check_vault_locked(self):
+        # XPAM: a vault connected with `xpamctl vault connect` is managed on the server only — a console
+        # administrator must not be able to point XPAM at another vault (and sync every secret there)
+        if not settings.VAULT_LOCKED:
+            return
+        category = self.request.query_params.get('category', '')
+        names = list(self.request.data.keys())
+        if category in VAULT_LOCKED_CATEGORIES or any(n.startswith('VAULT_') for n in names):
+            raise PermissionDenied(_('The vault is managed on the XPAM server (xpamctl vault) and cannot be changed here'))
 
     def check_permissions(self, request):
         ok = RoleBinding.is_org_admin(request.user)
@@ -186,6 +206,7 @@ class SettingsApi(generics.RetrieveUpdateAPIView):
         category_setting_updated.send(sender=self.__class__, category=category, serializer=serializer)
 
     def perform_update(self, serializer):
+        self.check_vault_locked()
         self.prepare_openbao_mount_change(serializer)
         post_data_names = list(self.request.data.keys())
         settings_items = self.parse_serializer_data(serializer)

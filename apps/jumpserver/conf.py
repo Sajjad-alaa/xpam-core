@@ -33,6 +33,32 @@ DEFAULT_ID = '00000000-0000-0000-0000-000000000002'
 logger = logging.getLogger('jumpserver.conf')
 
 
+XPAM_SECRETS_FILE = '/run/xpam-secrets/env'
+
+
+def load_xpam_secrets_file(path=XPAM_SECRETS_FILE):
+    """
+    XPAM: secrets kept in HashiCorp Vault (xpamctl vault connect) reach the container as an in-memory file
+    (never in its settings); every process reads it here — also commands run with `docker exec`.
+    """
+    try:
+        with open(path) as f:
+            lines = f.read().splitlines()
+    except OSError:
+        return
+    for line in lines:
+        name, sep, value = line.partition('=')
+        if not sep or not name.isidentifier():
+            continue
+        if len(value) >= 2 and value[0] == value[-1] == "'":
+            value = value[1:-1].replace("'\\''", "'")
+        if value and not os.environ.get(name):
+            os.environ[name] = value
+
+
+load_xpam_secrets_file()
+
+
 def import_string(dotted_path):
     try:
         module_path, class_name = dotted_path.rsplit('.', 1)
@@ -310,6 +336,42 @@ class Config(dict):
         'VAULT_HCP_HOST': '',
         'VAULT_HCP_TOKEN': '',
         'VAULT_HCP_MOUNT_POINT': 'pam',
+        # XPAM: certificate login (the XPAM Vault kit): auth 'cert', the role, CA and client certificate
+        'VAULT_HCP_AUTH': 'token',
+        'VAULT_HCP_CERT_ROLE': '',
+        'VAULT_HCP_CA_FILE': '',
+        'VAULT_HCP_CLIENT_CERT_FILE': '',
+        'VAULT_HCP_CLIENT_KEY_FILE': '',
+        'VAULT_HCP_NAMESPACE': '',
+        'VAULT_HCP_TIMEOUT': 10,
+        # XPAM: CyberArk Conjur (host login with its API key; variables under XPAM's policy branch)
+        'VAULT_CYBERARK_URL': '',
+        'VAULT_CYBERARK_ACCOUNT': '',
+        'VAULT_CYBERARK_LOGIN': '',
+        'VAULT_CYBERARK_API_KEY': '',
+        'VAULT_CYBERARK_POLICY': 'xpam',
+        'VAULT_CYBERARK_CA_FILE': '',
+        'VAULT_CYBERARK_TIMEOUT': 10,
+        # XPAM: Delinea Secret Server (application account; secrets in XPAM's folder, from a template)
+        'VAULT_DELINEA_URL': '',
+        'VAULT_DELINEA_USERNAME': '',
+        'VAULT_DELINEA_PASSWORD': '',
+        'VAULT_DELINEA_DOMAIN': '',
+        'VAULT_DELINEA_FOLDER_ID': '',
+        'VAULT_DELINEA_TEMPLATE_ID': '',
+        'VAULT_DELINEA_FIELD': 'password',
+        'VAULT_DELINEA_SITE_ID': '',
+        'VAULT_DELINEA_CA_FILE': '',
+        'VAULT_DELINEA_TIMEOUT': 10,
+        # XPAM: Google Secret Manager (service account JSON key)
+        'VAULT_GCP_PROJECT': '',
+        'VAULT_GCP_CREDENTIALS': '',
+        'VAULT_GCP_LOCATIONS': '',
+        'VAULT_GCP_API_URL': '',
+        'VAULT_GCP_TIMEOUT': 10,
+        # XPAM: vault settings managed on the server only (xpamctl vault connect): the console cannot change
+        # them, nor bring secrets back into the database
+        'VAULT_LOCKED': False,
 
         'VAULT_AZURE_HOST': '',
         'VAULT_AZURE_CLIENT_ID': '',

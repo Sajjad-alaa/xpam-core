@@ -19,6 +19,7 @@ __all__ = [
     'AnnouncementSettingSerializer', 'OpsSettingSerializer', 'VaultSettingSerializer',
     'OpenBaoSerializer', 'HashicorpKVSerializer', 'AzureKVSerializer', 'TicketSettingSerializer',
     'ChatAISettingSerializer', 'VirtualAppSerializer', 'AmazonSMSerializer',
+    'CyberArkSerializer', 'DelineaSerializer', 'GoogleSMSerializer',
     'SSHCAOpenBaoSerializer',
 ]
 
@@ -202,6 +203,76 @@ class HashicorpKVSerializer(BaseVaultSettingSerializer, serializers.Serializer):
     VAULT_HCP_MOUNT_POINT = serializers.CharField(
         max_length=256, allow_blank=True, required=False, label=_('Mount Point')
     )
+    # XPAM: certificate login (the XPAM Vault kit)
+    VAULT_HCP_AUTH = serializers.ChoiceField(
+        choices=[('token', _('Token')), ('cert', _('Client certificate'))], required=False, label=_('Login')
+    )
+    VAULT_HCP_CERT_ROLE = serializers.CharField(
+        max_length=128, allow_blank=True, required=False, label=_('Certificate role')
+    )
+    VAULT_HCP_CA_FILE = serializers.CharField(
+        max_length=256, allow_blank=True, required=False, label=_('CA file')
+    )
+    VAULT_HCP_CLIENT_CERT_FILE = serializers.CharField(
+        max_length=256, allow_blank=True, required=False, label=_('Client certificate file')
+    )
+    VAULT_HCP_CLIENT_KEY_FILE = serializers.CharField(
+        max_length=256, allow_blank=True, required=False, label=_('Client key file')
+    )
+    VAULT_HCP_NAMESPACE = serializers.CharField(
+        max_length=128, allow_blank=True, required=False, label=_('Namespace (Enterprise)')
+    )
+    VAULT_LOCKED = serializers.BooleanField(read_only=True, label=_('Managed on the server'))
+
+
+class CyberArkSerializer(BaseVaultSettingSerializer, serializers.Serializer):
+    PREFIX_TITLE = _('CyberArk Conjur')
+    VAULT_CYBERARK_URL = serializers.CharField(max_length=256, allow_blank=True, required=False, label=_('Address'))
+    VAULT_CYBERARK_ACCOUNT = serializers.CharField(max_length=128, allow_blank=True, required=False, label=_('Account'))
+    VAULT_CYBERARK_LOGIN = serializers.CharField(
+        max_length=256, allow_blank=True, required=False, label=_('Host login'), help_text=_('e.g. host/xpam/server')
+    )
+    VAULT_CYBERARK_API_KEY = EncryptedField(
+        max_length=1024, allow_blank=True, required=False, label=_('API key'), default=''
+    )
+    VAULT_CYBERARK_POLICY = serializers.CharField(
+        max_length=256, allow_blank=True, required=False, label=_('Policy branch')
+    )
+    VAULT_CYBERARK_CA_FILE = serializers.CharField(max_length=256, allow_blank=True, required=False, label=_('CA file'))
+    VAULT_LOCKED = serializers.BooleanField(read_only=True, label=_('Managed on the server'))
+
+
+class DelineaSerializer(BaseVaultSettingSerializer, serializers.Serializer):
+    PREFIX_TITLE = _('Delinea Secret Server')
+    VAULT_DELINEA_URL = serializers.CharField(max_length=256, allow_blank=True, required=False, label=_('Address'))
+    VAULT_DELINEA_USERNAME = serializers.CharField(max_length=128, allow_blank=True, required=False, label=_('Username'))
+    VAULT_DELINEA_PASSWORD = EncryptedField(
+        max_length=1024, allow_blank=True, required=False, label=_('Password'), default=''
+    )
+    VAULT_DELINEA_DOMAIN = serializers.CharField(max_length=128, allow_blank=True, required=False, label=_('Domain'))
+    VAULT_DELINEA_FOLDER_ID = serializers.CharField(max_length=32, allow_blank=True, required=False, label=_('Folder ID'))
+    VAULT_DELINEA_TEMPLATE_ID = serializers.CharField(
+        max_length=32, allow_blank=True, required=False, label=_('Secret template ID')
+    )
+    VAULT_DELINEA_FIELD = serializers.CharField(
+        max_length=64, allow_blank=True, required=False, label=_('Password field (slug)')
+    )
+    VAULT_DELINEA_SITE_ID = serializers.CharField(max_length=32, allow_blank=True, required=False, label=_('Site ID'))
+    VAULT_DELINEA_CA_FILE = serializers.CharField(max_length=256, allow_blank=True, required=False, label=_('CA file'))
+    VAULT_LOCKED = serializers.BooleanField(read_only=True, label=_('Managed on the server'))
+
+
+class GoogleSMSerializer(BaseVaultSettingSerializer, serializers.Serializer):
+    PREFIX_TITLE = _('Google Secret Manager')
+    VAULT_GCP_PROJECT = serializers.CharField(max_length=128, allow_blank=True, required=False, label=_('Project'))
+    VAULT_GCP_CREDENTIALS = EncryptedField(
+        max_length=8192, allow_blank=True, required=False, label=_('Service account key (JSON)'), default=''
+    )
+    VAULT_GCP_LOCATIONS = serializers.CharField(
+        max_length=256, allow_blank=True, required=False, label=_('Locations'),
+        help_text=_('Empty: automatic replication; otherwise comma-separated regions (user-managed replication)')
+    )
+    VAULT_LOCKED = serializers.BooleanField(read_only=True, label=_('Managed on the server'))
 
 
 class AzureKVSerializer(BaseVaultSettingSerializer, serializers.Serializer):

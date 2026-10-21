@@ -19,7 +19,14 @@ class Vault(BaseVault):
         self.client = VaultKVClient(
             url=kwargs.get('VAULT_HCP_HOST'),
             token=kwargs.get('VAULT_HCP_TOKEN'),
-            mount_point=kwargs.get('VAULT_HCP_MOUNT_POINT')
+            mount_point=kwargs.get('VAULT_HCP_MOUNT_POINT'),
+            auth=kwargs.get('VAULT_HCP_AUTH') or 'token',
+            cert_role=kwargs.get('VAULT_HCP_CERT_ROLE'),
+            ca_file=kwargs.get('VAULT_HCP_CA_FILE'),
+            client_cert_file=kwargs.get('VAULT_HCP_CLIENT_CERT_FILE'),
+            client_key_file=kwargs.get('VAULT_HCP_CLIENT_KEY_FILE'),
+            namespace=kwargs.get('VAULT_HCP_NAMESPACE'),
+            timeout=kwargs.get('VAULT_HCP_TIMEOUT') or 10,
         )
 
     def is_active(self):
@@ -27,7 +34,7 @@ class Vault(BaseVault):
 
     def _get(self, entry):
         # TODO: get data 是不是层数太多了
-        data = self.client.get(path=entry.full_path).get('data', {})
+        data = self.client.get(path=entry.full_path).get('data') or {}
         data = entry.get_decrypt_secret(data.get('secret'))
         return data
 
