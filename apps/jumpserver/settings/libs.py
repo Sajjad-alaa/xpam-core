@@ -251,6 +251,10 @@ OAUTH2_PROVIDER = {
     'PKCE_REQUIRED': True,
     'ACCESS_TOKEN_EXPIRE_SECONDS': CONFIG.OAUTH2_PROVIDER_ACCESS_TOKEN_EXPIRE_SECONDS,
     'REFRESH_TOKEN_EXPIRE_SECONDS': CONFIG.OAUTH2_PROVIDER_REFRESH_TOKEN_EXPIRE_SECONDS,
+    # XPAM: keep only a SHA-256 of access/refresh tokens in the database (RFC 9700), so a copy of the
+    # database gives no usable API token (requires no refresh grace period, the default)
+    'COMPLIANT_BCP_RFC9700_TOKEN_STORAGE': True,
+    'REFRESH_TOKEN_GRACE_PERIOD_SECONDS': 0,
 }
 OAUTH2_PROVIDER_CLIENT_REDIRECT_URI = 'jms2://auth/callback'
 OAUTH2_PROVIDER_JUMPSERVER_CLIENT_NAME = 'JumpServer Client'

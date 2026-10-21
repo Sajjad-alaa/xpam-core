@@ -17,7 +17,7 @@ from assets.const import Protocol
 from assets.const.host import GATEWAY_NAME
 from assets.validators import web_xpack_fields
 from authentication.const import ConnectionTokenType
-from common.db.fields import EncryptTextField
+from common.db.fields import EncryptCharField, EncryptTextField
 from common.exceptions import JMSException
 from common.utils import lazyproperty, pretty_string, bulk_get, is_uuid
 from common.utils.timezone import as_current_tz
@@ -34,7 +34,9 @@ def date_expired_default():
 class ConnectionToken(JMSOrgBaseModel):
     _type = ConnectionTokenType.USER
 
-    value = models.CharField(max_length=64, default='', verbose_name=_("Value"))
+    # XPAM: encrypted at rest like account secrets (a copy of the database alone gives no usable token);
+    # not a one-way hash because the SSH/RDP and database proxies read the value back to compare it
+    value = EncryptCharField(max_length=64, default='', verbose_name=_("Value"))
     user = models.ForeignKey(
         'users.User', on_delete=models.SET_NULL, null=True, blank=True,
         related_name='connection_tokens', verbose_name=_('User')

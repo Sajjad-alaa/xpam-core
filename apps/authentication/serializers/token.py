@@ -139,4 +139,6 @@ class AccessTokenSerializer(serializers.ModelSerializer):
         token_string = obj.token
         if len(token_string) > 16: 
             return f"{token_string[:6]}...{token_string[-4:]}"
-        return "****"
+        # XPAM: tokens are stored hashed only; show the start of the hash to tell them apart
+        checksum = getattr(obj, 'token_checksum', '') or ''
+        return f"#{checksum[:8]}" if checksum else "****"
