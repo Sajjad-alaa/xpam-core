@@ -150,7 +150,8 @@ class SettingsApi(generics.RetrieveUpdateAPIView):
             return
         category = self.request.query_params.get('category', '')
         names = list(self.request.data.keys())
-        if category in VAULT_LOCKED_CATEGORIES or any(n.startswith('VAULT_') for n in names):
+        # (the mirror is a choice among the approved connections, not a vault setting)
+        if category in VAULT_LOCKED_CATEGORIES or any(n.startswith('VAULT_') and n != 'VAULT_MIRROR' for n in names):
             raise PermissionDenied(_('The vault is managed on the XPAM server (xpamctl vault) and cannot be changed here'))
 
     def check_permissions(self, request):

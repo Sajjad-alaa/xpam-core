@@ -95,6 +95,15 @@ class Account(AbsConnectivity, LabeledMixin, BaseAccount, JSONFilterMixin):
         on_delete=models.SET_NULL, verbose_name=_("Su from")
     )
     version = models.IntegerField(default=0, verbose_name=_('Version'))
+    # XPAM: the password may stay in an existing vault — XPAM reads it when connecting, never writes it
+    secret_source = models.CharField(
+        max_length=16, default='xpam', choices=[('xpam', _('Kept by XPAM')), ('external', _('Read from an existing vault'))],
+        verbose_name=_('Secret source')
+    )
+    secret_ref = models.JSONField(
+        default=dict, blank=True, verbose_name=_('Secret reference'),
+        help_text=_('{"connection": "<vault connection id>", "path": "...", "field": "..."}')
+    )
     history = AccountHistoricalRecords(
         included_fields=['id', '_secret', 'secret_type', 'version'],
         verbose_name=_("historical Account")

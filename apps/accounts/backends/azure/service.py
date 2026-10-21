@@ -33,6 +33,10 @@ class AZUREVaultClient(object):
         else:
             return True, ''
 
+    def read_external(self, path, field=''):
+        """ XPAM: an existing Key Vault secret (its name; field = a version) """
+        return self.client.get_secret(path, field or None).value
+
     def get(self, name, version=None, strict=False):
         from azure.core.exceptions import ResourceNotFoundError, ClientAuthenticationError
 

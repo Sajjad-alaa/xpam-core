@@ -52,6 +52,12 @@ class AmazonSecretsManagerClient(object):
     def delete(self, name):
         self.client.delete_secret(SecretId=name)
 
+    def read_external(self, path, field=''):
+        """ XPAM: an existing secret (its name or ARN; field = a key of a JSON secret) """
+        import json
+        value = self.client.get_secret_value(SecretId=path)['SecretString']
+        return str(json.loads(value).get(field, '')) if field else value
+
     def update_metadata(self, name, metadata: dict):
         tags = [{'Key': k, 'Value': v} for k, v in metadata.items()]
         try:

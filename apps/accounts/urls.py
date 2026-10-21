@@ -9,6 +9,8 @@ app_name = 'accounts'
 router = BulkRouter()
 
 router.register(r'accounts', api.AccountViewSet, 'account')
+router.register(r'vault-connections', api.VaultConnectionViewSet, 'vault-connection')
+router.register(r'vault-rules', api.VaultStorageRuleViewSet, 'vault-rule')
 router.register(r'virtual-accounts', api.VirtualAccountViewSet, 'virtual-account')
 router.register(r'gathered-accounts', api.GatheredAccountViewSet, 'gathered-account')
 router.register(r'account-secrets', api.AccountSecretsViewSet, 'account-secret')

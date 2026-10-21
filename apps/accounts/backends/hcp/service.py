@@ -9,12 +9,15 @@ XPAM: two ways to log in
   Vault kit. Short-lived tokens are renewed before they expire and replaced by a new login when they cannot
   be; the client never needs administrative rights (the mount exists, it is never created from here).
 Several Vault servers may be given (VAULT_HCP_HOST comma-separated): on a connection failure the next one is
-used. TLS is always verified (VAULT_HCP_CA_FILE when set, else the system CAs).
+used. TLS is always verified — against VAULT_HCP_CA_FILE only when it is set (else the system CAs) — and must be
+TLS 1.3 (VAULT_HCP_TLS_MIN_VERSION=1.2 only for an older Vault outside the kit).
 """
+import ssl
 import threading
 import time
 
 import requests
+from requests.adapters import HTTPAdapter
 from requests.exceptions import ConnectionError, Timeout
 
 from common.utils import get_logger
@@ -31,12 +34,25 @@ class VaultRequestError(Exception):
         super().__init__(f'Vault error {status}: {"; ".join(errors) or "no detail"}')
 
 
+class StrictTLSAdapter(HTTPAdapter):
+    """ TLS 1.3 at least (unless set lower), and only the given CA when there is one (not the public CAs) """
+
+    def __init__(self, ca_file='', min_version='1.3', **kwargs):
+        self.ctx = ssl.create_default_context(cafile=ca_file or None)
+        self.ctx.minimum_version = ssl.TLSVersion.TLSv1_2 if str(min_version) == '1.2' else ssl.TLSVersion.TLSv1_3
+        super().__init__(**kwargs)
+
+    def init_poolmanager(self, *args, **kwargs):
+        kwargs['ssl_context'] = self.ctx
+        return super().init_poolmanager(*args, **kwargs)
+
+
 class VaultKVClient(object):
     max_versions = 20
     renew_when_left = 1 / 3  # renew a token when a third of its lifetime is left
 
     def __init__(self, url, token='', mount_point='pam', auth='token', cert_role='', ca_file='',
-                 client_cert_file='', client_key_file='', namespace='', timeout=10):
+                 client_cert_file='', client_key_file='', namespace='', timeout=10, tls_min_version='1.3'):
         self.urls = [u.strip().rstrip('/') for u in str(url or '').split(',') if u.strip()]
         if not self.urls:
             raise ValueError('Vault address is empty')
@@ -47,6 +63,7 @@ class VaultKVClient(object):
         self.timeout = int(timeout or 10)
         self.session = requests.Session()
         self.session.verify = ca_file or True
+        self.session.mount('https://', StrictTLSAdapter(ca_file=ca_file, min_version=tls_min_version))
         if client_cert_file and client_key_file:
             self.session.cert = (client_cert_file, client_key_file)
         if self.auth == 'cert' and not self.session.cert:
@@ -183,6 +200,15 @@ class VaultKVClient(object):
             return
         self._request('POST', f'sys/mounts/{self.mount_point}', json={'type': 'kv', 'options': {'version': 2}})
         self._request('POST', f'{self.mount_point}/config', json={'max_versions': self.max_versions})
+
+    def read_external(self, path, field=''):
+        """ XPAM: an existing secret (API path after /v1/, e.g. secret/data/app/db; KV v1 or v2), not encrypted by XPAM """
+        data = self._request('GET', path.strip('/')).get('data') or {}
+        if isinstance(data.get('data'), dict) and 'metadata' in data:  # KV v2
+            data = data['data']
+        if field:
+            return str(data.get(field, ''))
+        return str(next(iter(data.values()), '')) if len(data) == 1 else ''
 
     # ------------------------------------------------------------ KV v2
 

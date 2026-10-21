@@ -33,7 +33,9 @@ class VaultClient(LazyObject):
         from django.conf import settings
         vault_config_names = [k for k in js_settings.__dict__.keys() if k.startswith('VAULT_')]
         vault_configs = {name: getattr(settings, name, None) for name in vault_config_names}
-        self._wrapped = get_vault_client(**vault_configs)
+        # XPAM: several vaults (connections, rules, mirrors, external secrets) behind the one client
+        from .router import VaultRouter
+        self._wrapped = VaultRouter(get_vault_client(**vault_configs))
 
 
 """ 为了安全, 页面修改配置, 重启服务后才会重新初始化 vault_client """

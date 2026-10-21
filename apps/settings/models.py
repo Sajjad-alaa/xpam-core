@@ -92,7 +92,7 @@ class Setting(models.Model):
 
     def refresh_setting(self):
         # XPAM: with VAULT_LOCKED the vault settings come from the server's configuration only
-        if getattr(settings, 'VAULT_LOCKED', False) and self.name.startswith('VAULT_'):
+        if getattr(settings, 'VAULT_LOCKED', False) and self.name.startswith('VAULT_') and self.name != 'VAULT_MIRROR':
             return
         setattr(settings, self.name, self.cleaned_value)
         self.refresh_keycloak_to_openid_if_need()

@@ -6,3 +6,4 @@ from .scan_account import *
 from .template import *
 from .verify_account import *
 from .jit import *
+from .vault_routing import *

@@ -138,6 +138,15 @@ class OpenBaoKVClient(object):
                 )
         return copied
 
+    def read_external(self, path, field=''):
+        """ XPAM: an existing secret (API path after /v1/; KV v1 or v2), not encrypted by XPAM """
+        data = self._request('GET', '/v1/' + path.strip('/')).get('data') or {}
+        if isinstance(data.get('data'), dict) and 'metadata' in data:
+            data = data['data']
+        if field:
+            return str(data.get(field, ''))
+        return str(next(iter(data.values()), '')) if len(data) == 1 else ''
+
     def get(self, path, version=None):
         params = {'version': version} if version else None
         try:

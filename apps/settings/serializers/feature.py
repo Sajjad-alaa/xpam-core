@@ -129,6 +129,19 @@ class VaultSettingSerializer(BaseVaultSettingSerializer, serializers.Serializer)
         max_length=16, required=False, label=_('Vault provider'), read_only=True
     )
     VAULT_LOCKED = serializers.BooleanField(read_only=True, label=_('Managed on the server'))
+    VAULT_MIRROR = serializers.CharField(
+        max_length=64, allow_blank=True, required=False, label=_('Mirror'),
+        help_text=_('A vault connection that receives a copy of every secret, read from when the vault fails')
+    )
+
+    @staticmethod
+    def validate_VAULT_MIRROR(value):
+        if value:
+            from accounts.models import VaultConnection
+            if not VaultConnection.objects.filter(id=value, is_active=True).exists():
+                raise serializers.ValidationError(_('Not an active vault connection'))
+        return value
+
     HISTORY_ACCOUNT_CLEAN_LIMIT = serializers.IntegerField(
         default=999, max_value=999, min_value=1,
         required=False, label=_('Record limit'),

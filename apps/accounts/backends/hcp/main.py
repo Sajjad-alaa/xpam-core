@@ -11,11 +11,31 @@ logger = get_logger(__name__)
 __all__ = ['Vault']
 
 
+def _pem_file(pem):
+    import hashlib
+    import os
+    import tempfile
+    directory = os.path.join('/dev/shm' if os.path.isdir('/dev/shm') else tempfile.gettempdir(), 'xpam-vault-pem')
+    os.makedirs(directory, mode=0o700, exist_ok=True)
+    path = os.path.join(directory, hashlib.sha256(pem.encode()).hexdigest()[:24] + '.pem')
+    if not os.path.exists(path):
+        fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        with os.fdopen(fd, 'w') as f:
+            f.write(pem)
+    return path
+
+
 class Vault(BaseVault):
     type = VaultTypeChoices.hcp
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        # XPAM: a vault connection may carry its certificates inline (stored encrypted with SECRET_KEY): written to
+        # private files in memory for the TLS library
+        for name in ('CA', 'CLIENT_CERT', 'CLIENT_KEY'):
+            pem = kwargs.get(f'VAULT_HCP_{name}_PEM')
+            if pem:
+                kwargs[f'VAULT_HCP_{name}_FILE'] = _pem_file(pem)
         self.client = VaultKVClient(
             url=kwargs.get('VAULT_HCP_HOST'),
             token=kwargs.get('VAULT_HCP_TOKEN'),
@@ -27,6 +47,7 @@ class Vault(BaseVault):
             client_key_file=kwargs.get('VAULT_HCP_CLIENT_KEY_FILE'),
             namespace=kwargs.get('VAULT_HCP_NAMESPACE'),
             timeout=kwargs.get('VAULT_HCP_TIMEOUT') or 10,
+            tls_min_version=kwargs.get('VAULT_HCP_TLS_MIN_VERSION') or '1.3',
         )
 
     def is_active(self):

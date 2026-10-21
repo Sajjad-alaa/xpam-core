@@ -344,6 +344,7 @@ class Config(dict):
         'VAULT_HCP_CLIENT_KEY_FILE': '',
         'VAULT_HCP_NAMESPACE': '',
         'VAULT_HCP_TIMEOUT': 10,
+        'VAULT_HCP_TLS_MIN_VERSION': '1.3',
         # XPAM: CyberArk Conjur (host login with its API key; variables under XPAM's policy branch)
         'VAULT_CYBERARK_URL': '',
         'VAULT_CYBERARK_ACCOUNT': '',
@@ -372,6 +373,8 @@ class Config(dict):
         # XPAM: vault settings managed on the server only (xpamctl vault connect): the console cannot change
         # them, nor bring secrets back into the database
         'VAULT_LOCKED': False,
+        # XPAM: a vault connection that receives a copy of every secret of the configured vault (admin's choice)
+        'VAULT_MIRROR': '',
 
         'VAULT_AZURE_HOST': '',
         'VAULT_AZURE_CLIENT_ID': '',

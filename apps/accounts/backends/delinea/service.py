@@ -150,6 +150,13 @@ class DelineaClient(object):
         if response.status_code not in (200, 204, 404):
             raise RuntimeError(f'Secret Server: removing the secret failed ({response.status_code})')
 
+    def read_external(self, path, field=''):
+        """ XPAM: an existing Secret Server secret (its id) and field slug, not encrypted by XPAM """
+        response = self._request('GET', f'/secrets/{int(path)}/fields/{field or self.field}')
+        if response.status_code != 200:
+            raise RuntimeError(f'Secret Server: reading secret {path} failed ({response.status_code})')
+        return response.json() if response.headers.get('Content-Type', '').startswith('application/json') else response.text
+
     def update_metadata(self, name, metadata: dict):
         # template fields differ from one installation to the next: XPAM keeps metadata in its own database
         return

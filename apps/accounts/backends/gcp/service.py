@@ -151,6 +151,13 @@ class GoogleSecretManagerClient(object):
         response = self._request('DELETE', self._secret(name))
         self._check(response, 'removing the secret', ok=(200, 404))
 
+    def read_external(self, path, field=''):
+        """ XPAM: an existing secret (its name, or projects/../secrets/..; field = a version, default latest) """
+        name = path if path.startswith('projects/') else self._secret(path)
+        response = self._request('GET', f'{name}/versions/{field or "latest"}:access')
+        self._check(response, f'reading {path}')
+        return base64.b64decode(response.json()['payload']['data']).decode()
+
     def update_metadata(self, name, metadata: dict):
         annotations = {f'xpam-{k}'[:63]: str(v)[:1000] for k, v in metadata.items()}
         response = self._request('PATCH', self._secret(name), params={'updateMask': 'annotations'},

@@ -6,3 +6,4 @@ from .virtual import *  # noqa
 from .application import *  # noqa
 from .personal import *  # noqa
 from .jit import *  # noqa
+from .vault_routing import *  # noqa

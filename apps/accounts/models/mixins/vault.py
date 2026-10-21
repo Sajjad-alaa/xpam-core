@@ -74,6 +74,15 @@ class VaultManagerMixin(models.Manager):
 
 class VaultModelMixin(models.Model):
     _secret = VaultSecretField(blank=True, null=True, verbose_name=_('Secret'))
+    # XPAM: which vault keeps this secret (empty: the configured vault) and its mirror (see vault_routing)
+    vault_connection = models.ForeignKey(
+        'accounts.VaultConnection', null=True, blank=True, on_delete=models.PROTECT, related_name='+',
+        db_constraint=False, verbose_name=_('Vault')
+    )
+    vault_mirror = models.ForeignKey(
+        'accounts.VaultConnection', null=True, blank=True, on_delete=models.PROTECT, related_name='+',
+        db_constraint=False, verbose_name=_('Vault mirror')
+    )
     is_sync_metadata = True
 
     class Meta:

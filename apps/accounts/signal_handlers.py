@@ -225,3 +225,28 @@ def on_user_change_reconcile_jit(sender, instance=None, created=False, update_fi
         return
     if _jit_in_use():
         _schedule_jit_reconcile()
+
+
+# XPAM: several vaults — a changed connection, rule or mirror refreshes every process's vault client; a rule
+# change moves the secrets it concerns (in the background)
+def _vault_routing_changed(sender, instance=None, **kwargs):
+    from django.db import transaction
+    from .tasks.vault_routing import move_secrets_by_rules
+
+    def apply():
+        vault_pub_sub.publish('vault')
+        refresh_vault_client()
+        if sender.__name__ == 'VaultStorageRule':
+            move_secrets_by_rules.delay()
+
+    transaction.on_commit(apply)
+
+
+def _connect_vault_routing_signals():
+    from .models import VaultConnection, VaultStorageRule
+    for model in (VaultConnection, VaultStorageRule):
+        post_save.connect(_vault_routing_changed, sender=model, dispatch_uid=f'xpam-vault-routing-save-{model.__name__}')
+        post_delete.connect(_vault_routing_changed, sender=model, dispatch_uid=f'xpam-vault-routing-del-{model.__name__}')
+
+
+_connect_vault_routing_signals()

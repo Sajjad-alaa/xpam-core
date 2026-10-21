@@ -244,7 +244,7 @@ class AccountSerializer(AccountCreateUpdateSerializerMixin, BaseAccountSerialize
         ]
         fields = BaseAccountSerializer.Meta.fields + [
             'su_from', 'asset', 'version', 'ds',
-            'source', 'source_id', 'secret_reset',
+            'source', 'source_id', 'secret_reset', 'secret_source', 'secret_ref',
         ] + AccountCreateUpdateSerializerMixin.Meta.fields + automation_fields
         read_only_fields = BaseAccountSerializer.Meta.read_only_fields + automation_fields
         fields = [f for f in fields if f not in ['spec_info']]
@@ -257,6 +257,19 @@ class AccountSerializer(AccountCreateUpdateSerializerMixin, BaseAccountSerialize
         # 手动判断唯一性校验
         validators = []
 
+    def _validate_external_secret(self, attrs):
+        # XPAM: a password read from an existing vault — XPAM keeps no copy and never changes it
+        if attrs.get('secret_source', getattr(self.instance, 'secret_source', 'xpam')) == 'external':
+            from ..models import VaultConnection
+            ref = attrs.get('secret_ref', getattr(self.instance, 'secret_ref', None)) or {}
+            ref = {k: str(ref.get(k) or '').strip() for k in ('connection', 'path', 'field')}
+            if not ref['path'] or not VaultConnection.objects.filter(id=ref['connection'] or None, is_active=True).exists():
+                raise serializers.ValidationError({'secret_ref': _('An active vault connection and the secret path are required')})
+            attrs['secret_ref'] = ref
+            attrs.pop('secret', None)
+            attrs['secret_reset'] = False
+        return attrs
+
     @classmethod
     def setup_eager_loading(cls, queryset):
         """ Perform necessary eager loading of data. """
@@ -268,6 +281,7 @@ class AccountSerializer(AccountCreateUpdateSerializerMixin, BaseAccountSerialize
 
     def validate(self, attrs):
         attrs = self.validate_dynamic_credential(attrs)
+        attrs = self._validate_external_secret(attrs)
         instance = getattr(self, "instance", None)
         if instance:
             return super().validate(attrs)

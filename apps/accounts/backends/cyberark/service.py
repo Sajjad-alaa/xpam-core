@@ -139,6 +139,13 @@ class ConjurClient(object):
         if response.status_code not in (200, 201, 404):
             raise RuntimeError(f'Conjur: removing the variable failed ({response.status_code}): {response.text[:200]}')
 
+    def read_external(self, path, field=''):
+        """ XPAM: an existing Conjur variable (its full id), not encrypted by XPAM """
+        response = self._request('GET', f'/secrets/{quote(self.account, safe="")}/variable/{quote(path, safe="")}')
+        if response.status_code != 200:
+            raise RuntimeError(f'Conjur: reading {path} failed ({response.status_code})')
+        return response.text
+
     def update_metadata(self, name, metadata: dict):
         # annotations would need a policy update for every change: XPAM keeps metadata in its own database
         return

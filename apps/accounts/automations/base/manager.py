@@ -236,7 +236,7 @@ class BaseChangeSecretPushManager(AccountBasePlaybookManager):
         accounts = Account.objects.filter(
             id__in=self.account_ids,
             secret_reset=True,
-        )
+        ).exclude(secret_source='external')  # XPAM: the password belongs to another vault: never changed or pushed
         if self.secret_type:
             accounts = accounts.filter(secret_type=self.secret_type)
         if settings.CHANGE_AUTH_PLAN_SECURE_MODE_ENABLED:
