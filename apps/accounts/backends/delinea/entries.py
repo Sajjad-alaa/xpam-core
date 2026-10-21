@@ -6,7 +6,10 @@ class DelineaBaseEntry(BaseEntry):
 
     @property
     def full_path(self):
-        return 'xpam:' + super().full_path.replace('orgs/', '', 1).replace('/', ':')
+        path = super().full_path
+        if path.startswith('orgs/'):
+            path = path[len('orgs/'):]
+        return 'xpam:' + path.replace('/', ':')
 
 
 class AccountEntry(DelineaBaseEntry):
@@ -29,5 +32,9 @@ class AccountTemplateEntry(DelineaBaseEntry):
 
 class HistoricalAccountEntry(DelineaBaseEntry):
     @property
+    def path_base(self):
+        return f'accounts/{self.instance.instance.id}'
+
+    @property
     def path_spec(self):
-        return f'accounts/{self.instance.instance.id}/histories/{self.instance.history_id}'
+        return f'histories/{self.instance.history_id}'

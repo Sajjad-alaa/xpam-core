@@ -6,7 +6,10 @@ class GCPBaseEntry(BaseEntry):
 
     @property
     def full_path(self):
-        return 'xpam_' + super().full_path.replace('orgs/', '', 1).replace('/', '_')
+        path = super().full_path
+        if path.startswith('orgs/'):
+            path = path[len('orgs/'):]
+        return 'xpam_' + path.replace('/', '_')
 
 
 class AccountEntry(GCPBaseEntry):
@@ -29,5 +32,9 @@ class AccountTemplateEntry(GCPBaseEntry):
 
 class HistoricalAccountEntry(GCPBaseEntry):
     @property
+    def path_base(self):
+        return f'accounts/{self.instance.instance.id}'
+
+    @property
     def path_spec(self):
-        return f'accounts/{self.instance.instance.id}/histories/{self.instance.history_id}'
+        return f'histories/{self.instance.history_id}'
