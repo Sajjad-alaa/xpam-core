@@ -25,7 +25,7 @@ from ..utils import get_interface_setting_or_default
 logger = get_logger(__file__)
 
 # XPAM: the account-storage settings locked by VAULT_LOCKED (ssh_ca is a separate feature)
-VAULT_LOCKED_CATEGORIES = ('vault', 'openbao', 'azure_kv', 'aws_sm', 'hcp', 'cyberark', 'delinea', 'gcp_sm')
+VAULT_LOCKED_CATEGORIES = ('openbao', 'azure_kv', 'aws_sm', 'hcp', 'cyberark', 'delinea', 'gcp_sm')
 
 
 class SettingsApi(generics.RetrieveUpdateAPIView):

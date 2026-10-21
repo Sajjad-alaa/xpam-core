@@ -128,6 +128,7 @@ class VaultSettingSerializer(BaseVaultSettingSerializer, serializers.Serializer)
     VAULT_BACKEND = serializers.CharField(
         max_length=16, required=False, label=_('Vault provider'), read_only=True
     )
+    VAULT_LOCKED = serializers.BooleanField(read_only=True, label=_('Managed on the server'))
     HISTORY_ACCOUNT_CLEAN_LIMIT = serializers.IntegerField(
         default=999, max_value=999, min_value=1,
         required=False, label=_('Record limit'),
