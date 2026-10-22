@@ -21,7 +21,7 @@ class JITAccessViewSet(viewsets.ViewSet):
     """
     GET  /accounts/jit-access/                  the user's access, pending requests and live accounts
     GET  /accounts/jit-access/requestable/      assets the user may request (?search=)
-    POST /accounts/jit-access/request/          {assets: [id], hours, reason}
+    POST /accounts/jit-access/request/          {assets: [id], hours, reason, protocols: [name], actions: [name]}
     POST /accounts/jit-access/<grant>/extend/   {hours, reason}
     POST /accounts/jit-access/<grant>/end/      end the access now
     POST /accounts/jit-access/<request>/cancel/ cancel a pending request
@@ -44,6 +44,8 @@ class JITAccessViewSet(viewsets.ViewSet):
                        'auto_approve_max_hours': p.auto_approve_max_hours,
                        'require_reason': p.require_reason, 'privileged': p.privileged,
                        'mode': p.mode, 'mode_display': str(p.get_mode_display())},
+            # XPAM: the protocols and actions a request for this asset may choose
+            'options': selfservice.request_options(a, p),
         } for a, p in items])
 
     @action(methods=['post'], detail=False, url_path='request')
@@ -51,7 +53,8 @@ class JITAccessViewSet(viewsets.ViewSet):
         data = request.data
         try:
             ticket = selfservice.submit(request, data.get('assets') or [], data.get('hours'),
-                                        reason=data.get('reason') or '')
+                                        reason=data.get('reason') or '',
+                                        protocols=data.get('protocols') or [], actions=data.get('actions') or [])
         except selfservice.SelfServiceError as e:
             return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
         return Response(_ticket_brief(ticket), status=status.HTTP_201_CREATED)

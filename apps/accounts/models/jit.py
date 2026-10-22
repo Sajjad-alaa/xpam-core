@@ -12,9 +12,14 @@ from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
 from common.db.fields import JSONManyToManyField
+from perms.const import ActionChoices
 from orgs.mixins.models import JMSOrgBaseModel
 
 __all__ = ['JITPolicy', 'JITAccount']
+
+
+def default_rule_protocols():
+    return ['all']
 
 
 class JITPolicy(JMSOrgBaseModel):
@@ -124,6 +129,10 @@ class JITPolicy(JMSOrgBaseModel):
     device_custom_role = models.CharField(max_length=128, blank=True, default='', verbose_name=_('Custom device role'))
     device_create_commands = models.TextField(blank=True, default='', verbose_name=_('Commands to create the account'))
     device_remove_commands = models.TextField(blank=True, default='', verbose_name=_('Commands to remove the account'))
+    # XPAM: what an access through this rule may allow — the protocols (['all']: every protocol of the asset) and
+    # the actions; a request picks among them, the approver sees them, the granted access enforces them
+    protocols = models.JSONField(default=default_rule_protocols, verbose_name=_('Allowed protocols'))
+    actions = models.IntegerField(default=ActionChoices.all, verbose_name=_('Allowed actions'))
     is_active = models.BooleanField(default=True, verbose_name=_('Active'))
 
     class Meta:

@@ -81,6 +81,8 @@ class Handler(BaseHandler):
             'from_ticket': True,
             'id': self.ticket.id,
             'actions': apply_actions,
+            # XPAM: the protocols asked for and approved (connecting with another one is refused)
+            'protocols': list(self.ticket.apply_protocols or []) or ['all'],
             'accounts': apply_accounts,
             'name': apply_permission_name,
             'date_start': apply_date_start,

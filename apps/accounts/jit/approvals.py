@@ -8,6 +8,7 @@ from django.utils.translation import gettext as _
 
 from common.utils import get_logger
 from orgs.utils import tmp_to_org, tmp_to_root_org
+from perms.const import ActionChoices
 
 logger = get_logger(__name__)
 
@@ -64,6 +65,9 @@ def pending_for(user, limit=50):
                 'rules': sorted({p.name for p in policies if p}),
                 'date_start': ticket.apply_date_start, 'date_expired': ticket.apply_date_expired, 'hours': hours,
                 'date_created': ticket.date_created,
+                # XPAM: what the access would allow (the approver sees what they approve)
+                'protocols': list(ticket.apply_protocols or []) or ['all'],
+                'actions': [c.name for c in ActionChoices if ticket.apply_actions & c.value],
                 'level': ticket.approval_step, 'levels': ticket.ticket_steps.count(),
                 'flags': _flags(ticket, policies, assets),
             })

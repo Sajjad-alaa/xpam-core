@@ -4,10 +4,11 @@ from django.db import transaction
 from django.utils.translation import gettext_lazy as _
 from rest_framework import serializers
 
-from common.serializers.fields import JSONManyToManyField, LabeledChoiceField, ObjectRelatedField
+from common.serializers.fields import BitChoicesField, JSONManyToManyField, LabeledChoiceField, ObjectRelatedField
 from orgs.mixins.serializers import BulkOrgResourceModelSerializer
 from acls.models import CommandGroup
 from perms.models import AssetPermission
+from perms.const import ActionChoices
 from ..jit.naming import validate_username, JITNameError
 from ..models import JITPolicy, JITAccount
 
@@ -52,6 +53,12 @@ class JITPolicySerializer(BulkOrgResourceModelSerializer):
                                          default=JITPolicy.CredentialType.password, label=_('Credential'))
     db_privilege = LabeledChoiceField(choices=JITPolicy.DBPrivilege.choices,
                                       default=JITPolicy.DBPrivilege.read_only, label=_('Database rights'))
+    # XPAM: what an access through the rule may allow (a request picks among them)
+    protocols = serializers.ListField(
+        child=serializers.RegexField(r'^[A-Za-z][A-Za-z0-9_]{0,31}$'), required=False, max_length=32,
+        label=_('Allowed protocols'), help_text=_('["all"] or a list such as ["ssh", "http"]')
+    )
+    actions = BitChoicesField(choice_cls=ActionChoices, required=False, label=_('Allowed actions'))
     permissions_amount = serializers.SerializerMethodField(label=_('Permissions'))
     live_accounts_amount = serializers.SerializerMethodField(label=_('Live accounts'))
 
@@ -65,7 +72,7 @@ class JITPolicySerializer(BulkOrgResourceModelSerializer):
             'auto_approve_time_period', 'approvals_required', 'approvers', 'require_mfa', 'end_sessions_on_expiry',
             'expiry_warning_minutes', 'command_groups', 'command_action', 'credential_type',
             'db_privilege', 'db_custom_sql', 'device_role', 'device_custom_role', 'device_create_commands',
-            'device_remove_commands', 'permissions_amount', 'live_accounts_amount',
+            'device_remove_commands', 'protocols', 'actions', 'permissions_amount', 'live_accounts_amount',
             'comment', 'created_by', 'date_created', 'date_updated',
         ]
         read_only_fields = ['created_by', 'date_created', 'date_updated']
@@ -145,6 +152,20 @@ class JITPolicySerializer(BulkOrgResourceModelSerializer):
 
     validate_linux_groups = _validate_groups
     validate_windows_groups = _validate_groups
+
+    @staticmethod
+    def validate_protocols(value):
+        """ ['all'] or the protocol names, once each """
+        names = []
+        for name in value or []:
+            name = str(name).strip().lower()
+            if name and name not in names:
+                names.append(name)
+        return ['all'] if not names or 'all' in names else names
+
+    @staticmethod
+    def validate_actions(value):
+        return value | ActionChoices.connect  # (an access always lets one connect)
 
     def validate_approvers(self, value):
         return value or {}

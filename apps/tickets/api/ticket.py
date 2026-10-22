@@ -187,6 +187,38 @@ class ApplyAssetTicketViewSet(TicketViewSet):
         'approve': serializers.ApproveAssetSerializer
     }
 
+    # XPAM: the access the request gave (state, assets, protocols, accounts, sessions), ended by the requester or
+    # revoked by an approver or administrator — the request's visibility rules apply (get_object)
+    @action(detail=True, methods=['GET'], url_path='access', permission_classes=[IsAuthenticated])
+    def access(self, request, *args, **kwargs):
+        from accounts.jit import access
+        with tmp_to_root_org():
+            ticket = self.get_object()
+        return Response(access.ticket_access(ticket, request.user) or {'state': None})
+
+    @action(detail=True, methods=[POST], url_path='access/revoke', permission_classes=[IsAuthenticated])
+    def revoke_access(self, request, *args, **kwargs):
+        from accounts.jit import access
+        with tmp_to_root_org():
+            ticket = self.get_object()
+        try:
+            result = access.revoke(ticket, request.user, request.data.get('reason') or '')
+        except access.AccessError as e:
+            return Response({'detail': str(e)}, status=400)
+        self._record_operate_log(ticket, TicketAction.close)
+        return Response(result)
+
+    @action(detail=True, methods=[POST], url_path='access/end', permission_classes=[IsAuthenticated])
+    def end_access(self, request, *args, **kwargs):
+        from accounts.jit import access
+        with tmp_to_root_org():
+            ticket = self.get_object()
+        try:
+            access.end(ticket, request.user)
+        except access.AccessError as e:
+            return Response({'detail': str(e)}, status=400)
+        return Response({'ok': True})
+
 
 class ApplyLoginTicketViewSet(TicketViewSet):
     model = ApplyLoginTicket

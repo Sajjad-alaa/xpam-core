@@ -24,6 +24,8 @@ class ApplyAssetTicket(Ticket):
     # XPAM: name of the just-in-time policy that approved the request by itself ('' = approved by people)
     apply_jit_auto = models.CharField(max_length=128, default='', blank=True, verbose_name=_('Approved automatically by'))
     # XPAM: the access (permission id) this request extends: approved, that access just lasts longer
+    # XPAM: the protocols asked for (empty: every protocol the rules allow) — the granted access is limited to them
+    apply_protocols = models.JSONField(default=list, blank=True, verbose_name=_('Protocols'))
     apply_extends = models.CharField(max_length=36, default='', blank=True, verbose_name=_('Extends access'))
 
     TICKET_TYPE = TicketType.apply_asset

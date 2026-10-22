@@ -18,6 +18,52 @@ logger = get_logger(__name__)
 
 REQUEST_ACCOUNTS = ['@JIT']  # no standing account: the just-in-time account of the rule
 MAX_ASSETS = 200
+# what a request asks for when the user does not choose: connecting and moving files/text (not delete, share)
+DEFAULT_ACTIONS = ('connect', 'upload', 'download', 'copy', 'paste')
+
+
+def _action_names(mask):
+    from perms.const import ActionChoices
+    return [c.name for c in ActionChoices if mask & c.value]
+
+
+def request_options(asset, policy):
+    """ XPAM: what a request for `asset` under `policy` may choose — the asset's protocols the rule allows, and the
+    actions the rule allows """
+    allowed = policy.protocols or ['all']
+    names = [p.name for p in asset.protocols.all()]
+    return {
+        'protocols': names if 'all' in allowed else [n for n in names if n in allowed],
+        'actions': _action_names(policy.actions),
+    }
+
+
+def _choose(policies, protocols, actions):
+    """ (protocols, action names) for a request: within what every rule of the chosen assets allows. Nothing
+    chosen: every protocol they allow ([] = all), and the usual actions they allow. """
+    from perms.const import ActionChoices
+    from tickets.serializers.ticket.apply_asset import clean_protocols
+    allowed_protocols = None  # None: every protocol
+    allowed_actions = ActionChoices.all()
+    for p in policies:
+        rule = [] if 'all' in (p.protocols or ['all']) else list(p.protocols)
+        if rule:
+            allowed_protocols = rule if allowed_protocols is None else [n for n in allowed_protocols if n in rule]
+        allowed_actions &= p.actions
+    if allowed_protocols == []:
+        raise SelfServiceError(_('These assets allow different protocols: request them separately'))
+    chosen = clean_protocols(protocols)
+    if chosen and allowed_protocols is not None and not set(chosen) <= set(allowed_protocols):
+        raise SelfServiceError(_('Protocols you can ask for these assets: %s') % ', '.join(allowed_protocols))
+    if not chosen:
+        chosen = list(allowed_protocols or [])
+    names = [a for a in (actions or DEFAULT_ACTIONS) if a in ActionChoices.names]
+    if 'connect' not in names:
+        names.insert(0, 'connect')
+    refused = [a for a in names if not allowed_actions & getattr(ActionChoices, a)]
+    if refused and actions:
+        raise SelfServiceError(_('Not allowed for these assets: %s') % ', '.join(refused))
+    return chosen, [a for a in names if a not in refused]
 
 
 class SelfServiceError(Exception):
@@ -289,7 +335,8 @@ def drop_first_approver(ticket, step):
 
 # ---------------------------------------------------------------- the user's side
 
-def submit(request, asset_ids, hours, reason='', title='', start=None, end=None, extends=None):
+def submit(request, asset_ids, hours, reason='', title='', start=None, end=None, extends=None,
+           protocols=None, actions=None):
     """Create an access request for `asset_ids`; it may be approved by itself. Returns the ticket."""
     from assets.models import Asset
     with tmp_to_root_org():
@@ -304,7 +351,7 @@ def submit(request, asset_ids, hours, reason='', title='', start=None, end=None,
     if not PolicyMatcher()._member(org_id, request.user):
         raise SelfServiceError(_('Choose at least one asset you can request'))
     with tmp_to_org(org_id):
-        return _submit(request, assets, hours, reason, title, start, end, extends)
+        return _submit(request, assets, hours, reason, title, start, end, extends, protocols, actions)
 
 
 def _already(user, assets, extends):
@@ -330,7 +377,7 @@ def _already(user, assets, extends):
     return ''
 
 
-def _submit(request, assets, hours, reason, title, start, end, extends=None):
+def _submit(request, assets, hours, reason, title, start, end, extends=None, protocols=None, actions=None):
     from orgs.utils import current_org
     from tickets.models import TicketFlow
     from tickets.serializers import ApplyAssetSerializer
@@ -357,6 +404,7 @@ def _submit(request, assets, hours, reason, title, start, end, extends=None):
     why = _already(user, assets, extends)
     if why:
         raise SelfServiceError(why)
+    chosen_protocols, chosen_actions = _choose(set(policies.values()), protocols, actions)
     flow = TicketFlow.get_org_related_flows(org_id=current_org.id).filter(type='apply_asset') \
         .order_by('date_created').first()
     if not flow:
@@ -367,7 +415,7 @@ def _submit(request, assets, hours, reason, title, start, end, extends=None):
             'assets': names, 'hours': round(_hours(start, end), 1)})[:128],
         'type': 'apply_asset', 'org_id': str(current_org.id), 'flow_id': str(flow.id),
         'apply_assets': [str(a.id) for a in assets], 'apply_nodes': [],
-        'apply_accounts': REQUEST_ACCOUNTS, 'apply_actions': ['connect', 'upload', 'download', 'copy', 'paste'],
+        'apply_accounts': REQUEST_ACCOUNTS, 'apply_actions': chosen_actions, 'apply_protocols': chosen_protocols,
         'apply_date_start': start.isoformat(), 'apply_date_expired': end.isoformat(),
         'comment': (reason or '').strip()[:1024],
     }
@@ -474,11 +522,17 @@ def extend(request, perm_id, hours, reason=''):
 def end_now(user, perm_id):
     """The user is done: the access ends now, and the just-in-time accounts it gave are removed (their
     sessions end) unless another access of the user still covers them. A waiting extension is cancelled."""
+    perm = _own_grant(user, perm_id)
+    return release_grant(user, perm, reason=str(_('Ended by %s') % user))
+
+
+def release_grant(user, perm, reason):
+    """ XPAM: end the access `perm` gave `user` now (the user ending it, or an approver revoking it): a waiting
+    extension is cancelled, its just-in-time accounts removed unless another access of the user covers them """
     from accounts.models import JITAccount
     from accounts.tasks.jit import jit_release_task
     from tickets.models import ApplyAssetTicket
     from .policy import select_policy
-    perm = _own_grant(user, perm_id)
     now = timezone.now()
     with tmp_to_org(perm.org_id):
         perm.date_expired = now
@@ -493,7 +547,7 @@ def end_now(user, perm_id):
         if policy and other:
             JITAccount.objects.filter(id=jit.id).update(permission_id=other.id)
             continue
-        jit_release_task.delay(str(jit.id), reason=str(_('Ended by %s') % user))
+        jit_release_task.delay(str(jit.id), reason=reason)
     return perm
 
 

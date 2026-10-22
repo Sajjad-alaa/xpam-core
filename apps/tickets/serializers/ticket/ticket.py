@@ -38,6 +38,8 @@ class TicketSerializer(OrgResourceModelSerializerMixin):
     flow = ObjectRelatedField(
         read_only=True, attrs=('id', 'name'), label=_('Ticket flow')
     )
+    # XPAM: for an approved access request, the access it gave: active / scheduled / ended / expired
+    access_state = serializers.SerializerMethodField(label=_('Access'))
 
     class Meta:
         model = Ticket
@@ -47,7 +49,7 @@ class TicketSerializer(OrgResourceModelSerializerMixin):
         read_only_fields = [
             'serial_num', 'process_map', 'approval_step', 'type',
             'state', 'applicant', 'status', 'date_created',
-            'date_updated', 'org_name', 'rel_snapshot'
+            'date_updated', 'org_name', 'rel_snapshot', 'access_state'
         ]
         fields = fields_small + fields_m2m + read_only_fields
         extra_kwargs = {}
@@ -55,6 +57,19 @@ class TicketSerializer(OrgResourceModelSerializerMixin):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.set_type_choices()
+
+    def get_access_state(self, obj):
+        if obj.type != TicketType.apply_asset or obj.state != TicketState.approved:
+            return None
+        # (worked out once for the whole page of a list: a few queries, not one per row)
+        states = self.context.setdefault('_xpam_access_states', {})
+        if str(obj.id) not in states:
+            from accounts.jit.access import access_states
+            parent = self.parent
+            page = list(parent.instance) if isinstance(parent, serializers.ListSerializer) and parent.instance else [obj]
+            states.update(access_states(page))
+            states.setdefault(str(obj.id), None)
+        return states[str(obj.id)]
 
     def set_type_choices(self):
         tp = self.fields.get('type')

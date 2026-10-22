@@ -16,6 +16,16 @@ asset_or_node_help_text = _("Select at least one asset or node")
 apply_help_text = _('Support fuzzy search, and display up to 10 items')
 
 
+def clean_protocols(value):
+    """ XPAM: the protocol names, once each; 'all' (or nothing) means every protocol: stored as [] """
+    names = []
+    for name in value or []:
+        name = str(name).strip().lower()
+        if name and name not in names:
+            names.append(name)
+    return [] if not names or 'all' in names else names
+
+
 class ApplyAssetSerializer(BaseApplyAssetSerializer, TicketApplySerializer):
     flow_id = serializers.UUIDField(
         required=True, write_only=True, label=_('Ticket flow')
@@ -29,16 +39,25 @@ class ApplyAssetSerializer(BaseApplyAssetSerializer, TicketApplySerializer):
         label=_('Apply nodes'), help_text=apply_help_text
     )
     apply_actions = ActionChoicesField(required=False, allow_null=True, label=_("Apply actions"))
+    # XPAM: the protocols asked for (empty or 'all': every protocol); the granted access is limited to them
+    apply_protocols = serializers.ListField(
+        child=serializers.RegexField(r'^[A-Za-z][A-Za-z0-9_]{0,31}$'), required=False, max_length=16,
+        label=_('Protocols')
+    )
     # XPAM: only the approver chooses the just-in-time account (see ApproveAssetSerializer)
     apply_jit = serializers.CharField(read_only=True, label=_('Just-in-time account'))
     apply_jit_display = serializers.SerializerMethodField(label=_('Just-in-time account'))
     permission_model = AssetPermission
 
+    @staticmethod
+    def validate_apply_protocols(value):
+        return clean_protocols(value)
+
     class Meta(TicketApplySerializer.Meta):
         model = ApplyAssetTicket
         writeable_fields = [
             'id', 'title', 'type', 'flow_id', 'apply_nodes', 'apply_assets',
-            'apply_accounts', 'apply_actions', 'apply_date_start',
+            'apply_accounts', 'apply_actions', 'apply_protocols', 'apply_date_start',
             'apply_date_expired', 'comment', 'org_id'
         ]
         read_only_fields = TicketApplySerializer.Meta.read_only_fields + [
