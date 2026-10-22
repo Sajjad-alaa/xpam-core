@@ -35,6 +35,15 @@ def _agent():
         return None
 
 
+def _cluster_id():
+    """ the ID the cluster licence names (with every server's ID, shown per member) """
+    try:
+        from xpack.utils import get_cluster_id
+        return get_cluster_id()
+    except Exception:
+        return ''
+
+
 def _in_sync(members):
     return any(m.get('role') == 'sync_standby' and m.get('state') == 'streaming' for m in members or [])
 
@@ -90,7 +99,7 @@ class HAStatusApi(GenericAPIView):
             return Response({'enabled': False})
         agent = _agent()
         data = {'enabled': True, 'this_node': os.environ.get('HA_NODE_NAME', ''), 'agent': agent,
-                'members': (agent or {}).get('members') or [], 'error': ''}
+                'members': (agent or {}).get('members') or [], 'error': '', 'cluster_id': _cluster_id()}
         if not agent:
             data['error'] = _('The high availability agent has not reported yet (systemctl status xpam-ha)')
         elif agent.get('members') is None:
