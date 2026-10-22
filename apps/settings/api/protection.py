@@ -82,6 +82,7 @@ def _vault(agent):
         'account_storage_name': VAULT_NAMES.get(backend, backend),
         'locked': bool(settings.VAULT_LOCKED),
         'data_key': data_key,
+        'keep_db_copy': bool(settings.VAULT_KEEP_DB_COPY and settings.VAULT_ENABLED),
         'servers': ((agent or {}).get('vault') or {}).get('nodes') or [],
     }
     if settings.VAULT_ENABLED:

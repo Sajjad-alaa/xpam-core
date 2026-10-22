@@ -325,3 +325,28 @@ def sync_secret_to_vault():
 )
 def restore_secret_from_vault():
     return _run_secret_transfer(ACTION_RESTORE)
+
+
+def update_secret_copies():
+    """XPAM: VAULT_KEEP_DB_COPY on: a database copy of every secret a vault holds (read from the vault); off: the
+    copies removed. Returns the number of copies kept and of secrets the vault could not give."""
+    from django.conf import settings
+    kept = failed = 0
+    with tmp_to_root_org():
+        for model in (Account, AccountTemplate, PersonalAssetCredential):
+            manager = model._base_manager
+            if not settings.VAULT_KEEP_DB_COPY:
+                manager.exclude(_secret_copy=None).update(_secret_copy=None)
+                continue
+            for instance in manager.filter(_secret=VAULT_SAVED_SECRET_MARK).iterator(chunk_size=QUERYSET_CHUNK_SIZE):
+                try:
+                    secret = vault_client.get(instance)
+                except Exception as error:
+                    secret = None
+                    logger.warning('Secret copy of %s: %s', _instance_desc(instance), _safe_log_value(error))
+                if not secret:
+                    failed += 1
+                    continue
+                manager.filter(pk=instance.pk).update(_secret_copy=secret)
+                kept += 1
+    return kept, failed

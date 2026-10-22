@@ -391,6 +391,9 @@ class Config(dict):
         'VAULT_TRANSIT_KEY': 'data',
         # XPAM: a vault connection that receives a copy of every secret of the configured vault (admin's choice)
         'VAULT_MIRROR': '',
+        # XPAM: also keep a copy of each account secret in the database (encrypted with the local data key): XPAM
+        # reads it when the vault does not answer. Set on the server only (xpamctl vault ... --keep-db-copy)
+        'VAULT_KEEP_DB_COPY': False,
 
         'VAULT_AZURE_HOST': '',
         'VAULT_AZURE_CLIENT_ID': '',

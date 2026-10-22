@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.db import models
 from django.db.models.signals import post_save
 from django.utils.translation import gettext_lazy as _
@@ -70,6 +71,9 @@ class VaultManagerMixin(models.Manager):
 
 class VaultModelMixin(models.Model):
     _secret = VaultSecretField(blank=True, null=True, verbose_name=_('Secret'))
+    # XPAM: with VAULT_KEEP_DB_COPY, a copy of the secret kept in the database (encrypted with the data key) while
+    # the vault holds it; read only when the vault does not answer
+    _secret_copy = fields.EncryptTextField(blank=True, null=True, verbose_name=_('Secret copy'))
     # XPAM: which vault keeps this secret (empty: the configured vault) and its mirror (see vault_routing)
     vault_connection = models.ForeignKey(
         'accounts.VaultConnection', null=True, blank=True, on_delete=models.PROTECT, related_name='+',
@@ -92,10 +96,22 @@ class VaultModelMixin(models.Model):
         if self.__secret:
             return self.__secret
         from accounts.backends import vault_client
-        secret = vault_client.get(self)
+        copy = self._secret_copy if settings.VAULT_KEEP_DB_COPY and self._has_secret_copy() else None
+        try:
+            secret = vault_client.get(self)
+        except Exception:
+            if not (copy and self.secret_has_save_to_vault):
+                raise
+            secret = ''
+        if secret == self._secret_save_to_vault_mark:
+            # XPAM: Vault did not answer when XPAM started (the local fallback gives back the marker): not a password
+            secret = ''
         if not secret and not self.secret_has_save_to_vault:
             # vault_client 获取不到, 并且 secret 没有保存到 vault, 就从 self._secret 获取
             secret = self._secret
+        if not secret and copy and self.secret_has_save_to_vault:
+            # XPAM: the vault does not answer (or lost it): the copy kept in the database
+            secret = copy
         self.__secret = secret
         return self.__secret
 
@@ -110,23 +126,42 @@ class VaultModelMixin(models.Model):
 
     _secret_save_to_vault_mark = VAULT_SAVED_SECRET_MARK
 
+    def _has_secret_copy(self):
+        # (history rows have only the fields they record: no copy there)
+        return any(f.attname == '_secret_copy' for f in self._meta.concrete_fields)
+
     def mark_secret_save_to_vault(self):
+        fields_ = ['_secret']
+        if self._has_secret_copy():
+            # XPAM: the copy follows the secret (VAULT_KEEP_DB_COPY), or is emptied
+            secret = self._secret if self._secret != self._secret_save_to_vault_mark else None
+            if settings.VAULT_KEEP_DB_COPY and secret:
+                self._secret_copy = secret
+                fields_.append('_secret_copy')
+            elif not settings.VAULT_KEEP_DB_COPY and self._secret_copy:
+                self._secret_copy = None
+                fields_.append('_secret_copy')
         self._secret = self._secret_save_to_vault_mark
         self.skip_history_when_saving = True
         # Avoid calling overridden `save()` on concrete models (e.g. AccountTemplate)
         # which may mutate `secret/_secret` again and cause post_save recursion.
-        super(VaultModelMixin, self).save(update_fields=['_secret'])
+        super(VaultModelMixin, self).save(update_fields=fields_)
 
     def restore_secret_from_vault(self, secret):
         """Persist a Vault secret locally without sending it back to Vault."""
         self._secret = secret
         self.__secret = secret
+        fields_ = ['_secret']
+        if self._has_secret_copy() and self._secret_copy:
+            # XPAM: the secret is back in the database: no copy needed
+            self._secret_copy = None
+            fields_.append('_secret_copy')
         self.skip_history_when_saving = True
         self.skip_vault_when_saving = True
         try:
             # Bypass concrete model save overrides for the same reason as
             # mark_secret_save_to_vault(), while retaining field encryption.
-            super(VaultModelMixin, self).save(update_fields=['_secret'])
+            super(VaultModelMixin, self).save(update_fields=fields_)
         finally:
             del self.skip_vault_when_saving
             del self.skip_history_when_saving
