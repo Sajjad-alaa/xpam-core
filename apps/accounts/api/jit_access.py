@@ -48,6 +48,29 @@ class JITAccessViewSet(viewsets.ViewSet):
             'options': selfservice.request_options(a, p),
         } for a, p in items])
 
+    @action(methods=['post'], detail=False)
+    def preview(self, request):
+        """ XPAM: before sending — approved at once, or who approves it and why it waits """
+        from django.utils.dateparse import parse_datetime
+        data = request.data
+
+        def when(name):
+            from django.utils import timezone
+            try:
+                value = parse_datetime(str(data.get(name) or ''))
+            except ValueError:
+                return None
+            if value and timezone.is_naive(value):
+                value = timezone.make_aware(value)
+            return value
+        start, end = when('date_start'), when('date_expired')
+        accounts = data.get('accounts')
+        return Response(selfservice.preview(
+            request.user, list(data.get('assets') or []), data.get('hours'), reason=str(data.get('reason') or ''),
+            node_ids=list(data.get('nodes') or []), start=start, end=end,
+            accounts=[str(a) for a in accounts] if isinstance(accounts, list) else None,
+            flow_id=data.get('flow_id')))
+
     @action(methods=['post'], detail=False, url_path='request')
     def submit(self, request):
         data = request.data

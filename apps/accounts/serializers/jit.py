@@ -30,6 +30,20 @@ class OptionalUsersField(JSONManyToManyField):
         return super().to_representation(manager)
 
 
+class ApprovalFlowField(ObjectRelatedField):
+    """An approval flow for access requests of the rule's organization (its own or a global one)."""
+
+    def __init__(self, **kwargs):
+        from tickets.models import TicketFlow
+        kwargs.setdefault('queryset', TicketFlow.objects)
+        super().__init__(**kwargs)
+
+    def get_queryset(self):
+        from orgs.utils import current_org
+        from ..jit.selfservice import org_flows
+        return org_flows(current_org.id)
+
+
 class JITPolicySerializer(BulkOrgResourceModelSerializer):
     mode = LabeledChoiceField(choices=JITPolicy.Mode.choices, default=JITPolicy.Mode.per_session,
                               label=_('Account lifetime'))
@@ -38,6 +52,10 @@ class JITPolicySerializer(BulkOrgResourceModelSerializer):
     scope = LabeledChoiceField(choices=JITPolicy.Scope.choices, default=JITPolicy.Scope.all,
                                label=_('Applies to'))
     users = JSONManyToManyField(label=_('Users'), required=False)
+    approval_route = LabeledChoiceField(choices=JITPolicy.ApprovalRoute.choices,
+                                        default=JITPolicy.ApprovalRoute.flow, label=_('Approved by'))
+    approval_flow = ApprovalFlowField(required=False, allow_null=True, attrs=('id', 'name'),
+                                      label=_('Approval flow'))
     approvers = OptionalUsersField(label=_('Approvers'), required=False, allow_null=True)
     assets = JSONManyToManyField(label=_('Assets'), required=False)
     permissions = ObjectRelatedField(
@@ -69,7 +87,7 @@ class JITPolicySerializer(BulkOrgResourceModelSerializer):
             'privileged', 'linux_shell', 'linux_groups', 'windows_groups', 'remove_home',
             'scope', 'users', 'assets', 'priority', 'is_active', 'permissions',
             'jit_only', 'self_service', 'max_hours', 'require_reason', 'auto_approve', 'auto_approve_max_hours',
-            'auto_approve_time_period', 'approvals_required', 'approvers', 'require_mfa', 'end_sessions_on_expiry',
+            'auto_approve_time_period', 'approvals_required', 'approval_route', 'approval_flow', 'approvers', 'require_mfa', 'end_sessions_on_expiry',
             'expiry_warning_minutes', 'command_groups', 'command_action', 'credential_type',
             'db_privilege', 'db_custom_sql', 'device_role', 'device_custom_role', 'device_create_commands',
             'device_remove_commands', 'protocols', 'actions', 'permissions_amount', 'live_accounts_amount',
@@ -195,6 +213,13 @@ class JITPolicySerializer(BulkOrgResourceModelSerializer):
                     'A policy cannot approve by itself and also ask for two approvers')})
         if (get('approvals_required', 1) or 1) not in (1, 2):
             raise serializers.ValidationError({'approvals_required': _('1 or 2')})
+        if get('approval_route', JITPolicy.ApprovalRoute.flow) == JITPolicy.ApprovalRoute.approvers:
+            approvers = get('approvers')
+            value = getattr(approvers, 'value', approvers)
+            if not (isinstance(value, dict) and value.get('type')):
+                raise serializers.ValidationError({'approvers': _('Choose who approves')})
+        elif 'approval_route' in attrs:
+            attrs['approvers'] = {}  # (an approval flow decides: no people kept on the side)
         if not 0 <= (get('expiry_warning_minutes', 15) or 0) <= 240:
             raise serializers.ValidationError({'expiry_warning_minutes': _('Between 0 and 240 minutes')})
         if get('db_privilege', 'read_only') == 'custom' and not (get('db_custom_sql') or '').strip():

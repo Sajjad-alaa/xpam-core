@@ -59,6 +59,10 @@ class JITPolicy(JMSOrgBaseModel):
         requests = 'requests', _('Approved access requests')
         all = 'all', _('Asset permissions and approved access requests')
 
+    class ApprovalRoute(models.TextChoices):
+        flow = 'flow', _('An approval flow')
+        approvers = 'approvers', _('Specific people')
+
     name = models.CharField(max_length=128, verbose_name=_('Name'))
     mode = models.CharField(
         max_length=32, choices=Mode.choices, default=Mode.per_session, verbose_name=_('Account lifetime')
@@ -101,7 +105,12 @@ class JITPolicy(JMSOrgBaseModel):
     auto_approve_max_hours = models.PositiveIntegerField(default=4, verbose_name=_('Approve automatically up to (hours)'))
     auto_approve_time_period = models.JSONField(default=list, blank=True, verbose_name=_('Approve automatically during'))
     approvals_required = models.PositiveSmallIntegerField(default=1, verbose_name=_('Approvals required'))
-    # Who approves requests for the assets of this rule (empty: the approval flow of Tickets → Flow setup)
+    # Who approves the requests the rule does not approve by itself: an approval flow of Tickets → Flow setup
+    # (approval_flow; empty: the organization's flow for access requests), or the people in `approvers`
+    approval_route = models.CharField(max_length=16, choices=ApprovalRoute.choices, default=ApprovalRoute.flow,
+                                      verbose_name=_('Approved by'))
+    approval_flow = models.ForeignKey('tickets.TicketFlow', null=True, blank=True, on_delete=models.SET_NULL,
+                                      related_name='+', verbose_name=_('Approval flow'))
     approvers = JSONManyToManyField('users.User', default=dict, blank=True, verbose_name=_('Approvers'))
     # Security
     require_mfa = models.BooleanField(default=False, verbose_name=_('MFA when connecting'))

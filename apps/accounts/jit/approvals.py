@@ -38,6 +38,12 @@ def _flags(ticket, policies, assets):
         flags.append({'key': 'first_time', 'text': _('First request for these assets (90 days)')})
     if any(p is None for p in policies):
         flags.append({'key': 'no_rule', 'text': _('No just-in-time rule covers some assets')})
+    if any(p and p.auto_approve for p in policies):
+        # a rule could have approved it by itself: say why it did not
+        from .selfservice import auto_approve_decision
+        _names, why = auto_approve_decision(ticket, dict(zip(assets, policies)))
+        if why:
+            flags.append({'key': 'not_auto', 'text': _('Not approved automatically: %s') % why})
     return flags
 
 

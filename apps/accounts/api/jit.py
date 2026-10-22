@@ -25,6 +25,7 @@ class JITPolicyViewSet(OrgBulkModelViewSet):
     rbac_perms = {
         'match': 'accounts.view_jitpolicy',
         'readiness': 'accounts.view_jitpolicy',
+        'approval_flows': 'accounts.view_jitpolicy',
     }
 
     def get_queryset(self):
@@ -33,6 +34,17 @@ class JITPolicyViewSet(OrgBulkModelViewSet):
         if self.request.query_params.get('for_permission'):
             qs = qs.exclude(mode=JITPolicy.Mode.approved_window)
         return qs
+
+    @action(methods=['get'], detail=False, url_path='approval-flows')
+    def approval_flows(self, request, *args, **kwargs):
+        """ XPAM: the approval flows a rule can use, each with who approves at each level (the rule form) """
+        from orgs.utils import current_org
+        from ..jit.selfservice import org_flows, _flow_sets, describe_route
+        result = []
+        for i, flow in enumerate(org_flows(current_org.id)[:20]):
+            result.append({'id': str(flow.id), 'name': str(flow), 'default': i == 0,
+                           'route': describe_route(_flow_sets(flow, current_org.id, None))})
+        return Response(result)
 
     @action(methods=['get'], detail=False, url_path='match')
     def match(self, request, *args, **kwargs):

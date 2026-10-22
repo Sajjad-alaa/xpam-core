@@ -158,28 +158,35 @@ def ticket_policies(ticket):
         return {asset: _request_policy(matcher, ticket.applicant, asset) for asset in _expand_assets(ticket)}
 
 
-def auto_approve_decision(ticket):
-    """(policy names, '') when the policies approve the request by themselves, else (None, why not)."""
-    if not ticket.apply_date_expired:
-        return None, 'no end date'
-    if any(a not in ('@JIT', '@SPEC') for a in (ticket.apply_accounts or [])):
-        return None, 'standing accounts requested'
-    mapping = ticket_policies(ticket)
+def auto_approve_decision(ticket, mapping=None):
+    """(policy names, '') when the policies approve the request by themselves, else (None, why not — in words)."""
+    if mapping is None:
+        mapping = ticket_policies(ticket)
+    return _decision(mapping, ticket.apply_date_start, ticket.apply_date_expired, ticket.apply_accounts,
+                     ticket.comment)
+
+
+def _decision(mapping, start, end, accounts, reason):
+    if not end:
+        return None, _('the request has no end time')
+    if any(a not in ('@JIT', '@SPEC') for a in (accounts or [])):
+        return None, _('it asks for existing accounts, not just-in-time ones')
     if not mapping or len(mapping) > MAX_ASSETS:
-        return None, 'no assets'
-    hours = _hours(ticket.apply_date_start, ticket.apply_date_expired)
+        return None, _('no assets')
+    hours = _hours(start, end)
     names = []
     for asset, policy in mapping.items():
         if not policy:
-            return None, f'no policy for {asset}'
+            return None, _('no just-in-time rule covers %s') % asset
         if not policy.auto_approve or policy.approvals_required > 1:
-            return None, f'{policy} does not approve by itself'
+            return None, _('the rule %s does not approve requests by itself') % policy
         if hours > policy.auto_approve_max_hours + 1 / 60:
-            return None, f'{policy}: longer than {policy.auto_approve_max_hours}h'
+            return None, _('%(hours)s h asked; the rule %(rule)s approves up to %(max)s h by itself') % {
+                'hours': '%g' % round(hours, 1), 'rule': policy, 'max': policy.auto_approve_max_hours}
         if not policy.in_auto_approve_window():
-            return None, f'{policy}: outside its time window'
-        if policy.require_reason and not (ticket.comment or '').strip():
-            return None, f'{policy}: reason required'
+            return None, _('asked outside the hours the rule %s approves by itself') % policy
+        if policy.require_reason and not (reason or '').strip():
+            return None, _('no reason given (the rule %s asks for one)') % policy
         if policy.name not in names:
             names.append(policy.name)
     return names, ''
@@ -233,15 +240,17 @@ def _comment(ticket, body, kind='common'):
 MAX_LEVELS = 5  # TicketLevel
 
 
-def _approver_ids(policy, ticket):
-    """Users the rule names as approvers (members of the ticket's organization), or None for "the flow"."""
-    value = policy.approvers.value if policy else None
-    if not isinstance(value, dict) or not value.get('type'):
+def _approver_ids(policy, org_id):
+    """Users the rule names as approvers (members of the organization), or None when an approval flow decides."""
+    if not policy or policy.approval_route != policy.ApprovalRoute.approvers:
         return None
+    value = policy.approvers.value
+    if not isinstance(value, dict) or not value.get('type'):
+        return []
     from users.models import User
     from common.db.fields import RelatedManager
     from orgs.models import Organization
-    org = Organization.get_instance(ticket.org_id)
+    org = Organization.get_instance(org_id)
     qs = User.get_org_users(org=org).filter(is_active=True)
     with tmp_to_org(org):
         for q in RelatedManager.get_to_filter_qs(value, User):
@@ -249,52 +258,70 @@ def _approver_ids(policy, ticket):
     return list(qs.distinct().values_list('id', flat=True)[:500])
 
 
-def route_approvers(ticket):
+def _flow_sets(flow, org_id, applicant_id):
+    """The approvers of each level of an approval flow (never the requester; nobody else: the administrators)."""
+    sets = []
+    for rule in flow.rules.order_by('level'):
+        ids = [uid for uid in rule.get_assignees(org_id=org_id).values_list('id', flat=True) if uid != applicant_id]
+        sets.append(ids or _admin_ids(org_id, applicant_id))
+    return sets
+
+
+def _route_sets(mapping, org_id, applicant_id, base_sets, base_flow_id):
     """
-    Build the approval steps from the rules of the requested assets:
-    - each rule with its own approvers gets a step with those people (assets of several teams: each
-      team approves its part, one after the other);
-    - assets whose rule names nobody keep the approval flow's first level;
+    The approval steps for the rules of the requested assets (None: the request's own flow, as it is):
+    - a rule with specific people: a step with them (assets of several teams: each team approves its part,
+      one after the other);
+    - a rule with an approval flow other than the request's: that flow's levels;
+    - assets without a rule, or whose rule uses the request's flow: the request's flow;
     - "two approvers": a second step with the same people (someone other than the first approver);
     - never the requester; without anybody else the administrators approve.
     """
+    policies = sorted(dict.fromkeys(p for p in mapping.values() if p), key=lambda p: p.priority)
+    two = any(p.approvals_required >= 2 for p in policies)
+    uses_base = any(p is None for p in mapping.values())
+    extra, seen = [], set()
+    for policy in policies:
+        ids = _approver_ids(policy, org_id)
+        if ids is not None:
+            group = [uid for uid in ids if uid != applicant_id] or _admin_ids(org_id, applicant_id)
+            part = [group] * (2 if policy.approvals_required >= 2 else 1)
+        elif policy.approval_flow_id and policy.approval_flow_id != base_flow_id:
+            part = _flow_sets(policy.approval_flow, org_id, applicant_id) or base_sets
+        else:
+            uses_base = True
+            continue
+        key = tuple(tuple(g) for g in part)
+        if key not in seen:
+            seen.add(key)
+            extra.append(part)
+    if not extra:
+        # the request's flow as it is; "two approvers" adds a second step when the flow has only one
+        return base_sets * 2 if two and len(base_sets) == 1 else None
+    sets = (list(base_sets) if uses_base else []) + [g for part in extra for g in part]
+    if two and len(sets) == 1:
+        sets = sets * 2
+    sets = [g for g in sets if g]
+    if len(sets) > MAX_LEVELS:
+        merged = list(dict.fromkeys(uid for group in sets[MAX_LEVELS - 1:] for uid in group))
+        sets = sets[:MAX_LEVELS - 1] + [merged]
+    return sets
+
+
+def route_approvers(ticket):
+    """Build the approval steps of an access request from the rules of its assets (see _route_sets)."""
     from tickets.models import TicketAssignee, TicketStep
     try:
         mapping = ticket_policies(ticket)
     except Exception as e:
         logger.warning('JIT approval routing of %s failed: %s', ticket, e)
         return
-    policies = [p for p in dict.fromkeys(p for p in mapping.values() if p)]
-    custom = [(p, _approver_ids(p, ticket)) for p in policies]
     steps = list(TicketStep.objects.filter(ticket=ticket).order_by('level'))
     flow_sets = [[uid for uid in st.ticket_assignees.values_list('assignee_id', flat=True)
-                  if uid != ticket.applicant_id] or _admin_ids(ticket) for st in steps]
-    two = any(p.approvals_required >= 2 for p in policies)
-    if not any(ids is not None for _p, ids in custom):
-        # the approval flow as it is; "two approvers" adds a second step when the flow has only one
-        if two and len(flow_sets) == 1:
-            sets = flow_sets * 2
-        else:
-            return
-    else:
-        sets = []
-        uses_flow = any(p is None for p in mapping.values()) or any(ids is None for _p, ids in custom)
-        if uses_flow:
-            sets.extend(flow_sets)
-        for policy, ids in sorted(custom, key=lambda item: item[0].priority):
-            if ids is None:
-                continue
-            group = [uid for uid in ids if uid != ticket.applicant_id] or _admin_ids(ticket)
-            for _i in range(2 if policy.approvals_required >= 2 else 1):
-                sets.append(group)
-        if two and len(sets) == 1:
-            sets = sets * 2
-    sets = [g for g in sets if g]
+                  if uid != ticket.applicant_id] or _admin_ids(ticket.org_id, ticket.applicant_id) for st in steps]
+    sets = _route_sets(mapping, ticket.org_id, ticket.applicant_id, flow_sets, ticket.flow_id)
     if not sets:
         return
-    if len(sets) > MAX_LEVELS:
-        merged = list(dict.fromkeys(uid for group in sets[MAX_LEVELS - 1:] for uid in group))
-        sets = sets[:MAX_LEVELS - 1] + [merged]
     with transaction.atomic():
         TicketStep.objects.filter(ticket=ticket).delete()
         for level, group in enumerate(sets, start=1):
@@ -303,19 +330,110 @@ def route_approvers(ticket):
         if ticket.approval_step != 1:
             ticket.approval_step = 1
             ticket.save(update_fields=['approval_step'])
-    if len(sets) > 1 or any(ids is not None for _p, ids in custom):
-        names = ', '.join(p.name for p, ids in custom if ids is not None) or '-'
-        _comment(ticket, _('Approval route: %(n)s step(s); approvers from the just-in-time rules: %(names)s') % {
-            'n': len(sets), 'names': names})
 
 
-def _admin_ids(ticket):
+def org_flows(org_id):
+    """The approval flows for access requests an organization can use (its own and the global ones)."""
+    from tickets.models import TicketFlow
+    return TicketFlow.get_org_related_flows(org_id=org_id).filter(type='apply_asset').order_by('date_created')
+
+
+def request_flow(policies, org_id):
+    """The approval flow of a self-service request: the one its rules name when they all name the same, else the
+    organization's flow for access requests."""
+    flows = org_flows(org_id)
+    named = {p.approval_flow_id for p in policies if p and p.approval_route == p.ApprovalRoute.flow}
+    if len(named) == 1 and None not in named:
+        flow = flows.filter(id=named.pop()).first()
+        if flow:
+            return flow
+    return flows.first()
+
+
+def preview(user, asset_ids, hours=None, reason='', node_ids=(), start=None, end=None, accounts=None,
+            flow_id=None):
+    """What happens if `user` sends this request now: approved at once, or who approves it and why it is not
+    approved by itself (the Workspace and the console's request form show it before sending)."""
+    from assets.models import Asset, Node
+    from common.utils import is_uuid
+    asset_ids = [i for i in asset_ids if is_uuid(i)][:MAX_ASSETS]
+    node_ids = [i for i in node_ids if is_uuid(i)][:20]
+    with tmp_to_root_org():
+        assets = list(Asset.objects.filter(id__in=asset_ids, is_active=True).select_related('platform'))
+        for node in Node.objects.filter(id__in=node_ids):
+            assets.extend(node.get_all_assets().filter(is_active=True)[:MAX_ASSETS])
+    assets = list({a.id: a for a in assets}.values())[:MAX_ASSETS + 1]
+    orgs = {str(a.org_id) for a in assets}
+    if len(orgs) != 1 or not PolicyMatcher()._member(next(iter(orgs)), user):
+        return {'instant': False, 'covered': False, 'why': '', 'route': []}
+    org_id = orgs.pop()
+    if end is None:
+        try:
+            hours = float(hours)
+        except (TypeError, ValueError):
+            hours = 0
+        start = timezone.now()
+        end = start + timezone.timedelta(hours=hours) if hours > 0 else None
+    with tmp_to_org(org_id):
+        matcher = PolicyMatcher()
+        mapping = {a: _request_policy(matcher, user, a) for a in assets}
+        covered = any(mapping.values())
+        names, why = _decision(mapping, start, end, REQUEST_ACCOUNTS if accounts is None else accounts, reason)
+        if names:
+            return {'instant': True, 'covered': True, 'rules': names, 'why': '', 'route': []}
+        flow = org_flows(org_id).filter(id=flow_id).first() if flow_id and is_uuid(flow_id) else None
+        flow = flow or request_flow(mapping.values(), org_id)
+        base = _flow_sets(flow, org_id, user.id) if flow else []
+        sets = _route_sets(mapping, org_id, user.id, base, flow.id if flow else None) or base
+        return {'instant': False, 'covered': covered, 'why': why if covered else '', 'route': describe_route(sets),
+                'flow': str(flow) if flow else ''}
+
+
+def _admin_ids(org_id, applicant_id):
     from orgs.models import Organization
     from users.models import User
-    org = Organization.get_instance(ticket.org_id)
+    org = Organization.get_instance(org_id)
     admins = set(org.admins if org else []) | set(User.get_super_admins())
-    ids = [u.id for u in admins if u.id != ticket.applicant_id and u.is_valid]
+    ids = [u.id for u in admins if u.id != applicant_id and u.is_valid]
     return ids
+
+
+def describe_route(sets):
+    """[{'level': 1, 'approvers': ['Ann', 'Bob'], 'more': 0}, ...] for people to read."""
+    from users.models import User
+    ids = {uid for g in sets for uid in g[:5]}
+    names = {u.id: str(u) for u in User.objects.filter(id__in=ids)}
+    return [{'level': i, 'approvers': [names[uid] for uid in g[:5] if uid in names], 'more': max(0, len(g) - 5)}
+            for i, g in enumerate(sets, start=1)]
+
+
+def route_text(route):
+    return '; '.join(
+        _('level %(n)s: %(who)s') % {'n': r['level'], 'who': ', '.join(r['approvers']) + (
+            ' ' + _('and %s more') % r['more'] if r['more'] else '')} for r in route)
+
+
+def explain_pending(ticket):
+    """On a request that waits for approval: why it was not approved by itself (when a rule could have), and who
+    approves — as a comment everyone on the ticket sees."""
+    try:
+        mapping = ticket_policies(ticket)
+        if not any(mapping.values()):
+            return
+        lines = []
+        if any(p and p.auto_approve for p in mapping.values()):
+            _names, why = auto_approve_decision(ticket, mapping)
+            if why:
+                lines.append(_('Not approved automatically: %s.') % why)
+        sets = [list(st.ticket_assignees.values_list('assignee_id', flat=True))
+                for st in ticket.ticket_steps.order_by('level')]
+        route = describe_route(sets)
+        if route:
+            lines.append(_('Approval: %s.') % route_text(route))
+        if lines:
+            _comment(ticket, ' '.join(lines))
+    except Exception as e:
+        logger.warning('JIT approval note on %s failed: %s', ticket, e)
 
 
 def require_second_approval(ticket):
@@ -379,7 +497,6 @@ def _already(user, assets, extends):
 
 def _submit(request, assets, hours, reason, title, start, end, extends=None, protocols=None, actions=None):
     from orgs.utils import current_org
-    from tickets.models import TicketFlow
     from tickets.serializers import ApplyAssetSerializer
     user = request.user
     matcher = PolicyMatcher()
@@ -405,8 +522,7 @@ def _submit(request, assets, hours, reason, title, start, end, extends=None, pro
     if why:
         raise SelfServiceError(why)
     chosen_protocols, chosen_actions = _choose(set(policies.values()), protocols, actions)
-    flow = TicketFlow.get_org_related_flows(org_id=current_org.id).filter(type='apply_asset') \
-        .order_by('date_created').first()
+    flow = request_flow(policies.values(), current_org.id)
     if not flow:
         raise SelfServiceError(_('No approval flow for access requests is set up in this organization'))
     names = ', '.join(a.name for a in assets[:3]) + (' …' if len(assets) > 3 else '')

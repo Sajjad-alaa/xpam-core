@@ -78,7 +78,7 @@ def run():
                 earlier = set(TicketAssignee.objects.filter(
                     step__ticket_id=ticket.id, step__level__lt=step.level, state='approved',
                 ).values_list('assignee_id', flat=True))
-                new = [uid for uid in _admin_ids(ticket)
+                new = [uid for uid in _admin_ids(ticket.org_id, ticket.applicant_id)
                        if uid not in present and uid not in earlier and uid != ticket.applicant_id]
                 if new:
                     TicketAssignee.objects.bulk_create([TicketAssignee(assignee_id=uid, step=step) for uid in new])
