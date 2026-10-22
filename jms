@@ -146,13 +146,61 @@ def upgrade_db():
     perform_db_migrate()
 
 
+# XPAM: a quick start when nothing changed — the same image build as the last full start in this data folder
+# and no migration pending (a restart, or a failover in high availability where the data folder is copied from
+# the primary). Static files, migrations (and their permission updates) and applets were done for this build.
+BUILD_ID_FILE = os.path.join(BASE_DIR, 'BUILD_ID')
+PREPARED_FILE = os.path.join(BASE_DIR, 'data', '.xpam-prepared')
+
+
+def build_id():
+    try:
+        with open(BUILD_ID_FILE) as f:
+            return f.read().strip()
+    except OSError:
+        return ''
+
+
+def prepared_for_this_build():
+    current = build_id()
+    if not current or os.environ.get('XPAM_FULL_PREPARE') == '1':
+        return False
+    try:
+        with open(PREPARED_FILE) as f:
+            return f.read().strip() == current
+    except OSError:
+        return False
+
+
+def migrations_pending():
+    try:
+        from django.db import connections
+        from django.db.migrations.executor import MigrationExecutor
+        executor = MigrationExecutor(connections['default'])
+        return bool(executor.migration_plan(executor.loader.graph.leaf_nodes()))
+    except Exception as e:
+        logging.info(f'Migration check failed ({e}): full start')
+        return True
+
+
 def prepare():
     check_database_connection()
+    if prepared_for_this_build() and not migrations_pending():
+        logging.info('Same build as the last start, no migration pending: quick start')
+        expire_caches()
+        return
     upgrade_db()
     expire_caches()
     download_ip_db()
     install_builtin_applets()
     init_oauth2_provider()
+    current = build_id()
+    if current:
+        try:
+            with open(PREPARED_FILE, 'w') as f:
+                f.write(current)
+        except OSError as e:
+            logging.info(f'Could not record the prepared build: {e}')
 
 
 def start_services():
