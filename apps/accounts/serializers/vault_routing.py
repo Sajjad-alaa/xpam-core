@@ -48,7 +48,7 @@ class VaultConnectionSerializer(serializers.ModelSerializer):
 
 class VaultStorageRuleSerializer(BulkOrgResourceModelSerializer):
     connection = ObjectRelatedField(queryset=VaultConnection.objects.all(), required=False, allow_null=True,
-                                    label=_('Vault'))
+                                    label=_('Vault connection'))
     mirror = ObjectRelatedField(queryset=VaultConnection.objects.all(), required=False, allow_null=True,
                                 label=_('Mirror'))
 

@@ -2,10 +2,13 @@ from django.conf import settings
 from django.utils.translation import gettext_lazy as _
 from rest_framework import status
 from rest_framework.decorators import action
+from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 
 from common.api import JMSModelViewSet
 from orgs.mixins.api import OrgBulkModelViewSet
+from orgs.models import Organization
+from orgs.utils import current_org, tmp_to_org, tmp_to_root_org
 from ..models import VaultConnection, VaultStorageRule
 from ..serializers.vault_routing import VaultConnectionSerializer, VaultStorageRuleSerializer
 
@@ -56,10 +59,14 @@ class VaultConnectionViewSet(JMSModelViewSet):
 
 
 class VaultStorageRuleViewSet(OrgBulkModelViewSet):
-    """ XPAM: which vault keeps which secrets (per organization) """
+    """
+    XPAM: which vault keeps which secrets (per organization).
+    System settings run in the System organization: there the rules of every organization are listed, and each
+    is created (org_id), changed and deleted in its own organization.
+    """
     model = VaultStorageRule
     serializer_class = VaultStorageRuleSerializer
-    filterset_fields = ('name', 'is_active')
+    filterset_fields = ('name', 'is_active', 'org_id')
     search_fields = ('name', 'username', 'comment')
     ordering = ('priority', 'name')
     rbac_perms = {
@@ -73,3 +80,38 @@ class VaultStorageRuleViewSet(OrgBulkModelViewSet):
         'partial_bulk_update': 'settings.change_vault',
         'bulk_destroy': 'settings.change_vault',
     }
+
+    @staticmethod
+    def all_orgs():
+        return current_org.is_root() or current_org.is_system()
+
+    def get_queryset(self):
+        if self.all_orgs():
+            with tmp_to_root_org():
+                return VaultStorageRule.objects.all()
+        return super().get_queryset()
+
+    @staticmethod
+    def target_org(data):
+        items = data if isinstance(data, list) else [data]
+        org_ids = {str(item.get('org_id') or '') for item in items}
+        org = Organization.get_instance(org_ids.pop()) if len(org_ids) == 1 else None
+        if org is None or org.is_root() or org.is_system():
+            raise ValidationError({'org_id': _('Choose the organization the rule is for')})
+        return org
+
+    def create(self, request, *args, **kwargs):
+        if not self.all_orgs():
+            return super().create(request, *args, **kwargs)
+        with tmp_to_org(self.target_org(request.data)):
+            return super().create(request, *args, **kwargs)
+
+    def update(self, request, *args, **kwargs):
+        if not self.all_orgs():
+            return super().update(request, *args, **kwargs)
+        with tmp_to_org(self.get_object().org_id):
+            return super().update(request, *args, **kwargs)
+
+    def perform_destroy(self, instance):
+        with tmp_to_org(instance.org_id):
+            super().perform_destroy(instance)
