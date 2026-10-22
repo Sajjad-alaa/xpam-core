@@ -36,6 +36,7 @@ urlpatterns = [
     path('public/open/', api.OpenPublicSettingApi.as_view(), name='open-public-setting'),
     path('server-info/', api.ServerInfoApi.as_view(), name='server-info'),
     path('ha/status/', api.HAStatusApi.as_view(), name='ha-status'),
+    path('protection/', api.ProtectionStatusApi.as_view(), name='protection-status'),
     path('ha/switchover/', api.HASwitchoverApi.as_view(), name='ha-switchover'),
     path('i18n/<str:name>/', api.ComponentI18nApi.as_view(), name='i18n-data'),
     path('client/versions/', api.ClientVersionView.as_view(), name='client-version'),

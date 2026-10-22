@@ -5,6 +5,7 @@ from .feishu import *
 from .ha import *
 from .i18n import *
 from .lark import *
+from .protection import *
 from .ldap import *
 from .public import *
 from .security import *
