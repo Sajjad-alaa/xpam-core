@@ -294,9 +294,20 @@ if DB_USE_SSL:
         DB_OPTIONS['ssl'] = {'ca': DB_CA_PATH }
     elif DB_ENGINE == 'postgresql':
         DB_OPTIONS.update({
-            'sslmode': 'require',
+            'sslmode': CONFIG.DB_SSL_MODE or 'require',
             'sslrootcert': DB_CA_PATH,
         })
+        # XPAM: a client certificate when the server asks for one (high availability: the cluster CA's)
+        DB_CLIENT_CERT = exist_or_default(os.path.join(CERTS_DIR, 'db_client.crt'), None)
+        DB_CLIENT_KEY = exist_or_default(os.path.join(CERTS_DIR, 'db_client.key'), None)
+        if DB_CLIENT_CERT and DB_CLIENT_KEY:
+            DB_OPTIONS.update({'sslcert': DB_CLIENT_CERT, 'sslkey': DB_CLIENT_KEY})
+
+# XPAM: active-active high availability — DB_HOST lists every server; libpq connects to the one that
+# accepts writes (the current primary) and finds the new one after a failover
+if DB_ENGINE == 'postgresql' and CONFIG.DB_TARGET_SESSION_ATTRS:
+    DB_OPTIONS['target_session_attrs'] = CONFIG.DB_TARGET_SESSION_ATTRS
+    DB_OPTIONS['connect_timeout'] = 3  # (a server that is down must not hold up the search for the primary)
 
 # Password validation
 # https://docs.djangoproject.com/en/1.10/ref/settings/#auth-password-validators
@@ -397,6 +408,8 @@ REDIS_PROTOCOL = 'rediss' if REDIS_USE_SSL else 'redis'
 REDIS_SENTINEL_HOSTS = CONFIG.REDIS_SENTINEL_HOSTS
 REDIS_SENTINEL_SERVICE_NAME, REDIS_SENTINELS = parse_sentinels_host(REDIS_SENTINEL_HOSTS)
 REDIS_SENTINEL_PASSWORD = CONFIG.REDIS_SENTINEL_PASSWORD
+if CONFIG.REDIS_SENTINEL_USE_REDIS_PASSWORD and not REDIS_SENTINEL_PASSWORD:
+    REDIS_SENTINEL_PASSWORD = CONFIG.REDIS_PASSWORD
 if CONFIG.REDIS_SENTINEL_SOCKET_TIMEOUT:
     REDIS_SENTINEL_SOCKET_TIMEOUT = float(CONFIG.REDIS_SENTINEL_SOCKET_TIMEOUT)
 else:

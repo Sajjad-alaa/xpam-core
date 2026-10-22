@@ -88,10 +88,37 @@ def perform_db_migrate():
     logging.info("Migrate model change to database ...")
 
     try:
-        management.call_command('migrate')
+        with migration_lock():
+            management.call_command('migrate')
     except Exception as e:
         logging.error('Perform migrate failed')
         raise e
+
+
+class migration_lock:
+    """
+    XPAM: one server migrates at a time (active-active high availability: several servers start the new version
+    together after an upgrade). A PostgreSQL advisory lock, held for the migration and released with it; the
+    others wait, then find nothing left to migrate.
+    """
+    KEY = 731_947_7331
+
+    def __enter__(self):
+        from django.db import connection
+        self.cursor = None
+        if connection.vendor == 'postgresql':
+            self.cursor = connection.cursor()
+            logging.info('Waiting for the migration lock (another server may be migrating) ...')
+            self.cursor.execute('SELECT pg_advisory_lock(%s)', [self.KEY])
+        return self
+
+    def __exit__(self, *exc):
+        if self.cursor is not None:
+            try:
+                self.cursor.execute('SELECT pg_advisory_unlock(%s)', [self.KEY])
+            finally:
+                self.cursor.close()
+        return False
 
 
 def collect_static():

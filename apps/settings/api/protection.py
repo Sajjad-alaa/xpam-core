@@ -31,6 +31,8 @@ def _ha():
     leader = next((m for m in members if m.get('role') in ('leader', 'standby_leader')), {})
     return {
         'enabled': True,
+        'topology': agent.get('topology') or os.environ.get('HA_TOPOLOGY') or 'active-passive',
+        'servers': len(agent.get('servers') or []) or len(members),
         'this_node': os.environ.get('HA_NODE_NAME', ''),
         'role': agent.get('role') or '',
         'primary': leader.get('name', ''),

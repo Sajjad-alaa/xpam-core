@@ -225,6 +225,10 @@ class Config(dict):
         'DB_USER': 'root',
         'DB_PASSWORD': '',
         'DB_USE_SSL': False,
+        # XPAM: PostgreSQL TLS mode (require | verify-ca | verify-full) and, for active-active high
+        # availability, libpq's choice among several DB_HOST entries (read-write: the current primary)
+        'DB_SSL_MODE': 'require',
+        'DB_TARGET_SESSION_ATTRS': '',
         'REDIS_HOST': '127.0.0.1',
         'REDIS_PORT': 6379,
         'REDIS_PASSWORD': '',
@@ -237,6 +241,9 @@ class Config(dict):
         # Redis Sentinel
         'REDIS_SENTINEL_HOSTS': '',
         'REDIS_SENTINEL_PASSWORD': '',
+        # XPAM: the Sentinels use Redis's own password (active-active high availability): no second secret
+        # in the containers' settings
+        'REDIS_SENTINEL_USE_REDIS_PASSWORD': False,
         'REDIS_SENTINEL_SOCKET_TIMEOUT': None,
         # Default value
         'REDIS_DB_CELERY': 3,
