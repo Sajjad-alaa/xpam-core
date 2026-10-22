@@ -62,6 +62,19 @@ def ha_alerts():
         out.append(alert('witness', 'warning', _('High availability: the witness does not answer'),
                          _('XPAM keeps running, but a second failure would stop the automatic failover. '
                            'Bring the witness (%s) back.') % agent.get('witness_ip', '')))
+    vault = agent.get('vault') or {}
+    vault_nodes = vault.get('nodes') or []
+    if vault_nodes:
+        healthy = [n for n in vault_nodes if n.get('state') == 'ok']
+        if not healthy:
+            out.append(alert('vault', 'danger', _('High availability: no Vault server answers'),
+                             _("XPAM keeps running with the secrets it has read, but cannot start again or read "
+                               "account passwords until Vault answers.")))
+        elif len(healthy) < len(vault_nodes):
+            out.append(alert('vault', 'warning', _('High availability: a Vault server is down or sealed'),
+                             _('%(down)s — unseal it (xpam-vault.sh unseal) or bring it back.')
+                             % {'down': ', '.join(f"{n['addr']} ({n['state']})" for n in vault_nodes
+                                                  if n.get('state') != 'ok')}))
     fs = agent.get('file_sync') or {}
     if fs.get('ok') is False:
         out.append(alert('files', 'warning', _('High availability: recordings are not copied to the standby'),
