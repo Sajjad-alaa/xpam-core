@@ -88,13 +88,15 @@ class VaultStorageRuleViewSet(OrgBulkModelViewSet):
     def get_queryset(self):
         if self.all_orgs():
             with tmp_to_root_org():
-                return VaultStorageRule.objects.all()
-        return super().get_queryset()
+                queryset = VaultStorageRule.objects.all()
+        else:
+            queryset = super().get_queryset()
+        return queryset.select_related('connection', 'mirror').prefetch_related('nodes', 'platforms')
 
     @staticmethod
     def target_org(data):
         items = data if isinstance(data, list) else [data]
-        org_ids = {str(item.get('org_id') or '') for item in items}
+        org_ids = {str((item.get('org_id') if isinstance(item, dict) else '') or '') for item in items}
         org = Organization.get_instance(org_ids.pop()) if len(org_ids) == 1 else None
         if org is None or org.is_root() or org.is_system():
             raise ValidationError({'org_id': _('Choose the organization the rule is for')})
@@ -105,6 +107,13 @@ class VaultStorageRuleViewSet(OrgBulkModelViewSet):
             return super().create(request, *args, **kwargs)
         with tmp_to_org(self.target_org(request.data)):
             return super().create(request, *args, **kwargs)
+
+    def bulk_update(self, request, *args, **kwargs):
+        # (from System settings each rule is saved in its own organization: one at a time — a bulk save there
+        # would move the rules into the System organization)
+        if self.all_orgs():
+            raise ValidationError(_('Change rules one at a time from System settings'))
+        return super().bulk_update(request, *args, **kwargs)
 
     def update(self, request, *args, **kwargs):
         if not self.all_orgs():

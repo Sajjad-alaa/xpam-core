@@ -116,8 +116,14 @@ class migration_lock:
         if self.cursor is not None:
             try:
                 self.cursor.execute('SELECT pg_advisory_unlock(%s)', [self.KEY])
+            except Exception as e:
+                # (the database went away: the lock ended with its session; the migration's own error matters)
+                logging.warning(f'Migration lock release: {e}')
             finally:
-                self.cursor.close()
+                try:
+                    self.cursor.close()
+                except Exception:
+                    pass
         return False
 
 
@@ -126,8 +132,9 @@ def collect_static():
     try:
         management.call_command('collectstatic', '--no-input', '-c', verbosity=0, interactive=False)
         logging.info("Collect static files done")
+        return True
     except:
-        pass
+        return False
 
 
 def compile_i18n_file():
@@ -169,8 +176,9 @@ def init_oauth2_provider():
         logging.error("Initialize OAuth2 Provider err: {}".format(e))
 
 def upgrade_db():
-    collect_static()
+    static_ok = collect_static()
     perform_db_migrate()
+    return static_ok
 
 
 # XPAM: a quick start when nothing changed — the same image build as the last full start in this data folder
@@ -216,13 +224,15 @@ def prepare():
         logging.info('Same build as the last start, no migration pending: quick start')
         expire_caches()
         return
-    upgrade_db()
+    static_ok = upgrade_db()
     expire_caches()
     download_ip_db()
     install_builtin_applets()
     init_oauth2_provider()
     current = build_id()
-    if current:
+    # (XPAM: the next start of this build is quick only if the static files were collected — `collectstatic -c`
+    # clears them first, so a failed run must be repeated)
+    if current and static_ok:
         try:
             with open(PREPARED_FILE, 'w') as f:
                 f.write(current)

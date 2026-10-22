@@ -23,10 +23,10 @@ VAULT_NAMES = {
 }
 
 
-def _ha():
+def _ha(agent):
     if not ha_enabled():
         return {'enabled': False}
-    agent = _agent() or {}
+    agent = agent or {}
     members = agent.get('members') or []
     leader = next((m for m in members if m.get('role') in ('leader', 'standby_leader')), {})
     return {
@@ -39,26 +39,35 @@ def _ha():
         'standby_in_sync': _in_sync(members),
         'witness_reachable': agent.get('witness_reachable'),
         'agent_reporting': bool(agent) and agent.get('age', 999) <= 60,
-        'alerts': len(ha_alerts()),
+        'alerts': len(ha_alerts(agent or None)),
     }
 
 
 def _vault_check():
-    """ the account vault answers (XPAM's own login and rights); cached a minute — the test logs in """
-    result = cache.get(VAULT_CHECK_CACHE_KEY)
+    """
+    the account vault answers (XPAM's own login and rights); cached a minute — the test logs in. One request
+    checks at a time (the others show nothing meanwhile); in high availability each server keeps its own answer.
+    """
+    key = f"{VAULT_CHECK_CACHE_KEY}:{os.environ.get('HA_NODE_NAME', '')}"
+    result = cache.get(key)
     if result is None:
-        from accounts.backends import get_vault_client
-        config = {k: getattr(settings, k) for k in dir(settings) if k.startswith('VAULT_')}
+        if not cache.add(f'{key}:busy', 1, 30):
+            return {'ok': None, 'error': ''}
         try:
-            ok, error = get_vault_client(raise_exception=True, **config).is_active()
-        except Exception as e:
-            ok, error = False, str(e)
-        result = {'ok': bool(ok), 'error': '' if ok else str(error)[:200]}
-        cache.set(VAULT_CHECK_CACHE_KEY, result, 60)
+            from accounts.backends import get_vault_client
+            config = {k: getattr(settings, k) for k in dir(settings) if k.startswith('VAULT_')}
+            try:
+                ok, error = get_vault_client(raise_exception=True, **config).is_active()
+            except Exception as e:
+                ok, error = False, str(e)
+            result = {'ok': bool(ok), 'error': '' if ok else str(error)[:200]}
+            cache.set(key, result, 60)
+        finally:
+            cache.delete(f'{key}:busy')
     return result
 
 
-def _vault():
+def _vault(agent):
     from common.db import datakey
     secrets_from_vault = os.environ.get('XPAM_SECRETS_FROM_VAULT') == '1' or os.path.exists(XPAM_SECRETS_FILE)
     backend = settings.VAULT_BACKEND if settings.VAULT_ENABLED else ''
@@ -73,7 +82,7 @@ def _vault():
         'account_storage_name': VAULT_NAMES.get(backend, backend),
         'locked': bool(settings.VAULT_LOCKED),
         'data_key': data_key,
-        'servers': ((_agent() or {}).get('vault') or {}).get('nodes') or [],
+        'servers': ((agent or {}).get('vault') or {}).get('nodes') or [],
     }
     if settings.VAULT_ENABLED:
         data['check'] = _vault_check()
@@ -81,12 +90,13 @@ def _vault():
 
 
 def protection_status():
-    data = {'ha': _ha(), 'vault': _vault()}
+    agent = _agent() if ha_enabled() else None  # (the agent's status file, read once)
+    data = {'ha': _ha(agent), 'vault': _vault(agent)}
     vault, ha = data['vault'], data['ha']
     problems = []
     if ha['enabled'] and (ha['alerts'] or not ha['agent_reporting']):
         problems.append(_('High availability needs attention'))
-    if vault.get('check') and not vault['check']['ok']:
+    if vault.get('check') and vault['check']['ok'] is False:
         problems.append(_('The vault does not answer'))
     data['problems'] = problems
     return data

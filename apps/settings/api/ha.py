@@ -48,14 +48,14 @@ def _in_sync(members):
     return any(m.get('role') == 'sync_standby' and m.get('state') == 'streaming' for m in members or [])
 
 
-def ha_alerts():
+def ha_alerts(agent=None):
     """Banner alerts for administrators when the cluster is not fully protected ([] when it is)."""
     if not ha_enabled():
         return []
     alert = lambda key, level, title, message: {  # noqa: E731
         'id': f'ha_{key}', 'category': 'ha', 'level': level, 'title': title, 'message': message,
         'action_label': _('High availability'), 'action_path': '/settings/high-availability'}
-    agent = _agent()
+    agent = agent or _agent()
     if not agent or agent.get('age', 999) > 60:
         return [alert('agent', 'warning', _('High availability: the agent does not report'),
                       _('Run "systemctl status xpam-ha" on this server.'))]

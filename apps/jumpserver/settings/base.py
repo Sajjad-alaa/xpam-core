@@ -397,11 +397,13 @@ X_FRAME_OPTIONS = CONFIG.X_FRAME_OPTIONS
 VERIFY_EXTERNAL_SSL = CONFIG.VERIFY_EXTERNAL_SSL
 
 # Cache use redis
-REDIS_SSL_KEY = exist_or_default(os.path.join(CERTS_DIR, 'redis_client.key'), None)
-REDIS_SSL_CERT = exist_or_default(os.path.join(CERTS_DIR, 'redis_client.crt'), None)
-REDIS_SSL_CA = exist_or_default(os.path.join(CERTS_DIR, 'redis_ca.pem'), None)
-REDIS_SSL_CA = exist_or_default(os.path.join(CERTS_DIR, 'redis_ca.crt'), REDIS_SSL_CA)
-REDIS_SSL_REQUIRED = 'none'
+# (XPAM: REDIS_SSL_KEY/CERT/CA/REQUIRED in the settings come first — active-active high availability gives the
+# cluster's app certificate and checks Redis's own; otherwise the files in data/certs, as upstream)
+REDIS_SSL_KEY = CONFIG.REDIS_SSL_KEY or exist_or_default(os.path.join(CERTS_DIR, 'redis_client.key'), None)
+REDIS_SSL_CERT = CONFIG.REDIS_SSL_CERT or exist_or_default(os.path.join(CERTS_DIR, 'redis_client.crt'), None)
+REDIS_SSL_CA = CONFIG.REDIS_SSL_CA or exist_or_default(
+    os.path.join(CERTS_DIR, 'redis_ca.crt'), exist_or_default(os.path.join(CERTS_DIR, 'redis_ca.pem'), None))
+REDIS_SSL_REQUIRED = CONFIG.REDIS_SSL_REQUIRED or 'none'
 REDIS_USE_SSL = CONFIG.REDIS_USE_SSL
 REDIS_PROTOCOL = 'rediss' if REDIS_USE_SSL else 'redis'
 # Cache use sentinel

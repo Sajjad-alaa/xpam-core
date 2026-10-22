@@ -139,6 +139,8 @@ if REDIS_USE_SSL:
     REDIS_LAYERS_HOST.update(REDIS_LAYERS_SSL_PARAMS)
 
 if REDIS_SENTINEL_SERVICE_NAME and REDIS_SENTINELS:
+    if REDIS_USE_SSL:
+        REDIS_LAYERS_HOST['ssl'] = True  # (XPAM: a TLS connection class for the ssl_* options above)
     REDIS_LAYERS_HOST['sentinels'] = REDIS_SENTINELS
     REDIS_LAYERS_HOST['password'] = CONFIG.REDIS_PASSWORD or None
     REDIS_LAYERS_HOST['master_name'] = REDIS_SENTINEL_SERVICE_NAME
