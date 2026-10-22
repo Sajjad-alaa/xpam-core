@@ -195,6 +195,18 @@ def get_chat_ai_config():
     }
 
 
+class DataKey(models.Model):
+    """ XPAM: the local keyring (XPAM_DATA_KEY=local) — data keys wrapped by a key derived from SECRET_KEY """
+    version = models.IntegerField(unique=True, verbose_name=_('Version'))
+    wrapped = models.TextField(verbose_name=_('Wrapped key'))
+    retired = models.BooleanField(default=False, verbose_name=_('Retired'))
+    date_created = models.DateTimeField(auto_now_add=True, verbose_name=_('Date created'))
+
+    class Meta:
+        verbose_name = _('Data key')
+        ordering = ('version',)
+
+
 class LeakPasswords(models.Model):
     id = models.AutoField(primary_key=True, verbose_name=_("ID"))
     password = models.CharField(max_length=1024, verbose_name=_("Password"))

@@ -2,3 +2,4 @@
 # 
 
 from .ldap import *
+from .datakey import *

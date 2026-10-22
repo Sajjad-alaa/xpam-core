@@ -91,3 +91,16 @@ class VaultRestoreDataAPI(VaultSyncDataAPI):
     def _run_task():
         task = restore_secret_from_vault.delay()
         return task
+
+
+class DataKeyStatusAPI(APIView):
+    """ XPAM: the data key — provider, current version, values per version, rotation """
+    perm_model = Setting
+    rbac_perms = {'GET': 'settings.view_setting'}
+
+    def get(self, request, *args, **kwargs):
+        from settings.tasks.datakey import data_key_status
+        try:
+            return Response(data_key_status())
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_503_SERVICE_UNAVAILABLE)

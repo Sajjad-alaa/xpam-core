@@ -52,7 +52,8 @@ class VaultKVClient(object):
     renew_when_left = 1 / 3  # renew a token when a third of its lifetime is left
 
     def __init__(self, url, token='', mount_point='pam', auth='token', cert_role='', ca_file='',
-                 client_cert_file='', client_key_file='', namespace='', timeout=10, tls_min_version='1.3'):
+                 client_cert_file='', client_key_file='', namespace='', timeout=10, tls_min_version='1.3',
+                 no_mount_setup=False):
         self.urls = [u.strip().rstrip('/') for u in str(url or '').split(',') if u.strip()]
         if not self.urls:
             raise ValueError('Vault address is empty')
@@ -74,7 +75,7 @@ class VaultKVClient(object):
         self._renewable = False
         self._lock = threading.Lock()
         self._current = 0
-        if self.auth == 'token':
+        if self.auth == 'token' and not no_mount_setup:
             self.enable_secrets_engine_if_need()
 
     # ------------------------------------------------------------ transport

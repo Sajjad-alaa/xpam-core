@@ -18,6 +18,7 @@ from django.core.management.base import BaseCommand, CommandError
 from django.db import models, transaction
 from django.db.models.functions import Cast
 
+from common.db.datakey import PREFIXES
 from common.db.fields import EncryptMixin
 from common.utils.common import text_hmac_sha256
 
@@ -53,6 +54,27 @@ def new_cryptor(key):
     if algo == 'aes_ecb':
         return get_aes_crypto(key, 'ECB')
     return get_aes_crypto(key, 'GCM')
+
+
+def rewrap_keyring(new_key):
+    import base64
+    from cryptography.hazmat.primitives import hashes
+    from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+    from cryptography.hazmat.primitives.kdf.hkdf import HKDF
+    from settings.models import DataKey
+
+    def kek(secret):
+        return AESGCM(HKDF(algorithm=hashes.SHA256(), length=32, salt=b'xpam-data-keyring', info=b'kek-v1')
+                      .derive(secret.encode()))
+    old, new, count = kek(settings.SECRET_KEY), kek(new_key), 0
+    for row in DataKey.objects.all():
+        raw = base64.b64decode(row.wrapped)
+        key = old.decrypt(raw[:12], raw[12:], f'v{row.version}'.encode())
+        nonce = os.urandom(12)
+        DataKey.objects.filter(pk=row.pk).update(
+            wrapped=base64.b64encode(nonce + new.encrypt(nonce, key, f'v{row.version}'.encode())).decode())
+        count += 1
+    return count
 
 
 class Command(BaseCommand):
@@ -97,6 +119,8 @@ class Command(BaseCommand):
                         .values_list('pk', '_xpam_raw')
                     count = 0
                     for pk, raw in raws.iterator(chunk_size=500):
+                        if raw.startswith(PREFIXES):
+                            continue  # XPAM: a data key value (Vault Transit / keyring): not keyed by SECRET_KEY
                         plain, readable = read_old(raw)
                         if not readable:
                             unreadable += 1
@@ -115,6 +139,8 @@ class Command(BaseCommand):
                 from settings.models import Setting
                 count = 0
                 for setting in Setting._base_manager.filter(encrypted=True).exclude(value=''):
+                    if setting.value.startswith(PREFIXES):
+                        continue
                     plain, readable = read_old(setting.value)
                     if not readable:
                         unreadable += 1
@@ -124,6 +150,11 @@ class Command(BaseCommand):
                 total += count
                 if count:
                     stats['settings.Setting (encrypted)'] = count
+
+                # XPAM: the local keyring's data keys are wrapped by a key derived from SECRET_KEY
+                count = rewrap_keyring(new_key)
+                if count:
+                    stats['settings.DataKey (re-wrapped)'] = count
 
                 # e-mail lookup hashes (HMAC with SECRET_KEY): sign-in and search by e-mail
                 count = 0

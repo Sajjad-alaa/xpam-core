@@ -112,6 +112,9 @@ class Encryptor:
         """
         if not self.value:
             return False
+        from common.db.datakey import PREFIXES
+        if self.value.startswith(PREFIXES):
+            return True
         
         # 检测 base64 编码格式 (crypto.encrypt 的输出)
         try:
@@ -154,6 +157,10 @@ class Encryptor:
         return False
 
     def decrypt(self):
+        # XPAM: values encrypted with a data key (local keyring or Vault Transit) say so in their prefix
+        from common.db import datakey
+        if self.value.startswith(datakey.PREFIXES):
+            return datakey.decrypt(self.value)
         plain_value = crypto.decrypt(self.value)
 
         # 如果没有解开，使用原来的signer解密
@@ -162,4 +169,6 @@ class Encryptor:
         return plain_value
 
     def encrypt(self):
-        return crypto.encrypt(self.value)
+        from common.db import datakey
+        sealed = datakey.encrypt(self.value)
+        return sealed if sealed is not None else crypto.encrypt(self.value)

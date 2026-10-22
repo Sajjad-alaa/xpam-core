@@ -373,6 +373,13 @@ class Config(dict):
         # XPAM: vault settings managed on the server only (xpamctl vault connect): the console cannot change
         # them, nor bring secrets back into the database
         'VAULT_LOCKED': False,
+        # XPAM: what encrypts the secret fields: legacy (SECRET_KEY), local (keyring in the database) or transit
+        # (HashiCorp Vault Transit: the key never leaves Vault); rotation daily|weekly|monthly|off; key versions kept
+        'XPAM_DATA_KEY': 'legacy',
+        'XPAM_DATA_KEY_ROTATION': 'weekly',
+        'XPAM_DATA_KEY_KEEP_VERSIONS': 4,
+        'VAULT_TRANSIT_MOUNT': '',
+        'VAULT_TRANSIT_KEY': 'data',
         # XPAM: a vault connection that receives a copy of every secret of the configured vault (admin's choice)
         'VAULT_MIRROR': '',
 

@@ -2,7 +2,6 @@ from django.db import models
 from django.db.models.signals import post_save
 from django.utils.translation import gettext_lazy as _
 
-from accounts.const import VaultTypeChoices
 from common.db import fields
 
 __all__ = ['VaultQuerySetMixin', 'VaultManagerMixin', 'VaultModelMixin']
@@ -12,16 +11,13 @@ VAULT_SAVED_SECRET_MARK = '# Secret-has-been-saved-to-vault #'
 
 
 class VaultSecretField(fields.EncryptTextField):
-    """Keep the OpenBao remote-secret marker readable in the local database."""
+    """Keep the vault marker readable in the local database."""
 
     @staticmethod
     def _should_store_marker_plaintext():
-        from django.conf import settings
-
-        return (
-            settings.VAULT_ENABLED
-            and settings.VAULT_BACKEND == VaultTypeChoices.openbao
-        )
+        # XPAM: the marker says "the secret is in a vault": not a secret itself — kept readable for every vault
+        # (with a data key in Vault Transit, an encrypted marker would cost a call each time an account is loaded)
+        return True
 
     def from_db_value(self, value, expression, connection, context=None):
         if value == VAULT_SAVED_SECRET_MARK:
