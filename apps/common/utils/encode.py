@@ -47,25 +47,35 @@ class Signer(metaclass=Singleton):
         s = JSONWebSignatureSerializer(self.secret_key, algorithm_name='HS256')
         return s.dumps(value).decode()
 
+    @staticmethod
+    def _keys(current):
+        # XPAM: values signed before a SECRET_KEY rotation stay valid (SECRET_KEY_FALLBACKS)
+        from django.conf import settings
+        return [current] + [k for k in getattr(settings, 'SECRET_KEY_FALLBACKS', []) if k != current]
+
     def unsign(self, value):
         if value is None:
             return value
-        s = JSONWebSignatureSerializer(self.secret_key, algorithm_name='HS256')
-        try:
-            return s.loads(value)
-        except BadSignature:
-            return None
+        for key in self._keys(self.secret_key):
+            try:
+                return JSONWebSignatureSerializer(key, algorithm_name='HS256').loads(value)
+            except BadSignature:
+                continue
+        return None
 
     def sign_t(self, value, expires_in=3600):
         s = TimedJSONWebSignatureSerializer(self.secret_key, expires_in=expires_in)
         return str(s.dumps(value), encoding="utf8")
 
     def unsign_t(self, value):
-        s = TimedJSONWebSignatureSerializer(self.secret_key)
-        try:
-            return s.loads(value)
-        except (BadSignature, SignatureExpired):
-            return None
+        for key in self._keys(self.secret_key):
+            try:
+                return TimedJSONWebSignatureSerializer(key).loads(value)
+            except SignatureExpired:
+                return None
+            except BadSignature:
+                continue
+        return None
 
 
 _supported_paramiko_ssh_key_types = (

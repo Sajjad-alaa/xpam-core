@@ -5,7 +5,6 @@ import re
 import secrets
 import string
 
-from django.conf import settings
 from django.utils.translation import gettext as _
 
 # Names that must never be created or removed by just-in-time access
@@ -25,8 +24,20 @@ class JITNameError(ValueError):
     pass
 
 
+def _naming_salt():
+    """ XPAM: a salt kept in the database (not SECRET_KEY: its rotation must not rename accounts) """
+    import secrets
+    from settings.models import Setting
+    setting = Setting.objects.filter(name='XPAM_JIT_NAMING_SALT').first()
+    if setting is None or not setting.cleaned_value:
+        salt = secrets.token_hex(32)
+        Setting.update_or_create(name='XPAM_JIT_NAMING_SALT', value=salt, encrypted=False, category='jit')
+        return salt
+    return setting.cleaned_value
+
+
 def _short_hash(value, length):
-    key = (settings.SECRET_KEY or 'xpam').encode()
+    key = (_naming_salt() or 'xpam').encode()
     return hmac.new(key, value.encode(), hashlib.sha256).hexdigest()[:length]
 
 

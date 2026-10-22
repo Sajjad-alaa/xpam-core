@@ -168,22 +168,29 @@ class Keyring:
         self._lock = threading.Lock()
 
     @staticmethod
-    def _kek():
+    def _kek(secret=None):
         from cryptography.hazmat.primitives import hashes
         from cryptography.hazmat.primitives.kdf.hkdf import HKDF
         return HKDF(algorithm=hashes.SHA256(), length=32, salt=b'xpam-data-keyring', info=b'kek-v1') \
-            .derive(settings.SECRET_KEY.encode())
+            .derive((secret or settings.SECRET_KEY).encode())
+
+    def _unwrap(self, version, raw):
+        """ with SECRET_KEY, or a previous one while a rotation is under way (other processes) """
+        from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+        for secret in [settings.SECRET_KEY] + list(getattr(settings, 'SECRET_KEY_FALLBACKS', [])):
+            try:
+                return AESGCM(self._kek(secret)).decrypt(raw[:12], raw[12:], f'v{version}'.encode())
+            except Exception:
+                continue
+        raise DataKeyUnavailable(f'data key v{version} cannot be unwrapped with SECRET_KEY')
 
     def _load(self, force=False):
         if not force and self._keys and time.time() - self._loaded < 60:
             return
-        from cryptography.hazmat.primitives.ciphers.aead import AESGCM
         from settings.models import DataKey
-        kek = AESGCM(self._kek())
         keys, current = {}, None
         for row in DataKey.objects.filter(retired=False).order_by('version'):
-            raw = base64.b64decode(row.wrapped)
-            keys[row.version] = kek.decrypt(raw[:12], raw[12:], f'v{row.version}'.encode())
+            keys[row.version] = self._unwrap(row.version, base64.b64decode(row.wrapped))
             current = row.version
         self._keys, self._current, self._loaded = keys, current, time.time()
 

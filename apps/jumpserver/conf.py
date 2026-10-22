@@ -210,6 +210,8 @@ class Config(dict):
     defaults = {
         # Django Config, Must set before start
         'SECRET_KEY': '',
+        # XPAM: the previous SECRET_KEY(s), comma-separated, kept valid after a rotation (sessions stay signed in)
+        'SECRET_KEY_PREVIOUS': '',
         'BOOTSTRAP_TOKEN': '',
         'DEBUG': False,
         'DEBUG_DEV': False,

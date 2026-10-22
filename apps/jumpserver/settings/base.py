@@ -39,6 +39,8 @@ CERTS_DIR = os.path.join(DATA_DIR, 'certs')
 
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = CONFIG.SECRET_KEY
+# XPAM: after `xpamctl rotate-secret-key` the previous key still verifies sessions and signed values
+SECRET_KEY_FALLBACKS = [k for k in str(CONFIG.SECRET_KEY_PREVIOUS or '').split(',') if k.strip()]
 
 # SECURITY WARNING: keep the token secret, remove it if all koko, lion ok
 BOOTSTRAP_TOKEN = CONFIG.BOOTSTRAP_TOKEN
