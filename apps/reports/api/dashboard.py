@@ -458,9 +458,13 @@ class CustomDashboardViewSet(viewsets.ModelViewSet):
 
     @action(methods=['get'], detail=False, url_path='catalog')
     def catalog(self, request, *args, **kwargs):
+        from accounts.jit.policy import tickets_enabled
+        jit_enabled = tickets_enabled()
         user = request.user
         widgets = []
         for w in WIDGET_CATALOG:
+            if w['category'] == 'jit' and not jit_enabled:
+                continue
             widgets.append({
                 'id': w['id'],
                 'category': w['category'],
@@ -478,9 +482,13 @@ class CustomDashboardViewSet(viewsets.ModelViewSet):
                 'scope': t['scope'],
                 'days': t['days'],
                 'refresh_seconds': t['refresh_seconds'],
-                'widgets': t['widgets'],
+                'widgets': [
+                    item for item in t['widgets']
+                    if jit_enabled or not str(item.get('widget', '')).startswith('jit_')
+                ],
             }
             for t in STARTER_TEMPLATES
+            if jit_enabled or t['id'] != 'jit_zsp'
         ]
         return Response({
             'can_manage': can_manage(user, 'add'),

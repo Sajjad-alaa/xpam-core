@@ -9,13 +9,22 @@ from rbac.permissions import RBACPermission
 
 from common.utils import is_uuid
 from orgs.mixins.api import OrgBulkModelViewSet, OrgGenericViewSet
+from ..jit.policy import tickets_enabled
 from ..models import JITPolicy, JITAccount
 from ..serializers.jit import JITPolicySerializer, JITAccountSerializer
 
 __all__ = ['JITPolicyViewSet', 'JITAccountViewSet', 'JITDashboardViewSet', 'JITApprovalChannelsViewSet']
 
 
-class JITPolicyViewSet(OrgBulkModelViewSet):
+class JITTicketRequiredMixin:
+    def initial(self, request, *args, **kwargs):
+        super().initial(request, *args, **kwargs)
+        if not tickets_enabled():
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied(_('Tickets must be enabled and licensed to use Just-in-Time access'))
+
+
+class JITPolicyViewSet(JITTicketRequiredMixin, OrgBulkModelViewSet):
     model = JITPolicy
     serializer_class = JITPolicySerializer
     filterset_fields = ('name', 'mode', 'username_mode', 'scope', 'is_active')
@@ -136,7 +145,7 @@ class JITPolicyViewSet(OrgBulkModelViewSet):
                          'problems': sorted(problems.values(), key=lambda p: -p['count'])})
 
 
-class JITAccountViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, OrgGenericViewSet):
+class JITAccountViewSet(JITTicketRequiredMixin, mixins.ListModelMixin, mixins.RetrieveModelMixin, OrgGenericViewSet):
     # Read-only records; the only change is the "remove now" action below
     model = JITAccount
     serializer_class = JITAccountSerializer
@@ -174,7 +183,7 @@ class JITAccountViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, OrgGen
                          'user': jit.user_display, 'events': trail(jit)})
 
 
-class JITDashboardViewSet(viewsets.ViewSet):
+class JITDashboardViewSet(JITTicketRequiredMixin, viewsets.ViewSet):
     """Zero standing privilege overview of the current organization."""
     permission_classes = (RBACPermission,)
     rbac_perms = {
@@ -215,7 +224,7 @@ class JITDashboardViewSet(viewsets.ViewSet):
         return Response({'removed_accounts': removed, 'policy': policy.name if policy else None})
 
 
-class JITApprovalChannelsViewSet(viewsets.ViewSet):
+class JITApprovalChannelsViewSet(JITTicketRequiredMixin, viewsets.ViewSet):
     """Where approval requests are sent besides e-mail: Teams, Slack, Telegram. Secrets are never returned."""
     permission_classes = (RBACPermission,)
     rbac_perms = {

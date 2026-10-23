@@ -389,8 +389,9 @@ def desired_granted_pairs():
     """{(policy_id, user_id, asset_id): permission} that should have a just-in-time account now."""
     from django.db.models import Q
     from perms.models import AssetPermission
+    from .policy import tickets_enabled
     matcher = PolicyMatcher()
-    if not any(p.is_granted_mode for p in matcher.by_id.values()):
+    if not tickets_enabled() or not any(p.is_granted_mode for p in matcher.by_id.values()):
         return {}
     # Organizations whose rule policies may keep accounts while access is granted
     rule_orgs = [org_id for org_id, policies in matcher.rules_by_org.items()

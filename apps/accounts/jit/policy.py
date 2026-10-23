@@ -67,6 +67,28 @@ def asset_supports_jit(asset, policy=None):
     return not unsupported_reason(asset, policy)
 
 
+_last_ticket_license = None
+
+
+def tickets_enabled():
+    """Just-in-time access requires the Tickets feature to be enabled and licensed. Without it no just-in-time
+    access is given out (see jit_grant_for_perms, select_policy); the rules still match, so a "JIT only" rule keeps
+    hiding the standing accounts (zero standing privilege fails closed)."""
+    global _last_ticket_license
+    from django.conf import settings
+    if not getattr(settings, 'TICKETS_ENABLED', True):
+        return False
+    try:
+        from xpack.utils import has_ticket_license
+        _last_ticket_license = bool(has_ticket_license())
+    except Exception as e:
+        # a failed check (the database restarting...) keeps the last answer: one error must not remove every
+        # just-in-time account within a minute
+        logger.warning('Ticket licence check failed, keeping the last answer (%s): %s', _last_ticket_license, e)
+        return bool(_last_ticket_license)
+    return _last_ticket_license
+
+
 class PolicyMatcher:
     """
     Decides which just-in-time policy a permission gives a user on an asset:
@@ -183,6 +205,9 @@ def jit_grant_for_perms(perms, user, asset):
         actions |= perm.actions
         expired.append(perm.date_expired)
         jit_only = jit_only or policy.jit_only
+    if not tickets_enabled():
+        # without Tickets no just-in-time account; "JIT only" still hides the standing accounts
+        return 0, [], jit_only
     return actions, expired, jit_only
 
 
@@ -203,7 +228,7 @@ def choose(perms, user, asset, matcher=None, now=None):
 def select_policy(user, asset):
     """(policy, permission) that gives `user` a just-in-time account on `asset`, or (None, None)."""
     from perms.utils import PermAssetDetailUtil
-    if not target_kind(asset):
+    if not target_kind(asset) or not tickets_enabled():
         return None, None
     perms = PermAssetDetailUtil(user, asset).user_asset_perms
     policy, perm = choose(perms, user, asset)

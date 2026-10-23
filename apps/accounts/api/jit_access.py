@@ -5,6 +5,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from ..jit import approvals, selfservice
+from .jit import JITTicketRequiredMixin
 
 __all__ = ['JITAccessViewSet']
 
@@ -17,7 +18,7 @@ def _ticket_brief(ticket):
     }
 
 
-class JITAccessViewSet(viewsets.ViewSet):
+class JITAccessViewSet(JITTicketRequiredMixin, viewsets.ViewSet):
     """
     GET  /accounts/jit-access/                  the user's access, pending requests and live accounts
     GET  /accounts/jit-access/requestable/      assets the user may request (?search=)
