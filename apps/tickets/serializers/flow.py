@@ -42,16 +42,66 @@ class TicketFlowSerializer(OrgResourceModelSerializerMixin):
         queryset=User.objects, many=True, required=False,
         attrs=('id', 'name', 'username'), label=_('CC users')
     )
+    jit_policies = serializers.SerializerMethodField(label=_('JIT policies'))
 
     class Meta:
         model = TicketFlow
         fields_mini = ['id', 'name', 'type']
         fields_small = fields_mini + [
-            'approval_level', 'created_by', 'date_created',
+            'approval_level', 'jit_policies', 'created_by', 'date_created',
             'date_updated', 'org_id', 'org_name'
         ]
         fields = fields_small + ['rules', 'cc_users']
-        read_only_fields = ['created_by', 'date_created', 'date_updated']
+        read_only_fields = ['jit_policies', 'created_by', 'date_created', 'date_updated']
+
+    @staticmethod
+    def get_jit_policies(obj):
+        if obj.type != TicketType.apply_asset:
+            return []
+        try:
+            from accounts.models import JITPolicy
+            from accounts.jit.selfservice import org_flows
+            current_org_id = str(get_current_org_id())
+            explicit = list(
+                JITPolicy.objects.filter(
+                    org_id=current_org_id,
+                    approval_route=JITPolicy.ApprovalRoute.flow,
+                    approval_flow_id=obj.id,
+                ).values('id', 'name', 'auto_approve', 'auto_approve_max_hours')[:20]
+            )
+            result = [
+                {
+                    'id': str(p['id']),
+                    'name': p['name'],
+                    'auto_approve': p['auto_approve'],
+                    'auto_approve_max_hours': p['auto_approve_max_hours'],
+                    'via_default': False,
+                }
+                for p in explicit
+            ]
+            seen = {r['id'] for r in result}
+            first_flow = org_flows(current_org_id).first()
+            if first_flow and str(first_flow.id) == str(obj.id):
+                defaults = list(
+                    JITPolicy.objects.filter(
+                        org_id=current_org_id,
+                        approval_route=JITPolicy.ApprovalRoute.flow,
+                        approval_flow__isnull=True,
+                    ).values('id', 'name', 'auto_approve', 'auto_approve_max_hours')[:20]
+                )
+                for p in defaults:
+                    pid = str(p['id'])
+                    if pid not in seen:
+                        result.append({
+                            'id': pid,
+                            'name': p['name'],
+                            'auto_approve': p['auto_approve'],
+                            'auto_approve_max_hours': p['auto_approve_max_hours'],
+                            'via_default': True,
+                        })
+            return result
+        except Exception:
+            return []
 
     def validate(self, attrs):
         attrs = super().validate(attrs)

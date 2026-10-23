@@ -367,9 +367,22 @@ def route_approvers(ticket):
         for level, group in enumerate(sets, start=1):
             step = TicketStep.objects.create(ticket=ticket, level=level, status='active' if level == 1 else 'pending')
             TicketAssignee.objects.bulk_create([TicketAssignee(assignee_id=uid, step=step) for uid in group])
+        named_flows = {
+            p.approval_flow_id
+            for p in mapping.values()
+            if p and p.approval_route == p.ApprovalRoute.flow and p.approval_flow_id
+        }
+        update_fields = []
+        if len(named_flows) == 1 and not any(p is None for p in mapping.values()):
+            target_flow_id = next(iter(named_flows))
+            if str(ticket.flow_id) != str(target_flow_id):
+                ticket.flow_id = target_flow_id
+                update_fields.append('flow')
         if ticket.approval_step != 1:
             ticket.approval_step = 1
-            ticket.save(update_fields=['approval_step'])
+            update_fields.append('approval_step')
+        if update_fields:
+            ticket.save(update_fields=update_fields)
 
 
 def org_flows(org_id):
@@ -423,16 +436,41 @@ def preview(user, asset_ids, hours=None, reason='', node_ids=(), start=None, end
     with tmp_to_org(org_id):
         mapping = {a: _request_policy(matcher, user, a) for a in assets}
         covered = any(mapping.values())
+        matched_policies = list(dict.fromkeys(p for p in mapping.values() if p))
+        policy_names = [p.name for p in matched_policies]
+        policy_flow = request_flow(mapping.values(), org_id) if covered else None
+        policy_locks_flow = bool(
+            covered and any(p.approval_flow_id or p.approval_route == p.ApprovalRoute.approvers for p in matched_policies)
+        )
         names, why = _decision(mapping, start, end, REQUEST_ACCOUNTS if accounts is None else accounts, reason,
                                protocols=protocols, actions=actions)
         if names:
-            return {'instant': True, 'covered': True, 'rules': names, 'why': '', 'route': []}
-        flow = org_flows(org_id).filter(id=flow_id).first() if flow_id and is_uuid(flow_id) else None
-        flow = flow or request_flow(mapping.values(), org_id)
+            return {
+                'instant': True,
+                'covered': True,
+                'rules': names,
+                'policies': policy_names,
+                'policy_flow_id': str(policy_flow.id) if policy_flow else '',
+                'policy_locks_flow': True,
+                'why': '',
+                'route': [],
+            }
+        flow = None
+        if not policy_locks_flow and flow_id and is_uuid(flow_id):
+            flow = org_flows(org_id).filter(id=flow_id).first()
+        flow = flow or policy_flow or request_flow(mapping.values(), org_id)
         base = _flow_sets(flow, org_id, user.id) if flow else []
         sets = _route_sets(mapping, org_id, user.id, base, flow.id if flow else None) or base
-        return {'instant': False, 'covered': covered, 'why': why if covered else '', 'route': describe_route(sets),
-                'flow': str(flow) if flow else ''}
+        return {
+            'instant': False,
+            'covered': covered,
+            'why': why if covered else '',
+            'route': describe_route(sets),
+            'flow': str(flow) if flow else '',
+            'policies': policy_names,
+            'policy_flow_id': str(policy_flow.id) if policy_flow else '',
+            'policy_locks_flow': policy_locks_flow,
+        }
 
 
 def _admin_ids(org_id, applicant_id):

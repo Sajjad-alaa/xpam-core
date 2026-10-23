@@ -50,15 +50,86 @@ class JITPolicyViewSet(JITTicketRequiredMixin, OrgBulkModelViewSet):
             qs = qs.exclude(mode=JITPolicy.Mode.approved_window)
         return qs
 
-    @action(methods=['get'], detail=False, url_path='approval-flows')
+    @staticmethod
+    def _serialize_flow(flow, org_id, is_default=False):
+        from ..jit.selfservice import _flow_sets, describe_route
+        linked = list(
+            JITPolicy.objects.filter(
+                org_id=org_id,
+                approval_route=JITPolicy.ApprovalRoute.flow,
+                approval_flow_id=flow.id,
+            ).values('id', 'name')[:20]
+        )
+        if is_default:
+            default_linked = list(
+                JITPolicy.objects.filter(
+                    org_id=org_id,
+                    approval_route=JITPolicy.ApprovalRoute.flow,
+                    approval_flow__isnull=True,
+                ).values('id', 'name')[:20]
+            )
+            seen = {str(p['id']) for p in linked}
+            for p in default_linked:
+                if str(p['id']) not in seen:
+                    linked.append(p)
+        rules_data = [
+            {'level': r.level, 'users': r.users.value or {'type': 'ids', 'ids': []}}
+            for r in flow.rules.order_by('level')
+        ]
+        return {
+            'id': str(flow.id),
+            'name': str(flow),
+            'default': is_default,
+            'approval_level': flow.approval_level,
+            'org_id': str(flow.org_id),
+            'is_org_flow': str(flow.org_id) == str(org_id),
+            'route': describe_route(_flow_sets(flow, org_id, None)),
+            'rules': rules_data,
+            'cc_users': [{'id': str(u.id), 'name': str(u)} for u in flow.cc_users.all()[:30]],
+            'jit_policies': [{'id': str(p['id']), 'name': p['name']} for p in linked],
+        }
+
+    @action(methods=['get', 'post'], detail=False, url_path='approval-flows')
     def approval_flows(self, request, *args, **kwargs):
-        """ XPAM: the approval flows a rule can use, each with who approves at each level (the rule form) """
+        """ XPAM: list or inline-create/update approval flows for access requests right from JIT Policy """
         from orgs.utils import current_org
-        from ..jit.selfservice import org_flows, _flow_sets, describe_route
+        from ..jit.selfservice import org_flows
+        if request.method.lower() == 'post':
+            from rest_framework.exceptions import PermissionDenied, ValidationError
+            from tickets.models import TicketFlow
+            from tickets.serializers import TicketFlowSerializer
+            flow_id = request.data.get('id')
+            instance = None
+            if flow_id and is_uuid(flow_id):
+                instance = TicketFlow.objects.filter(id=flow_id, org_id=current_org.id, type='apply_asset').first()
+            # (approval flows govern every access request of the organization, not only just-in-time ones:
+            # the ticket flow permissions decide, never the rule ones)
+            if not request.user.has_perm('tickets.change_ticketflow' if instance else 'tickets.add_ticketflow'):
+                raise PermissionDenied(_('Changing approval flows needs the ticket flow permission'))
+            try:
+                level = int(request.data.get('approval_level') or 1)
+            except (TypeError, ValueError):
+                raise ValidationError({'approval_level': _('1 to 5')})
+            payload = {
+                'name': (request.data.get('name') or '').strip(),
+                'approval_level': level,
+                'rules': request.data.get('rules') or [],
+            }
+            if 'cc_users' in request.data:
+                payload['cc_users'] = request.data.get('cc_users') or []
+            elif instance:
+                # (editing from the rule form keeps the flow's CC users)
+                payload['cc_users'] = [str(u.id) for u in instance.cc_users.all()]
+            serializer = TicketFlowSerializer(instance=instance, data=payload, context={'request': request})
+            serializer.is_valid(raise_exception=True)
+            flow = serializer.save()
+            flows = list(org_flows(current_org.id)[:20])
+            is_default = bool(flows and flows[0].id == flow.id)
+            return Response(self._serialize_flow(flow, current_org.id, is_default=is_default), status=200 if instance else 201)
+
         result = []
-        for i, flow in enumerate(org_flows(current_org.id)[:20]):
-            result.append({'id': str(flow.id), 'name': str(flow), 'default': i == 0,
-                           'route': describe_route(_flow_sets(flow, current_org.id, None))})
+        for i, flow in enumerate(org_flows(current_org.id).prefetch_related('cc_users')[:20]):
+            result.append(self._serialize_flow(flow, current_org.id, is_default=(i == 0)))
         return Response(result)
 
     @action(methods=['get'], detail=False, url_path='match')
@@ -228,7 +299,7 @@ class JITApprovalChannelsViewSet(JITTicketRequiredMixin, viewsets.ViewSet):
     """Where approval requests are sent besides e-mail: Teams, Slack, Telegram. Secrets are never returned."""
     permission_classes = (RBACPermission,)
     rbac_perms = {
-        'list': 'accounts.view_jitpolicy',
+        'list': 'accounts.view_jitpolicy | tickets.view_ticketflow',
         # system-wide settings (webhooks, direct approval): system ticket settings permission, never an
         # org-level one (an org admin must not receive every org's approval requests)
         'save': 'settings.change_ticket',
