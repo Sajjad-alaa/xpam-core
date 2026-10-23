@@ -187,6 +187,7 @@ def auto_approve_decision(ticket, mapping=None):
     """(policy names, '') when the policies approve the request by themselves, else (None, why not — in words)."""
     if mapping is None:
         mapping = ticket_policies(ticket)
+    # (the reason is the request's comment: a title is not a reason — "Reason required" stays required)
     return _decision(mapping, ticket.apply_date_start, ticket.apply_date_expired, ticket.apply_accounts,
                      ticket.comment, protocols=ticket.apply_protocols, actions=ticket.apply_actions)
 
@@ -234,7 +235,23 @@ def try_auto_approve(ticket):
     from tickets.const import StepState, StepStatus, TicketState, TicketStatus
     from tickets.models import TicketStep
     try:
-        names, why = auto_approve_decision(ticket)
+        mapping = ticket_policies(ticket)
+        matched = [p for p in mapping.values() if p]
+        if matched and len(matched) == len(mapping) and all(
+            p.self_service and p.auto_approve and p.approvals_required == 1 and p.auto_approve_max_hours >= p.max_hours
+            for p in matched
+        ):
+            max_h = min(p.auto_approve_max_hours for p in matched)
+            if ticket.apply_date_expired and _hours(ticket.apply_date_start, ticket.apply_date_expired) > max_h + 1 / 60:
+                # (the rules never allow longer: the request is shortened to their limit, and says so)
+                asked = _hours(ticket.apply_date_start, ticket.apply_date_expired)
+                start_dt = max(ticket.apply_date_start or timezone.now(), timezone.now())
+                ticket.apply_date_start = start_dt
+                ticket.apply_date_expired = start_dt + timezone.timedelta(hours=max_h)
+                ticket.save(update_fields=['apply_date_start', 'apply_date_expired'])
+                _comment(ticket, _('Shortened from %(asked)s h to %(max)s h: the longest the just-in-time rule '
+                                   'allows') % {'asked': '%g' % round(asked, 1), 'max': max_h})
+        names, why = auto_approve_decision(ticket, mapping)
     except Exception as e:
         logger.warning('JIT auto-approval check of %s failed: %s', ticket, e)
         return False
@@ -249,11 +266,15 @@ def try_auto_approve(ticket):
             step.state = StepState.approved
             step.status = StepStatus.closed
             step.save(update_fields=['state', 'status', 'date_updated'])
+        update_fields = ['approval_step', 'state', 'status', 'apply_jit_auto']
+        if not ticket.apply_accounts:
+            ticket.apply_accounts = list(REQUEST_ACCOUNTS)
+            update_fields.append('apply_accounts')
         ticket.approval_step = steps[-1].level
         ticket.state = TicketState.approved
         ticket.status = TicketStatus.closed
         ticket.apply_jit_auto = ', '.join(names)[:128]
-        ticket.save(update_fields=['approval_step', 'state', 'status', 'apply_jit_auto'])
+        ticket.save(update_fields=update_fields)
         _comment(ticket, _('Approved automatically by the just-in-time policy: %s') % ', '.join(names),
                  kind='state')
         ticket.handler._create_asset_permission()
@@ -434,14 +455,38 @@ def preview(user, asset_ids, hours=None, reason='', node_ids=(), start=None, end
         start = timezone.now()
         end = start + timezone.timedelta(hours=hours) if hours > 0 else None
     with tmp_to_org(org_id):
+        from perms.const import ActionChoices
         mapping = {a: _request_policy(matcher, user, a) for a in assets}
         covered = any(mapping.values())
+        all_covered = bool(assets) and all(mapping.values())
         matched_policies = list(dict.fromkeys(p for p in mapping.values() if p))
         policy_names = [p.name for p in matched_policies]
         policy_flow = request_flow(mapping.values(), org_id) if covered else None
         policy_locks_flow = bool(
             covered and any(p.approval_flow_id or p.approval_route == p.ApprovalRoute.approvers for p in matched_policies)
         )
+        auto_ok = bool(
+            all_covered and all(
+                p.self_service and p.auto_approve and p.approvals_required == 1 and p.in_auto_approve_window()
+                for p in matched_policies
+            )
+        )
+        auto_approve_hours = min((p.auto_approve_max_hours for p in matched_policies), default=0) if auto_ok else 0
+        max_hours = min((p.max_hours for p in matched_policies), default=0) if all_covered else 0
+        require_reason = bool(covered and any(p.require_reason for p in matched_policies))
+        allowed_actions_mask = ActionChoices.all()
+        allowed_protocols_list = None
+        for p in matched_policies:
+            allowed_actions_mask &= p.actions
+            rule_protos = [] if 'all' in (p.protocols or ['all']) else list(p.protocols)
+            if rule_protos:
+                allowed_protocols_list = (
+                    rule_protos
+                    if allowed_protocols_list is None
+                    else [n for n in allowed_protocols_list if n in rule_protos]
+                )
+        allowed_actions = ['all'] if allowed_actions_mask == ActionChoices.all() else _action_names(allowed_actions_mask)
+        allowed_protocols = ['all'] if allowed_protocols_list is None else allowed_protocols_list
         names, why = _decision(mapping, start, end, REQUEST_ACCOUNTS if accounts is None else accounts, reason,
                                protocols=protocols, actions=actions)
         if names:
@@ -452,6 +497,11 @@ def preview(user, asset_ids, hours=None, reason='', node_ids=(), start=None, end
                 'policies': policy_names,
                 'policy_flow_id': str(policy_flow.id) if policy_flow else '',
                 'policy_locks_flow': True,
+                'auto_approve_hours': auto_approve_hours,
+                'max_hours': max_hours,
+                'require_reason': require_reason,
+                'allowed_actions': allowed_actions,
+                'allowed_protocols': allowed_protocols,
                 'why': '',
                 'route': [],
             }
@@ -470,6 +520,11 @@ def preview(user, asset_ids, hours=None, reason='', node_ids=(), start=None, end
             'policies': policy_names,
             'policy_flow_id': str(policy_flow.id) if policy_flow else '',
             'policy_locks_flow': policy_locks_flow,
+            'auto_approve_hours': auto_approve_hours,
+            'max_hours': max_hours,
+            'require_reason': require_reason,
+            'allowed_actions': allowed_actions,
+            'allowed_protocols': allowed_protocols,
         }
 
 
