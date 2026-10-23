@@ -51,7 +51,7 @@ def unsupported_reason(asset, policy=None):
                 return _('Assets reached through a gateway are not supported for this target yet')
             if not admin_account(asset):
                 return _('Add a privileged account on the asset that may create users')
-            if kind == 'device' and not asset.protocols.filter(name='ssh').exists():
+            if kind == 'device' and not any(p.name == 'ssh' for p in asset.protocols.all()):
                 return _('The device needs the SSH protocol')
             return ''
         return _('Just-in-time accounts work on Linux/Unix and Windows hosts, databases (MySQL, '
@@ -82,7 +82,8 @@ class PolicyMatcher:
     def __init__(self):
         from accounts.models import JITPolicy
         with tmp_to_root_org():
-            policies = list(JITPolicy.objects.filter(is_active=True).order_by('priority', 'name'))
+            policies = list(JITPolicy.objects.filter(is_active=True)
+                            .select_related('approval_flow').order_by('priority', 'name'))
         self.by_id = {str(p.id): p for p in policies}
         self.rules_by_org = {}
         for p in policies:
@@ -116,7 +117,10 @@ class PolicyMatcher:
         if value['type'] == 'all':
             return True
         if value['type'] == 'ids':
-            return str(obj.id) in {str(i) for i in value.get('ids') or []}
+            ids_key = ('ids', str(policy.id), field)
+            if ids_key not in self._memo:
+                self._memo[ids_key] = {str(i) for i in value.get('ids') or []}
+            return str(obj.id) in self._memo[ids_key]
         key = (str(policy.id), field, str(obj.id))
         if key not in self._memo:
             org_id = policy.org_id if field == 'assets' else None

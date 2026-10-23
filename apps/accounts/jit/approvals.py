@@ -48,16 +48,20 @@ def _flags(ticket, policies, assets):
 
 
 def pending_for(user, limit=50):
+    from django.db.models import F
     from tickets.models import ApplyAssetTicket
+    from .policy import PolicyMatcher
     from .selfservice import ticket_policies
     result = []
+    matcher = PolicyMatcher()
     with tmp_to_root_org():
-        qs = ApplyAssetTicket.objects.filter(status='open', ticket_steps__ticket_assignees__assignee=user) \
-            .select_related('applicant').distinct().order_by('date_created')
-        for ticket in qs[:200]:
-            if not ticket.has_current_assignee(user):
-                continue
-            mapping = ticket_policies(ticket)
+        qs = ApplyAssetTicket.objects.filter(
+            status='open',
+            ticket_steps__level=F('approval_step'),
+            ticket_steps__ticket_assignees__assignee=user,
+        ).select_related('applicant').distinct().order_by('date_created')
+        for ticket in qs[:limit]:
+            mapping = ticket_policies(ticket, matcher=matcher)
             assets = list(mapping.keys())
             policies = list(mapping.values())
             hours = None
@@ -77,8 +81,6 @@ def pending_for(user, limit=50):
                 'level': ticket.approval_step, 'levels': ticket.ticket_steps.count(),
                 'flags': _flags(ticket, policies, assets),
             })
-            if len(result) >= limit:
-                break
     return result
 
 
@@ -126,7 +128,11 @@ def decision_note(ticket):
 
 
 def pending_count(user):
+    from django.db.models import F
     from tickets.models import ApplyAssetTicket
     with tmp_to_root_org():
-        qs = ApplyAssetTicket.objects.filter(status='open', ticket_steps__ticket_assignees__assignee=user).distinct()
-        return sum(1 for t in qs[:200] if t.has_current_assignee(user))
+        return ApplyAssetTicket.objects.filter(
+            status='open',
+            ticket_steps__level=F('approval_step'),
+            ticket_steps__ticket_assignees__assignee=user,
+        ).distinct().count()

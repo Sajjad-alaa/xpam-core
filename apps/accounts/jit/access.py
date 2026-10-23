@@ -121,12 +121,17 @@ def ticket_access(ticket, viewer):
 
 def _covered_elsewhere(user, perm):
     """ the assets another current access of the user still covers (their sessions are not ended) """
+    from django.db.models import Q
     from perms.models import AssetPermission
+    if not user:
+        return set()
     now = timezone.now()
     covered = set()
     with tmp_to_root_org():
-        others = AssetPermission.objects.filter(users=user, is_active=True, date_start__lte=now,
-                                                date_expired__gt=now).exclude(id=perm.id)
+        others = AssetPermission.objects.filter(
+            Q(users=user) | Q(user_groups__users=user),
+            is_active=True, date_start__lte=now, date_expired__gt=now,
+        ).exclude(id=perm.id).distinct()
         for other in others[:50]:
             with tmp_to_org(other.org_id):
                 covered |= {str(i) for i in other.get_all_assets().values_list('id', flat=True)[:5000]}
@@ -137,6 +142,8 @@ def end_sessions(user, perm, by):
     """ the live sessions of `user` on the assets of `perm` (unless another access covers the asset) """
     from terminal.api.session.task import create_sessions_tasks
     from terminal.models import Session
+    if not user:
+        return []
     with tmp_to_org(perm.org_id):
         assets = {str(i) for i in perm.get_all_assets().values_list('id', flat=True)[:5000]}
     assets -= _covered_elsewhere(user, perm)
@@ -175,4 +182,3 @@ def end(ticket, user):
     if perm is None or state_of(perm, ticket.apply_date_expired) not in ACTIVE_STATES:
         raise AccessError(_('This access is not active'))
     end_now(user, perm.id)
-    end_sessions(user, perm, user)

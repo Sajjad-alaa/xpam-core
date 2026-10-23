@@ -133,9 +133,10 @@ def _iter_parallel_results(action, instances, max_workers):
 
 def _get_model_queryset(model, action):
     queryset = model.objects.exclude(secret_type=SecretType.SSH_CERTIFICATE)
-    # OpenBao deliberately stores the marker as plaintext, so it can be
-    # filtered efficiently. Other backends encrypt it with a random nonce and
-    # must inspect the decrypted model value instead.
+    # OpenBao has always stored the marker as plaintext, so it can be filtered
+    # efficiently. XPAM keeps it plaintext for every vault since 5.1.17, but rows
+    # moved to another vault before then still hold an encrypted marker: those
+    # backends must inspect the decrypted model value instead.
     if vault_client.type != VaultTypeChoices.openbao:
         return queryset, model.objects.count() - queryset.count()
     if action == ACTION_SYNC:
@@ -338,13 +339,16 @@ def update_secret_copies():
             if not settings.VAULT_KEEP_DB_COPY:
                 manager.exclude(_secret_copy=None).update(_secret_copy=None)
                 continue
-            for instance in manager.filter(_secret=VAULT_SAVED_SECRET_MARK).iterator(chunk_size=QUERYSET_CHUNK_SIZE):
+            # (every row, not a filter on the marker: rows saved to a vault before 5.1.17 hold it encrypted)
+            for instance in manager.exclude(_secret=None).iterator(chunk_size=QUERYSET_CHUNK_SIZE):
+                if not instance.secret_has_save_to_vault:
+                    continue
                 try:
                     secret = vault_client.get(instance)
                 except Exception as error:
                     secret = None
                     logger.warning('Secret copy of %s: %s', _instance_desc(instance), _safe_log_value(error))
-                if not secret:
+                if not secret or secret == VAULT_SAVED_SECRET_MARK:
                     failed += 1
                     continue
                 manager.filter(pk=instance.pk).update(_secret_copy=secret)

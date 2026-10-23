@@ -96,11 +96,11 @@ class VaultModelMixin(models.Model):
         if self.__secret:
             return self.__secret
         from accounts.backends import vault_client
-        copy = self._secret_copy if settings.VAULT_KEEP_DB_COPY and self._has_secret_copy() else None
         try:
             secret = vault_client.get(self)
         except Exception:
-            if not (copy and self.secret_has_save_to_vault):
+            if not (settings.VAULT_KEEP_DB_COPY and self.secret_has_save_to_vault
+                    and self._has_secret_copy() and self._secret_copy):
                 raise
             secret = ''
         if secret == self._secret_save_to_vault_mark:
@@ -109,9 +109,9 @@ class VaultModelMixin(models.Model):
         if not secret and not self.secret_has_save_to_vault:
             # vault_client 获取不到, 并且 secret 没有保存到 vault, 就从 self._secret 获取
             secret = self._secret
-        if not secret and copy and self.secret_has_save_to_vault:
+        if not secret and settings.VAULT_KEEP_DB_COPY and self.secret_has_save_to_vault and self._has_secret_copy():
             # XPAM: the vault does not answer (or lost it): the copy kept in the database
-            secret = copy
+            secret = self._secret_copy
         self.__secret = secret
         return self.__secret
 

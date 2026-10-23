@@ -29,7 +29,13 @@ class JITPolicyViewSet(OrgBulkModelViewSet):
     }
 
     def get_queryset(self):
-        qs = super().get_queryset()
+        from django.db.models import Count
+        qs = super().get_queryset().select_related('approval_flow').annotate(
+            permissions_amount=Count('asset_permissions', distinct=True),
+            live_accounts_amount=Count(
+                'jit_accounts', filter=Q(jit_accounts__status__in=JITAccount.ACTIVE_STATUSES), distinct=True
+            ),
+        )
         # The permission form only offers policies that are attached to permissions
         if self.request.query_params.get('for_permission'):
             qs = qs.exclude(mode=JITPolicy.Mode.approved_window)
@@ -63,9 +69,12 @@ class JITPolicyViewSet(OrgBulkModelViewSet):
         if params.get('ticket') and is_uuid(params['ticket']):
             # the approval screen: the applicant of the request
             from tickets.models import ApplyAssetTicket
-            from orgs.utils import tmp_to_root_org
+            from orgs.utils import current_org, tmp_to_root_org
             with tmp_to_root_org():
-                ticket = ApplyAssetTicket.objects.filter(id=params['ticket']).select_related('applicant').first()
+                qs = ApplyAssetTicket.objects.filter(id=params['ticket'])
+                if not current_org.is_root():
+                    qs = qs.filter(org_id=current_org.id)
+                ticket = qs.select_related('applicant').first()
             user = ticket.applicant if ticket else None
         elif params.get('user') and is_uuid(params['user']):
             user = User.objects.filter(id=params['user']).first()

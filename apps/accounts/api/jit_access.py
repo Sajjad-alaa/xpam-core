@@ -65,11 +65,18 @@ class JITAccessViewSet(viewsets.ViewSet):
             return value
         start, end = when('date_start'), when('date_expired')
         accounts = data.get('accounts')
+        protocols = data.get('protocols')
+        actions = data.get('actions')
+        assets = data.get('assets')
+        nodes = data.get('nodes')
         return Response(selfservice.preview(
-            request.user, list(data.get('assets') or []), data.get('hours'), reason=str(data.get('reason') or ''),
-            node_ids=list(data.get('nodes') or []), start=start, end=end,
+            request.user, list(assets) if isinstance(assets, (list, tuple)) else [], data.get('hours'),
+            reason=str(data.get('reason') or ''),
+            node_ids=list(nodes) if isinstance(nodes, (list, tuple)) else [], start=start, end=end,
             accounts=[str(a) for a in accounts] if isinstance(accounts, list) else None,
-            flow_id=data.get('flow_id')))
+            flow_id=data.get('flow_id'),
+            protocols=[str(p) for p in protocols] if isinstance(protocols, list) else None,
+            actions=actions if isinstance(actions, (int, list)) else None))
 
     @action(methods=['post'], detail=False, url_path='request')
     def submit(self, request):

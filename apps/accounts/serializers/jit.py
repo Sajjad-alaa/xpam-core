@@ -135,10 +135,14 @@ class JITPolicySerializer(BulkOrgResourceModelSerializer):
 
     @staticmethod
     def get_permissions_amount(obj):
+        if hasattr(obj, 'permissions_amount'):
+            return obj.permissions_amount
         return obj.asset_permissions.count()
 
     @staticmethod
     def get_live_accounts_amount(obj):
+        if hasattr(obj, 'live_accounts_amount'):
+            return obj.live_accounts_amount
         return obj.jit_accounts.filter(status__in=JITAccount.ACTIVE_STATUSES).count()
 
     def validate_username_prefix(self, value):
