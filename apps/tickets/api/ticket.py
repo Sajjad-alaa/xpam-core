@@ -41,7 +41,7 @@ class TicketViewSet(ReportExportMixin, CommonApiMixin, viewsets.ModelViewSet):
     perm_model = Ticket
     filterset_class = filters.TicketFilter
     search_fields = [
-        'title', 'type', 'status'
+        'title', 'serial_num', 'type', 'status', 'applicant__name', 'applicant__username'
     ]
     ordering_fields = [
         'title', 'serial_num', 'type', 'state', 'status', 'applicant',

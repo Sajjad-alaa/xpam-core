@@ -80,16 +80,21 @@ def ticket_access(ticket, viewer):
     """ what the request gave, for the ticket page; None when it gave nothing (pending, rejected, closed) """
     from accounts.models import JITAccount
     from terminal.models import Session
+    from tickets.models import ApplyAssetTicket
+    from .policy import PolicyMatcher
     perm = permission_of(ticket)
     if perm is None:
         return None
     now = timezone.now()
     state = state_of(perm, ticket.apply_date_expired, now)
     applicant = ticket.applicant
+    matcher = PolicyMatcher()
     with tmp_to_org(perm.org_id):
         assets = list(perm.get_all_assets().select_related('platform')[:50])
+        policy = next((p for a in assets if (p := matcher.policy_for(perm, applicant, a))), None) if applicant else None
     with tmp_to_root_org():
         jits = list(JITAccount.objects.filter(permission_id=perm.id).order_by('-date_created')[:50])
+        extensions_used = ApplyAssetTicket.objects.filter(apply_extends=str(perm.id), state='approved').count()
         sessions = list(Session.objects.filter(
             user_id=str(applicant.id) if applicant else '', asset_id__in=[str(a.id) for a in assets],
             date_start__gte=perm.date_start or perm.date_created,
@@ -97,6 +102,9 @@ def ticket_access(ticket, viewer):
         ).order_by('-date_start')[:20]) if applicant else []
     is_applicant = applicant is not None and viewer.id == applicant.id
     active = state in ACTIVE_STATES
+    allow_ext = getattr(policy, 'allow_extension', True) if policy else True
+    max_ext = getattr(policy, 'max_extensions', 0) if policy else 0
+    ext_allowed = allow_ext and (max_ext == 0 or extensions_used < max_ext)
     return {
         'state': state, 'permission_id': str(perm.id),
         'date_start': perm.date_start, 'date_expired': perm.date_expired,
@@ -111,9 +119,18 @@ def ticket_access(ticket, viewer):
         'sessions': [{'id': str(s.id), 'asset': s.asset, 'account': s.account, 'protocol': s.protocol,
                       'login_from': s.login_from, 'remote_addr': s.remote_addr, 'is_finished': s.is_finished,
                       'date_start': s.date_start, 'date_end': s.date_end} for s in sessions],
+        'extension_policy': {
+            'policy_name': policy.name if policy else '',
+            'allow_extension': allow_ext,
+            'extension_approval': getattr(policy, 'extension_approval', 'same') if policy else 'same',
+            'max_hours': (getattr(policy, 'extension_max_hours', 0) or policy.max_hours) if policy else 8,
+            'max_extensions': max_ext,
+            'extensions_used': extensions_used,
+            'require_reason': getattr(policy, 'require_reason', False) if policy else False,
+        },
         'can': {
             'end': is_applicant and active,
-            'extend': is_applicant and state == 'active',
+            'extend': is_applicant and state == 'active' and ext_allowed,
             'revoke': active and can_revoke(ticket, viewer, perm),
         },
     }

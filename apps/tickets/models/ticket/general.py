@@ -391,11 +391,22 @@ class Ticket(StatusMixin, JMSBaseModel):
 
     @classmethod
     def get_user_related_tickets(cls, user):
+        if getattr(user, 'is_superuser', False):
+            return cls.objects.all()
         queries = (
             Q(applicant=user) |
             Q(ticket_steps__ticket_assignees__assignee=user) |
             Q(cc_users=user)
         )
+        # XPAM: an organization administrator also sees every ticket of the organizations they administer
+        # (never another organization's)
+        from rbac.builtin import BuiltinRole
+        from rbac.models import RoleBinding
+        admin_org_ids = list(RoleBinding._base_manager.filter(
+            user=user, scope='org', role_id=BuiltinRole.org_admin.id,
+        ).values_list('org_id', flat=True))
+        if admin_org_ids:
+            queries |= Q(org_id__in=[str(i) for i in admin_org_ids])
         return cls.objects.filter(queries).distinct()
 
     def get_current_ticket_flow_approve(self):

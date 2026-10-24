@@ -57,6 +57,11 @@ class JITPolicySerializer(BulkOrgResourceModelSerializer):
     approval_flow = ApprovalFlowField(required=False, allow_null=True, attrs=('id', 'name'),
                                       label=_('Approval flow'))
     approvers = OptionalUsersField(label=_('Approvers'), required=False, allow_null=True)
+    extension_approval = LabeledChoiceField(
+        choices=JITPolicy.ExtensionApproval.choices,
+        default=JITPolicy.ExtensionApproval.same,
+        label=_('Extension approval'),
+    )
     assets = JSONManyToManyField(label=_('Assets'), required=False)
     permissions = ObjectRelatedField(
         source='asset_permissions', many=True, required=False,
@@ -87,7 +92,9 @@ class JITPolicySerializer(BulkOrgResourceModelSerializer):
             'privileged', 'linux_shell', 'linux_groups', 'windows_groups', 'remove_home',
             'scope', 'users', 'assets', 'priority', 'is_active', 'permissions',
             'jit_only', 'self_service', 'max_hours', 'require_reason', 'auto_approve', 'auto_approve_max_hours',
-            'auto_approve_time_period', 'approvals_required', 'approval_route', 'approval_flow', 'approvers', 'require_mfa', 'end_sessions_on_expiry',
+            'auto_approve_time_period', 'approvals_required', 'approval_route', 'approval_flow', 'approvers',
+            'allow_extension', 'extension_approval', 'extension_max_hours', 'max_extensions',
+            'require_mfa', 'end_sessions_on_expiry',
             'expiry_warning_minutes', 'command_groups', 'command_action', 'credential_type',
             'db_privilege', 'db_custom_sql', 'device_role', 'device_custom_role', 'device_create_commands',
             'device_remove_commands', 'protocols', 'actions', 'permissions_amount', 'live_accounts_amount',
@@ -116,6 +123,10 @@ class JITPolicySerializer(BulkOrgResourceModelSerializer):
                                             'without waiting for an approver')},
             'auto_approve_time_period': {'help_text': _('Leave empty for any time')},
             'approvals_required': {'help_text': _('2 = a second person must also approve (four-eyes)')},
+            'allow_extension': {'help_text': _('Allow users to request an extension before their active access expires')},
+            'extension_approval': {'help_text': _('Whether extensions follow the initial rule, auto-approve, or always require manual approval')},
+            'extension_max_hours': {'help_text': _('Longest single extension in hours (0 = use Longest access)')},
+            'max_extensions': {'help_text': _('Maximum number of extensions allowed per granted access (0 = unlimited)')},
             'require_mfa': {'help_text': _('Users verify their MFA before the just-in-time account is used')},
             'expiry_warning_minutes': {'help_text': _('The user is told this long before the access ends; 0 = off')},
             'db_custom_sql': {'help_text': _('One statement per line, ending with ";". Placeholders: {username}, '
@@ -217,6 +228,9 @@ class JITPolicySerializer(BulkOrgResourceModelSerializer):
                     'A policy cannot approve by itself and also ask for two approvers')})
         if (get('approvals_required', 1) or 1) not in (1, 2):
             raise serializers.ValidationError({'approvals_required': _('1 or 2')})
+        if not 0 <= (get('extension_max_hours', 0) or 0) <= max_hours:
+            raise serializers.ValidationError({'extension_max_hours': _(
+                'Between 0 and the longest access (%s hours)') % max_hours})
         if get('approval_route', JITPolicy.ApprovalRoute.flow) == JITPolicy.ApprovalRoute.approvers:
             approvers = get('approvers')
             value = getattr(approvers, 'value', approvers)

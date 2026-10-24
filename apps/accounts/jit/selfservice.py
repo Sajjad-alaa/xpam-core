@@ -189,10 +189,11 @@ def auto_approve_decision(ticket, mapping=None):
         mapping = ticket_policies(ticket)
     # (the reason is the request's comment: a title is not a reason — "Reason required" stays required)
     return _decision(mapping, ticket.apply_date_start, ticket.apply_date_expired, ticket.apply_accounts,
-                     ticket.comment, protocols=ticket.apply_protocols, actions=ticket.apply_actions)
+                     ticket.comment, protocols=ticket.apply_protocols, actions=ticket.apply_actions,
+                     is_extension=bool(ticket.apply_extends))
 
 
-def _decision(mapping, start, end, accounts, reason, protocols=None, actions=None):
+def _decision(mapping, start, end, accounts, reason, protocols=None, actions=None, is_extension=False):
     from tickets.serializers.ticket.apply_asset import clean_protocols
     if not end:
         return None, _('the request has no end time')
@@ -209,7 +210,15 @@ def _decision(mapping, start, end, accounts, reason, protocols=None, actions=Non
             return None, _('no just-in-time rule covers %s') % asset
         if not policy.self_service:
             return None, _('the rule %s does not allow self-service requests') % policy
-        if not policy.auto_approve or policy.approvals_required > 1:
+        if is_extension:
+            if not getattr(policy, 'allow_extension', True):
+                return None, _('the rule %s does not allow access extensions') % policy
+            ext_mode = getattr(policy, 'extension_approval', 'same') or 'same'
+            if ext_mode == 'manual':
+                return None, _('the rule %s requires manual approval for extensions') % policy
+            if ext_mode == 'same' and (not policy.auto_approve or policy.approvals_required > 1):
+                return None, _('the rule %s does not approve requests by itself') % policy
+        elif not policy.auto_approve or policy.approvals_required > 1:
             return None, _('the rule %s does not approve requests by itself') % policy
         rule_protos = [] if 'all' in (policy.protocols or ['all']) else list(policy.protocols)
         if rule_protos and asked_protocols is not None and (
@@ -218,9 +227,14 @@ def _decision(mapping, start, end, accounts, reason, protocols=None, actions=Non
                 'rule': policy, 'protocols': ', '.join(rule_protos)}
         if action_mask is not None and (action_mask & ~policy.actions):
             return None, _('the rule %s does not allow all requested actions') % policy
-        if hours > policy.auto_approve_max_hours + 1 / 60:
+        auto_max = (
+            (getattr(policy, 'extension_max_hours', 0) or policy.auto_approve_max_hours or policy.max_hours)
+            if is_extension
+            else policy.auto_approve_max_hours
+        )
+        if hours > auto_max + 1 / 60:
             return None, _('%(hours)s h asked; the rule %(rule)s approves up to %(max)s h by itself') % {
-                'hours': '%g' % round(hours, 1), 'rule': policy, 'max': policy.auto_approve_max_hours}
+                'hours': '%g' % round(hours, 1), 'rule': policy, 'max': auto_max}
         if not policy.in_auto_approve_window():
             return None, _('asked outside the hours the rule %s approves by itself') % policy
         if policy.require_reason and not (reason or '').strip():
@@ -645,7 +659,20 @@ def _submit(request, assets, hours, reason, title, start, end, extends=None, pro
         if not policy or not policy.self_service:
             raise SelfServiceError(_('You cannot request access to %s') % asset)
         policies[asset] = policy
-    max_hours = min(p.max_hours for p in policies.values())
+    if extends:
+        for p in policies.values():
+            if not getattr(p, 'allow_extension', True):
+                raise SelfServiceError(_('The policy %s does not allow extending access') % p)
+        max_exts = [p.max_extensions for p in policies.values() if getattr(p, 'max_extensions', 0) > 0]
+        if max_exts:
+            from tickets.models import ApplyAssetTicket
+            limit_ext = min(max_exts)
+            used_ext = ApplyAssetTicket.objects.filter(apply_extends=str(extends), state='approved').count()
+            if used_ext >= limit_ext:
+                raise SelfServiceError(_('Maximum number of extensions (%s) reached for this access') % limit_ext)
+        max_hours = min((getattr(p, 'extension_max_hours', 0) or p.max_hours) for p in policies.values())
+    else:
+        max_hours = min(p.max_hours for p in policies.values())
     start = start or timezone.now()
     if end is None:
         try:
@@ -715,6 +742,10 @@ def my_access(user):
                            'auto_approve': policy.auto_approve,
                            'auto_approve_max_hours': policy.auto_approve_max_hours,
                            'require_reason': policy.require_reason,
+                           'allow_extension': getattr(policy, 'allow_extension', True),
+                           'extension_approval': getattr(policy, 'extension_approval', 'same'),
+                           'extension_max_hours': getattr(policy, 'extension_max_hours', 0) or policy.max_hours,
+                           'max_extensions': getattr(policy, 'max_extensions', 0),
                            'warn_minutes': policy.expiry_warning_minutes} if policy else None,
             })
         pending = []

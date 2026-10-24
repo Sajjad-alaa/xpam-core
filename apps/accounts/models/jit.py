@@ -63,6 +63,11 @@ class JITPolicy(JMSOrgBaseModel):
         flow = 'flow', _('An approval flow')
         approvers = 'approvers', _('Specific people')
 
+    class ExtensionApproval(models.TextChoices):
+        same = 'same', _('Same as initial request')
+        auto = 'auto', _('Approve extensions automatically')
+        manual = 'manual', _('Always require manual approval')
+
     name = models.CharField(max_length=128, verbose_name=_('Name'))
     mode = models.CharField(
         max_length=32, choices=Mode.choices, default=Mode.per_session, verbose_name=_('Account lifetime')
@@ -112,6 +117,18 @@ class JITPolicy(JMSOrgBaseModel):
     approval_flow = models.ForeignKey('tickets.TicketFlow', null=True, blank=True, on_delete=models.SET_NULL,
                                       related_name='+', verbose_name=_('Approval flow'))
     approvers = JSONManyToManyField('users.User', default=dict, blank=True, verbose_name=_('Approvers'))
+    # Session & access extensions
+    allow_extension = models.BooleanField(default=True, verbose_name=_('Allow access extensions'))
+    extension_approval = models.CharField(
+        max_length=16, choices=ExtensionApproval.choices, default=ExtensionApproval.same,
+        verbose_name=_('Extension approval')
+    )
+    extension_max_hours = models.PositiveIntegerField(
+        default=0, verbose_name=_('Longest extension (hours)')
+    )
+    max_extensions = models.PositiveSmallIntegerField(
+        default=0, verbose_name=_('Max extensions per access')
+    )
     # Security
     require_mfa = models.BooleanField(default=False, verbose_name=_('MFA when connecting'))
     end_sessions_on_expiry = models.BooleanField(default=True, verbose_name=_('End live sessions when access ends'))
