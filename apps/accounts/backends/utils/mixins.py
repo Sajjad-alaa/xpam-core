@@ -19,7 +19,7 @@ class GeneralVaultMixin(object):
         secret = self.client.get(name=entry.full_path, strict=True)
         if secret is None:
             raise VaultSecretNotFoundException()
-        return entry.get_decrypt_secret(secret)
+        return entry.get_decrypt_secret(secret, strict=True)
 
     def _create(self, entry):
         secret = entry.get_encrypt_secret()

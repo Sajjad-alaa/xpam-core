@@ -1,5 +1,6 @@
 from abc import ABC
 
+from common.db.datakey import check_readable
 from common.db.utils import Encryptor
 from common.utils import lazyproperty
 
@@ -31,9 +32,14 @@ class BaseEntry(ABC):
         return secret
 
     @staticmethod
-    def get_decrypt_secret(secret):
+    def get_decrypt_secret(secret, strict=False):
         if secret is not None:
-            secret = Encryptor(secret).decrypt()
+            plain = Encryptor(secret).decrypt()
+            if strict and secret and not plain:
+                # XPAM: Encryptor answers '' for a value no key opens. A restore (or a move to another vault) must
+                # not take that for an empty secret and write it over the stored one.
+                check_readable(secret)
+            secret = plain
         return secret
 
 

@@ -15,7 +15,7 @@ from datetime import timedelta
 
 from celery import shared_task
 from django.conf import settings
-from django.db import models
+from django.db import models, transaction
 from django.db.models.functions import Cast
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
@@ -81,11 +81,23 @@ def _rotate_if_due():
         logger.info(f'data key: new version v{version}')
 
 
+def _replace(model, attname, pk, raw, value):
+    """ the new value, only when the row still holds the one that was read: a value that a user changed in the
+    meantime is kept (False) and looked at again tomorrow """
+    with transaction.atomic():
+        now = model._base_manager.select_for_update().filter(pk=pk) \
+            .annotate(_xpam_raw=Cast(attname, models.TextField())).values_list('_xpam_raw', flat=True).first()
+        if now != raw:
+            return False
+        model._base_manager.filter(pk=pk).update(**{attname: models.Value(value, output_field=models.TextField())})
+    return True
+
+
 def _reencrypt_database(current):
     """ every value at the newest version: transit by Vault (rewrap), others decrypted and encrypted again """
     from common.db import datakey
     from common.db.utils import Encryptor
-    batch, done, failed = [], 0, 0
+    batch, done, failed, unreadable = [], 0, 0, 0
 
     def flush():
         nonlocal done, failed
@@ -98,9 +110,8 @@ def _reencrypt_database(current):
             failed += len(batch)
             batch.clear()
             return
-        for (model, attname, pk, _), value in zip(batch, new):
-            model._base_manager.filter(pk=pk).update(**{attname: models.Value(value, output_field=models.TextField())})
-        done += len(batch)
+        for (model, attname, pk, raw), value in zip(batch, new):
+            done += _replace(model, attname, pk, raw, value)
         batch.clear()
 
     for model, attname, pk, raw in _raw_values():
@@ -115,54 +126,74 @@ def _reencrypt_database(current):
             plain = Encryptor(raw).decrypt()
             if plain is None:
                 continue
-            model._base_manager.filter(pk=pk).update(
-                **{attname: models.Value(Encryptor(plain).encrypt(), output_field=models.TextField())})
-            done += 1
+            if not plain:
+                # ('' is also what Encryptor answers for a value no key opens: that one is left as it is; it does
+                # not depend on a data key version, so it does not hold back the retirement of old versions)
+                try:
+                    datakey.check_readable(raw)
+                except ValueError:
+                    unreadable += 1
+                    logger.warning(f'data key: {model._meta.label} {pk} cannot be opened with SECRET_KEY: left as it is')
+                    continue
+            done += _replace(model, attname, pk, raw, Encryptor(plain).encrypt())
         except Exception as e:
             # (one value that cannot be opened now must not stop the others; it is retried tomorrow)
             failed += 1
             logger.error(f'data key: {model._meta.label} {pk} could not be re-encrypted: {e}')
     flush()
     _reencrypt_database.failed = failed
+    _reencrypt_database.unreadable = unreadable
     return done
 
 
 def _reencrypt_vaults(current):
-    """ the secrets kept in vaults are encrypted the same way: written again with the newest key """
+    """ the secrets kept in vaults are encrypted the same way: written again with the newest key (the password
+    history too: it is kept in the account's vault). What could not be done is counted: no key version may be
+    retired while a vault may still hold a value under it """
     from accounts.backends import vault_client
     from accounts.models import Account, AccountTemplate, PersonalAssetCredential
     from common.db import datakey
     from orgs.utils import tmp_to_root_org
     vault_client.type  # noqa: B018
     router = vault_client._wrapped
+    done = failed = 0
     if not router.enabled and not hasattr(router, 'target'):
-        return 0
-    done = 0
+        _reencrypt_vaults.failed = failed
+        return done
     with tmp_to_root_org():
-        for model in (Account, AccountTemplate, PersonalAssetCredential):
+        for model in (Account, AccountTemplate, Account.history.model, PersonalAssetCredential):
             queryset = model.objects.all()
             if model is Account:
                 queryset = queryset.exclude(secret_source='external')
             for obj in queryset.iterator():
                 if not obj.secret_has_save_to_vault:
                     continue
-                backend = router.backend(obj.vault_connection_id)
-                entry = backend.build_entry(obj)
                 try:
+                    connection, mirror = router._stored(obj)
+                    backend = router.backend(connection)
+                    if backend.type == 'openbao':
+                        continue  # (it keeps the secret as it is: no data key is involved)
+                    if backend.type == 'local':
+                        if settings.VAULT_ENABLED:
+                            # (the configured vault could not be set up: what it holds cannot be checked)
+                            raise RuntimeError('the vault client is not available')
+                        continue  # (no vault in use: a marker left from an earlier one is not ours to read)
+                    entry = backend.build_entry(obj)
                     if backend.type == 'hcp':
                         stored = (backend.client.get(path=entry.full_path).get('data') or {}).get('secret') or ''
                     else:
-                        stored = backend.client.get(name=entry.full_path) or ''
+                        stored = backend.client.get(name=entry.full_path, strict=True) or ''
+                    if not stored or datakey.is_current(stored, current):
+                        continue
+                    obj._secret = entry.get_decrypt_secret(stored, strict=True)
+                    backend._update(entry)
+                    if mirror:
+                        router._mirror_write(mirror, obj)
+                    done += 1
                 except Exception as e:
-                    logger.warning(f'data key: reading {model.__name__} {obj.pk} from its vault failed: {e}')
-                    continue
-                if not stored or datakey.is_current(stored, current):
-                    continue
-                obj._secret = router.get(obj)
-                backend._update(entry)
-                if obj.vault_mirror_id:
-                    router._mirror_write(obj.vault_mirror_id, obj)
-                done += 1
+                    failed += 1
+                    logger.warning(f'data key: {model.__name__} {obj.pk} in its vault could not be re-encrypted: {e}')
+    _reencrypt_vaults.failed = failed
     return done
 
 
@@ -172,7 +203,7 @@ def _retire(current):
     floor = current - keep + 1
     if floor <= 1:
         return None
-    if getattr(_reencrypt_database, 'failed', 0):
+    if getattr(_reencrypt_database, 'failed', 0) or getattr(_reencrypt_vaults, 'failed', 0):
         return None  # (values could not be re-encrypted: keep every version until they are)
     in_use = [datakey.version_of(raw) for *_, raw in _raw_values() if raw.startswith(datakey.PREFIXES)]
     oldest = min([v for v in in_use if v is not None] or [current])
@@ -198,7 +229,8 @@ def rotate_data_keys():
     vaults = _reencrypt_vaults(current)
     floor = _retire(current)
     result = {'provider': datakey.provider(), 'version': current, 'database': database, 'vaults': vaults,
-              'failed': getattr(_reencrypt_database, 'failed', 0), 'oldest_kept': floor}
+              'failed': getattr(_reencrypt_database, 'failed', 0) + getattr(_reencrypt_vaults, 'failed', 0),
+              'unreadable': getattr(_reencrypt_database, 'unreadable', 0), 'oldest_kept': floor}
     logger.info(f'data key rotation: {result}')
     return result
 

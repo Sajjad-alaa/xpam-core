@@ -8,7 +8,7 @@ from ..models import VaultConnection, VaultStorageRule
 
 __all__ = ['VaultConnectionSerializer', 'VaultStorageRuleSerializer']
 
-SECRET_HINTS = ('PASSWORD', 'TOKEN', 'SECRET', 'API_KEY', 'CREDENTIALS', 'KEY_FILE')
+SECRET_HINTS = ('PASSWORD', 'TOKEN', 'SECRET', 'API_KEY', 'CREDENTIALS', 'KEY_FILE', 'KEY_PEM')
 
 
 class VaultConnectionSerializer(serializers.ModelSerializer):

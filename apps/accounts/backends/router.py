@@ -120,6 +120,26 @@ class VaultRouter(object):
         except Exception as e:
             logger.warning(f'Vault mirror: removing the copy failed: {e}')
 
+    def _copy_histories(self, instance, old, new):
+        """ a history record is read where its account is: those kept in the old vault go to the new one with it
+        (copied here, removed from the old vault once the account points to the new one) """
+        copied = []
+        history = getattr(instance, 'history', None)
+        if history is None:
+            return copied
+        old_backend, new_backend = self.backend(old), self.backend(new)
+        for record in history.all():
+            if not record.secret_has_save_to_vault:
+                continue
+            try:
+                record._secret = old_backend.get_for_restore(record)
+                new_backend._create(new_backend.build_entry(record))
+            except Exception as e:  # (the account itself matters more: this one stays in the old vault)
+                logger.warning(f'Vault move: history record {record.pk} was not copied: {e}')
+                continue
+            copied.append(record)
+        return copied
+
     # ------------------------------------------------------------ the vault client contract
 
     def create(self, instance):
@@ -154,21 +174,25 @@ class VaultRouter(object):
         moving = connection != stored_connection and saved
         plain = None
         if moving:
-            # the rules changed: read it where it is (before the instance points elsewhere)
-            instance._secret = self.get(instance)
+            # the rules changed: read it where it is (before the instance points elsewhere). The strict read: a
+            # secret that is missing there or cannot be opened must stop the move, not be written as an empty one
+            # to the new vault while the old copy is deleted
+            instance._secret = self.get_for_restore(instance)
         elif mirror and saved and mirror != stored_mirror:
             # mirroring just turned on (or changed): the current secret is copied
             plain = self.backend(connection).get(instance)
         self._set(instance, connection, mirror)
+        histories = []
         try:
             if moving:
                 if mirror:
                     self._mirror_write(mirror, instance)
                 self.backend(connection).create(instance)
+                histories = self._copy_histories(instance, stored_connection, connection)
             else:
                 if mirror and not saved:
                     self._mirror_write(mirror, instance)
-                elif plain is not None:
+                elif plain:  # (nothing readable: no empty copy for the mirror)
                     current, instance._secret = instance._secret, plain
                     try:
                         self._mirror_write(mirror, instance)
@@ -178,14 +202,16 @@ class VaultRouter(object):
         except Exception:
             self._set(instance, stored_connection, stored_mirror)
             raise
+        # (the new place is remembered before the old copy goes: if this fails the secret is still where it was)
+        self._persist(instance)
         if moving:
-            try:
-                self.backend(stored_connection).delete(instance)
-            except Exception as e:
-                logger.warning(f'Vault move: removing the old copy failed: {e}')
+            for record in [instance] + histories:
+                try:
+                    self.backend(stored_connection).delete(record)
+                except Exception as e:
+                    logger.warning(f'Vault move: removing the old copy failed: {e}')
         if stored_mirror and stored_mirror != mirror:
             self._mirror_delete(stored_mirror, instance)
-        self._persist(instance)
 
     def get(self, instance):
         if self._is_external(instance):

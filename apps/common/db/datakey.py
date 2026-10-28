@@ -32,7 +32,7 @@ LOCAL_PREFIX = 'xpamk:'
 PREFIXES = (TRANSIT_PREFIX, LOCAL_PREFIX)
 
 __all__ = ['encrypt', 'decrypt', 'provider', 'is_current', 'DataKeyUnavailable', 'transit', 'keyring', 'PREFIXES',
-           'version_of']
+           'version_of', 'check_readable']
 
 
 class DataKeyUnavailable(RuntimeError):
@@ -142,7 +142,11 @@ class TransitKey:
         parts = [self.split(v) for v in values]
         data = self._post('rewrap', {'batch_input': [{'ciphertext': c, 'context': ctx} for ctx, c in parts]})
         out = []
-        for (ctx, _), item in zip(parts, data.get('batch_results') or []):
+        results = data.get('batch_results') or []
+        if len(results) != len(parts):
+            # (a shorter answer would leave values at the old version while the caller counts them as done)
+            raise DataKeyUnavailable(f'Vault re-wrapped {len(results)} of {len(parts)} values')
+        for (ctx, _), item in zip(parts, results):
             if item.get('error'):
                 raise DataKeyUnavailable(item['error'])
             out.append(f'{TRANSIT_PREFIX}{ctx}:{item["ciphertext"]}')
@@ -274,6 +278,24 @@ def decrypt(value):
         raise DataKeyUnavailable(f'the data key cannot be used: {e}')
     _opened.put(value, plain)
     return plain
+
+
+def check_readable(raw):
+    """ Encryptor answers '' for a value that no key opens, the same as for an empty secret. For a stored (non-empty)
+    value whose plain text came out empty: raises ValueError when it could not be opened, so that nobody writes
+    that '' back over it (a re-encryption, a restore, a move to another vault). """
+    if raw.startswith(PREFIXES):
+        return  # (a data key value that cannot be opened raises on its own)
+    from common.utils.crypto import crypto
+    from common.utils.encode import signer
+    if crypto.decrypt(raw) is not None:
+        return
+    try:
+        if signer.unsign(raw) is not None:
+            return
+    except Exception:  # noqa
+        pass
+    raise ValueError('the stored value cannot be decrypted with the current key')
 
 
 def version_of(value):

@@ -19,9 +19,13 @@ def _pem_file(pem):
     os.makedirs(directory, mode=0o700, exist_ok=True)
     path = os.path.join(directory, hashlib.sha256(pem.encode()).hexdigest()[:24] + '.pem')
     if not os.path.exists(path):
-        fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        # (written complete under another name, then put in place: several processes start at the same time and
+        # none may read a half-written file or fail because another one was first)
+        tmp = f'{path}.{os.getpid()}.tmp'
+        fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
         with os.fdopen(fd, 'w') as f:
             f.write(pem)
+        os.replace(tmp, path)
     return path
 
 
@@ -63,7 +67,7 @@ class Vault(BaseVault):
         data = self.client.get(path=entry.full_path).get('data')
         if not isinstance(data, dict) or 'secret' not in data:
             raise VaultSecretNotFoundException()
-        return entry.get_decrypt_secret(data['secret'])
+        return entry.get_decrypt_secret(data['secret'], strict=True)
 
     def _create(self, entry):
         data = {'secret': entry.get_encrypt_secret()}

@@ -59,6 +59,9 @@ class VaultKVClient(object):
             raise ValueError('Vault address is empty')
         self.mount_point = (mount_point or 'pam').strip('/')
         self.auth = auth or 'token'
+        if self.auth == 'cert' and any(not u.startswith('https://') for u in self.urls):
+            # (the client certificate and the token travel in the clear otherwise)
+            raise ValueError('Certificate login needs https:// addresses')
         self.cert_role = cert_role
         self.namespace = namespace
         self.timeout = int(timeout or 10)
@@ -86,7 +89,7 @@ class VaultKVClient(object):
             headers['X-Vault-Namespace'] = self.namespace
         if token:
             headers['X-Vault-Token'] = self._get_token()
-        last_error = None
+        last_error = last_response = None
         for i in range(len(self.urls)):
             index = (self._current + i) % len(self.urls)
             try:
@@ -97,8 +100,15 @@ class VaultKVClient(object):
                 last_error = e
                 logger.warning(f'Vault {self.urls[index]} unreachable, trying the next one: {e}')
                 continue
+            if response.status_code == 503 and i + 1 < len(self.urls):
+                # a sealed server answers 503 to everything: another one of the cluster may be unsealed
+                last_response = response
+                logger.warning(f'Vault {self.urls[index]} is sealed or unavailable, trying the next one')
+                continue
             self._current = index
             return response
+        if last_response is not None:
+            return last_response
         raise ConnectionError(f'No Vault server reachable: {last_error}')
 
     def _request(self, method, path, expected=(200, 204), retry_login=True, **kwargs):
