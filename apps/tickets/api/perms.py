@@ -5,11 +5,20 @@ from assets.serializers.asset.common import MiniAssetSerializer
 from assets.serializers.node import NodeSerializer
 from common.api import SuggestionMixin
 from orgs.mixins.api import OrgReadonlyModelViewSet
+from orgs.utils import current_org
 from perms.utils import AssetPermissionPermAssetUtil
 from perms.utils.permission import AssetPermissionUtil
 from tickets.const import TicketApplyAssetScope
 
 __all__ = ['ApplyAssetsViewSet', 'ApplyNodesViewSet']
+
+
+def own_orgs_only(user, queryset):
+    """ XPAM: "all organizations" (root) lists what may be requested in the user's own organizations, not in every
+    organization of the system (unless the user sees them all) """
+    if current_org.is_root() and not user.has_perm('orgs.view_rootorg'):
+        queryset = queryset.filter(org_id__in=list(user.orgs.values_list('id', flat=True)))
+    return queryset
 
 
 class ApplyAssetsViewSet(OrgReadonlyModelViewSet, SuggestionMixin):
@@ -27,7 +36,7 @@ class ApplyAssetsViewSet(OrgReadonlyModelViewSet, SuggestionMixin):
         elif TicketApplyAssetScope.is_permed_valid():
             queryset = self.get_assets()
         else:
-            queryset = super().get_queryset()
+            queryset = own_orgs_only(self.request.user, super().get_queryset())
         return queryset
 
     def get_assets(self, with_expired=False):
@@ -54,7 +63,7 @@ class ApplyNodesViewSet(OrgReadonlyModelViewSet, SuggestionMixin):
         elif TicketApplyAssetScope.is_permed_valid():
             queryset = self.get_nodes()
         else:
-            queryset = super().get_queryset()
+            queryset = own_orgs_only(self.request.user, super().get_queryset())
         return queryset.with_realtime_assets_amount()
 
     def get_nodes(self, with_expired=False):

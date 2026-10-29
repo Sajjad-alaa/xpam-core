@@ -339,7 +339,8 @@ class FaceMonitorContextApi(CreateAPIView):
 
 
 class FaceMonitorCallbackApi(CreateAPIView):
-    permission_classes = (IsServiceAccount,)
+    # (pauses and resumes users' sessions: the face engine only)
+    permission_classes = (IsFaceEngine,)
     serializer_class = FaceMonitorCallbackSerializer
 
     def create(self, request, *args, **kwargs):

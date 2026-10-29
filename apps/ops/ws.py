@@ -54,6 +54,12 @@ class TaskLogWebsocket(AsyncJsonWebsocketConsumer, OrgMixin):
             return None
 
     @sync_to_async
+    def creator_in_org(self, task):
+        if not task.creator_id or self.org.is_root():
+            return False
+        return self.org.get_members().filter(id=task.creator_id).exists()
+
+    @sync_to_async
     def get_current_user_role_ids(self, user):
         with tmp_to_org(self.org):
             org_roles = user.org_roles.all()
@@ -69,15 +75,15 @@ class TaskLogWebsocket(AsyncJsonWebsocketConsumer, OrgMixin):
             await self.send_json({'message': 'Task not found', 'task': task_id})
             return
 
-        admin_auditor_role_ids = {
-            BuiltinRole.system_admin.id,
-            BuiltinRole.system_auditor.id,
-            BuiltinRole.org_admin.id,
-            BuiltinRole.org_auditor.id
-        }
+        system_role_ids = {BuiltinRole.system_admin.id, BuiltinRole.system_auditor.id}
+        org_role_ids = {BuiltinRole.org_admin.id, BuiltinRole.org_auditor.id}
         user = self.scope['user']
         user_role_ids = await self.get_current_user_role_ids(user)
-        has_admin_auditor_role = bool(admin_auditor_role_ids & user_role_ids)
+        # XPAM: a task run belongs to no organization: an org administrator or auditor sees the runs of their
+        # organization's members, not every run of the system (other organizations' automations)
+        has_admin_auditor_role = bool(system_role_ids & user_role_ids) or (
+            bool(org_role_ids & user_role_ids) and await self.creator_in_org(task)
+        )
         has_perms = await self.has_perms(user, ['audits.view_joblog'])
         user_can_view = task.creator == user or (task.name in self.user_tasks and has_perms)
         # (有管理员或审计员角色) 或者 (任务是用户自己创建的 或者 有查看任务日志权限), 其他情况没有权限

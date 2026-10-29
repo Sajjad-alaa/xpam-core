@@ -67,6 +67,9 @@ app_exclude_perms = [
     ('users', 'user', 'add,delete', 'user'),
     ('orgs', 'org', 'add,delete,change', 'org'),
     ('rbac', '*', '*', '*'),
+    # XPAM: no component signs people in: an SSO token logs in as any user (the system administrator too),
+    # without password or MFA, so a stolen component key would be the whole system
+    ('authentication', 'ssotoken', '*', '*'),
     *chat_ai_user_perms,
 ]
 

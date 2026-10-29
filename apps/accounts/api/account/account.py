@@ -19,7 +19,6 @@ from assets.models import Asset, Node
 from authentication.permissions import UserConfirmation, ConfirmType
 from common.api.mixin import ExtraFilterFieldsMixin
 from common.drf.filters import AttrRulesFilterBackend
-from common.permissions import IsValidUser
 from common.utils import lazyproperty, get_logger
 from orgs.mixins.api import OrgBulkModelViewSet
 from orgs.utils import tmp_to_root_org
@@ -50,6 +49,7 @@ class AccountViewSet(OrgBulkModelViewSet):
         'copy_to_assets': 'accounts.add_account',
         'chat': 'accounts.view_account',
         'tree_metrics': 'accounts.view_account',
+        'username_suggestions': 'accounts.view_account',
     }
     export_as_zip = True
 
@@ -143,10 +143,9 @@ class AccountViewSet(OrgBulkModelViewSet):
         serializer = serializers.AccountSerializer(accounts, many=True)
         return Response(data=serializer.data)
 
-    @action(
-        methods=['post'], detail=False, url_path='username-suggestions',
-        permission_classes=[IsValidUser]
-    )
+    # (role-checked: any signed-in user could list the account usernames of an organization; the asset
+    # permission form, its only user, is for those who may see accounts)
+    @action(methods=['post'], detail=False, url_path='username-suggestions')
     def username_suggestions(self, request, *args, **kwargs):
         raw_asset_ids = request.data.get('assets', [])
         node_ids = request.data.get('nodes', [])

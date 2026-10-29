@@ -1,5 +1,6 @@
 import json
 import os
+import shutil
 import uuid
 from functools import partial
 
@@ -328,7 +329,9 @@ class UsernameHintsAPI(APIView):
         asset_ids = request.data.get('assets', [])
         query = request.data.get('query', None)
 
-        assets = list(Asset.objects.filter(id__in=asset_ids).all())
+        # (only assets the user is permitted: the usernames of any asset were listed for its id)
+        from perms.utils import UserPermAssetUtil
+        assets = list(UserPermAssetUtil(request.user).get_all_assets().filter(id__in=asset_ids))
 
         assets = merge_nodes_and_assets(node_ids, assets, request.user)
 
@@ -368,6 +371,10 @@ class ClassifiedHostsAPI(APIView):
                 if job_type == Types.upload_file else None
             )
         )
-        classified_hosts = inventory.get_classified_hosts(tmp_dir)
+        try:
+            classified_hosts = inventory.get_classified_hosts(tmp_dir)
+        finally:
+            # (a folder per request, never removed: any user could fill the disk)
+            shutil.rmtree(tmp_dir, ignore_errors=True)
 
         return Response(data=classified_hosts)
