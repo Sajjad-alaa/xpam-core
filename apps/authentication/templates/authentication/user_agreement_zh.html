@@ -1,4 +1,4 @@
-<html lang="zh-CN">
+<html lang="zh-CN" class="{% if INTERFACE.theme_info.is_dark %}dark{% endif %}">
     <head>
         <meta charset="UTF-8" />
         <title>社区版用户协议</title>
@@ -52,6 +52,7 @@
                 font-size: 13px;
             }
         </style>
+        {% include 'authentication/_policy_theme.html' %}
     </head>
     <body>
         <div>

@@ -1,4 +1,4 @@
-<html>
+<html class="{% if INTERFACE.theme_info.is_dark %}dark{% endif %}">
     <head>
         <title>隐私政策</title>
         <meta charset="UTF-8" />
@@ -49,6 +49,7 @@
                 font-size: 13px;
             }
         </style>
+        {% include 'authentication/_policy_theme.html' %}
     </head>
     <body>
         <h2>隐私政策</h2>

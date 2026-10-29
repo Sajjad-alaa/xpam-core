@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" class="{% if INTERFACE.theme_info.is_dark %}dark{% endif %}">
     <head>
         <meta charset="UTF-8" />
         <title>Community Edition User Agreement</title>
@@ -53,6 +53,7 @@
                 font-size: 13px;
             }
         </style>
+        {% include 'authentication/_policy_theme.html' %}
     </head>
     <body>
         <div>

@@ -1,5 +1,4 @@
 #
-from django.http import HttpResponse
 from django.utils.decorators import method_decorator
 from django.utils.translation import gettext_lazy as _
 from django.views.decorators.cache import never_cache
@@ -15,11 +14,11 @@ class FlashMessageMsgView(TemplateView):
     def get(self, request, *args, **kwargs):
         code = request.GET.get('code')
         if not code:
-            return HttpResponse(_('Not found the code'))
+            return self.render_missing(_('Not found the code'))
 
         message_data = FlashMessageUtil.get_message_by_code(code)
         if not message_data:
-            return HttpResponse(_('The message code provided is invalid or has expired'))
+            return self.render_missing(_('The message code provided is invalid or has expired'))
 
         items = ('title', 'message', 'error', 'redirect_url', 'confirm_button', 'cancel_url')
         title, msg, error, redirect_url, confirm_btn, cancel_url = bulk_get(message_data, items)
@@ -41,3 +40,11 @@ class FlashMessageMsgView(TemplateView):
             'cancel_url': cancel_url,
         }
         return self.render_to_response(context)
+
+    def render_missing(self, error):
+        # (the message page itself, in the console's theme, instead of a bare text page; it leads back to the start)
+        return self.render_to_response({
+            'title': _('Message not available'), 'message': '', 'error': error, 'interval': 3,
+            'redirect_url': safe_next_url('/', request=self.request), 'auto_redirect': False,
+            'confirm_button': '', 'has_cancel': False, 'cancel_url': '',
+        })
