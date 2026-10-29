@@ -21,7 +21,10 @@
         .container {
             max-width: 72%;
             margin: 20px auto;
-            background-color: #ffffff;
+            /* (the theme's colours: the page text follows the theme, a fixed white card hid it in dark mode) */
+            background-color: var(--page-content-background-color, #ffffff);
+            color: var(--color-text-primary, #0f172a);
+            border: 1px solid var(--panel-border-color, transparent);
             padding: 15px;
             border-radius: 8px;
             box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
@@ -43,7 +46,7 @@
             justify-content: space-between;
             align-items: center;
             padding: 15px 0;
-            border-bottom: 1px dashed #ddd;
+            border-bottom: 1px dashed var(--panel-border-color, #ddd);
         }
 
         .section:last-child {
@@ -58,12 +61,12 @@
 
         .section .description {
             flex: 10;
-            color: #666;
+            color: var(--color-text-secondary, #666);
         }
 
         .section .summarize {
             flex: 12;
-            color: #666;
+            color: var(--color-text-secondary, #666);
         }
 
         .section .action {
@@ -90,7 +93,7 @@
 
         .section .action-buttons .divider {
             margin: 0 10px;
-            color: #ddd;
+            color: var(--panel-border-color, #ddd);
         }
 
         .section .action-buttons a {

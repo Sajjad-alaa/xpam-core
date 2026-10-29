@@ -1,4 +1,5 @@
 from django.conf import settings
+from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
 
 from authentication.mfa.base import BaseMFA
@@ -36,11 +37,12 @@ class MFAFace(BaseMFA, AuthFaceMixin):
                 settings.FACE_RECOGNITION_ENABLED
         )
 
+    # (the face capture pages: the console's profile has no face dialog, so its address only reloaded the profile)
     def get_enable_url(self) -> str:
-        return '/web/#/profile/index'
+        return reverse('authentication:user-face-enable')
 
     def get_disable_url(self) -> str:
-        return '/web/#/profile/index'
+        return reverse('authentication:user-face-disable')
 
     def disable(self):
         assert self.is_authenticated()
