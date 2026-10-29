@@ -285,6 +285,12 @@ class UserResetMFAApi(UserQuerysetMixin, generics.RetrieveAPIView):
             return Response({"error": msg}, status=400)
 
         backends = user.active_mfa_backends_mapper
+        # (after the reset the user must still have a method to sign in with, or to set up while signing in:
+        # a face or a passkey cannot be added again in the middle of a login)
+        from authentication.mfa.policy import get_allowed_mfa_types, lockout_message, usable_mfa_types
+        resettable = {name for name, backend in backends.items() if backend.can_disable()}
+        if user.mfa_enabled and backends and not usable_mfa_types(user, without=resettable):
+            return Response({"error": lockout_message(get_allowed_mfa_types(user))}, status=400)
         for backend in backends.values():
             if backend.can_disable():
                 backend.disable()

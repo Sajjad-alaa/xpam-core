@@ -371,11 +371,30 @@ class UserSerializer(
             attrs.pop(field, None)
         return attrs
 
+    def check_mfa_lockout(self, attrs):
+        """ The MFA methods chosen for the user must leave one the user can sign in with (or set up while
+        signing in): e.g. face only, with no face enrolled yet, locks the user out. Checked when the list changes. """
+        from copy import copy
+        from authentication.mfa.policy import lockout_message, usable_mfa_types
+
+        allowed = attrs.get('allowed_mfa_types')
+        if not allowed or (self.instance is not None and not isinstance(self.instance, User)):
+            return  # (inherits the global methods; or a bulk update, where the user of each item is not known here)
+        if self.instance is not None and set(allowed) == set(self.instance.allowed_mfa_types or []):
+            return
+        user = copy(self.instance) if self.instance is not None else User()
+        for field in ('email', 'phone'):
+            if field in attrs:
+                setattr(user, field, attrs[field])
+        if not usable_mfa_types(user, allowed):
+            raise serializers.ValidationError({'allowed_mfa_types': lockout_message(allowed)})
+
     def validate(self, attrs):
         attrs = self.check_disallow_self_update_fields(attrs)
         attrs = self.change_password_to_raw(attrs)
         attrs = self.clean_auth_fields(attrs)
         attrs = self.clean_ukey_fields(attrs)
+        self.check_mfa_lockout(attrs)
         password_strategy = attrs.pop("password_strategy", None)
         request = get_current_request()
         if request:

@@ -70,6 +70,10 @@ class UserFaceDisableView(UserFaceCaptureView):
             user = self.get_user_from_session()
             if not user.check_face(code):
                 raise Exception(_('Facial comparison failed'))
+            from authentication.mfa.face import MFAFace
+            from authentication.mfa.policy import get_allowed_mfa_types, lockout_message
+            if not MFAFace(user).can_disable():
+                raise Exception(lockout_message(get_allowed_mfa_types(user)))
             user.face_vector = None
             user.save(update_fields=['face_vector'])
         except Exception as e:

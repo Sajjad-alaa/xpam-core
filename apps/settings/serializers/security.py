@@ -206,6 +206,15 @@ class SecurityAuthSerializer(serializers.Serializer):
             raise serializers.ValidationError({
                 'SECURITY_MFA_METHODS': _('Select at least one MFA method')
             })
+        from authentication.mfa.policy import SETUP_WHEN_SIGNED_IN
+        if methods and set(methods) <= SETUP_WHEN_SIGNED_IN:
+            # (face and passkey are added while signed in: alone, every user without one is locked out)
+            raise serializers.ValidationError({
+                'SECURITY_MFA_METHODS': _(
+                    'Add a method users can set up while signing in (e.g. OTP): face recognition and passkeys '
+                    'can only be added after signing in, so with them alone users without one cannot sign in.'
+                )
+            })
         return attrs
 
     def to_representation(self, instance):

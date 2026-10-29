@@ -48,7 +48,9 @@ class MFAFace(BaseMFA, AuthFaceMixin):
         self.user.save(update_fields=['face_vector'])
 
     def can_disable(self) -> bool:
-        return True
+        # (not when the face is the user's only way to sign in: a face cannot be enrolled again during a login)
+        from .policy import usable_mfa_types
+        return bool(usable_mfa_types(self.user, without={self.name}))
 
     @staticmethod
     def help_text_of_enable():
