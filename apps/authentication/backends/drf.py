@@ -16,10 +16,6 @@ from users.models import User
 from ..models import AccessKey, PrivateToken
 
 
-def date_more_than(d, seconds):
-    return d is None or (timezone.now() - d).seconds > seconds
-
-
 @merge_delay_run(ttl=60)
 def update_token_last_used(tokens=()):
     access_keys_ids = [token.id for token in tokens if isinstance(token, AccessKey)]

@@ -15,16 +15,6 @@ __all__ = [
 ]
 
 
-class CurrentAssetPermission(object):
-    permission = None
-
-    def set_context(self, serializer_field):
-        self.permission = serializer_field.context['permission']
-
-    def __call__(self):
-        return self.permission
-
-
 class RelationMixin(BulkSerializerMixin, serializers.Serializer):
     assetpermission_display = serializers.SerializerMethodField()
 

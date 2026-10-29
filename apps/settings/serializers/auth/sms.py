@@ -27,11 +27,6 @@ class SMSSettingSerializer(serializers.Serializer):
     )
 
 
-class SignTmplPairSerializer(serializers.Serializer):
-    SIGN_NAME = serializers.CharField(max_length=256, required=True, label=_('Signature'))
-    TEMPLATE_CODE = serializers.CharField(max_length=256, required=True, label=_('Template code'))
-
-
 class BaseSMSSettingSerializer(serializers.Serializer):
     PREFIX_TITLE = _('SMS')
 

@@ -8,16 +8,6 @@ class SSOAuthClosed(JMSException):
     default_detail = _('SSO auth closed')
 
 
-class WeComCodeInvalid(JMSException):
-    default_code = 'wecom_code_invalid'
-    default_detail = 'Code invalid, can not get user info'
-
-
-class WeComBindAlready(JMSException):
-    default_code = 'wecom_not_bound'
-    default_detail = _('WeCom is already bound')
-
-
 class WeComNotBound(JMSException):
     default_code = 'wecom_not_bound'
     default_detail = _('WeCom is not bound')
@@ -41,11 +31,6 @@ class LarkNotBound(JMSException):
 class SlackNotBound(JMSException):
     default_code = 'slack_not_bound'
     default_detail = _('Slack is not bound')
-
-
-class PasswordInvalid(JMSException):
-    default_code = 'passwd_invalid'
-    default_detail = _('Your password is invalid')
 
 
 class IntervalTooShort(JMSException):

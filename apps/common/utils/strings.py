@@ -35,10 +35,3 @@ def color_fmt(msg, color=None):
     return f"{color_code}{msg}{colors['default']}"  # 确保在消息结束后重置颜色
 
 
-def color_print(msg, color=None):
-    print(color_fmt(msg, color))
-
-
-def color_fill_print(tmp, msg, color=None):
-    text = tmp.format(color_fmt(msg, color))
-    print(text)

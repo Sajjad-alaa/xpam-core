@@ -49,11 +49,6 @@ class UserUpdatePasswordSerializer(serializers.ModelSerializer):
         return instance
 
 
-class UserRoleSerializer(serializers.Serializer):
-    name = serializers.CharField(max_length=24)
-    display = serializers.CharField(max_length=64)
-
-
 class UserProfileSerializer(UserSerializer):
     # Declared on UserSerializer, so Meta.read_only_fields does not apply.
     allowed_mfa_types = ListMultipleChoiceField(
@@ -157,18 +152,6 @@ class UserProfileSerializer(UserSerializer):
 
     def get_lang(self, obj) -> str:
         return getattr(obj, 'lang') or settings.LANGUAGE_CODE
-
-
-class UserPKUpdateSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = User
-        fields = ['id', 'public_key']
-
-    @staticmethod
-    def validate_public_key(value):
-        if not validate_ssh_public_key(value):
-            raise serializers.ValidationError(_('Not a valid ssh public key'))
-        return value
 
 
 class ChangeUserPasswordSerializer(serializers.ModelSerializer):

@@ -52,11 +52,6 @@ class AccountRiskSerializer(serializers.ModelSerializer):
         return queryset.select_related("asset")
 
 
-class RiskSummarySerializer(serializers.Serializer):
-    risk = serializers.CharField(max_length=128)
-    count = serializers.IntegerField()
-
-
 class AssetRiskSerializer(serializers.Serializer):
     id = serializers.CharField(max_length=128, required=False, source="asset__id")
     name = serializers.CharField(max_length=128, required=False, source="asset__name")

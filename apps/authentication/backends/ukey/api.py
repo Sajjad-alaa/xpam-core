@@ -5,16 +5,11 @@ import subprocess
 import tempfile
 from django.utils.translation import gettext_lazy as _
 
-import yaml
 from django.conf import settings
 from django.http import Http404, HttpResponse
-from django.utils.decorators import method_decorator
-from django.views.decorators.cache import cache_control
-from django.shortcuts import get_object_or_404
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.permissions import AllowAny
-from common.permissions import OnlySuperUser
 from common.utils import get_logger
 from .sdk import ukey_sdk_config
 from .utils import is_sm2_pem

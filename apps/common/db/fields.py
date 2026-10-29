@@ -114,10 +114,6 @@ class JsonListMixin(JsonTypeMixin):
     tp = list
 
 
-class JsonStrListMixin(JsonListMixin):
-    pass
-
-
 class JsonListCharField(JsonListMixin, models.CharField):
     description = _("Marshal list data to char field")
 

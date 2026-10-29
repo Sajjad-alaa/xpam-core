@@ -8,7 +8,6 @@ from assets.serializers import HostSerializer
 from common.const.choices import Status
 from common.serializers.fields import LabeledChoiceField
 from common.validators import ProjectUniqueValidator
-from .applet import AppletSerializer
 from .. import const
 from ..models import AppletHost, AppletHostDeployment
 
@@ -150,13 +149,6 @@ class AppletHostSerializer(HostSerializer):
         )
         validators.append(uniq_validator)
         return validators
-
-
-class HostAppletSerializer(AppletSerializer):
-    publication = serializers.SerializerMethodField()
-
-    class Meta(AppletSerializer.Meta):
-        fields = AppletSerializer.Meta.fields + ['publication']
 
 
 class AppletHostDeploymentSerializer(serializers.ModelSerializer):

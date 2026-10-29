@@ -4,7 +4,7 @@ import traceback
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
-from radiusauth.backends import RADIUSBackend, RADIUSRealmBackend
+from radiusauth.backends import RADIUSBackend
 
 from authentication.backends.base import JMSBaseAuthBackend
 from .signals import radius_create_user
@@ -55,6 +55,3 @@ class RadiusBackend(RadiusBaseBackend, RADIUSBackend):
         return super().authenticate(request, username=username, password=password)
 
 
-class RadiusRealmBackend(RadiusBaseBackend, RADIUSRealmBackend):
-    def authenticate(self, request, username='', password='', realm=None):
-        return super().authenticate(request, username=username, password=password, realm=realm)

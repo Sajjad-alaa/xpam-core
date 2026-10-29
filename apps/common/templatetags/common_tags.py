@@ -2,7 +2,6 @@
 
 from django import template
 from django.utils import timezone
-from django.utils.translation import gettext as _
 from django.utils.html import escape
 from django import forms
 
@@ -77,7 +76,6 @@ def time_util_with_seconds(date_from, date_to):
         return ''
     if not date_to:
         return ''
-        date_to = timezone.now()
 
     delta = date_to - date_from
     seconds = delta.seconds

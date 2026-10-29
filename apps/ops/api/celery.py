@@ -7,7 +7,7 @@ from django.shortcuts import get_object_or_404
 from django.utils.translation import gettext as _, gettext_lazy
 from django_celery_beat.models import PeriodicTask
 from django_filters import rest_framework as drf_filters
-from rest_framework import generics, viewsets, mixins, status
+from rest_framework import viewsets, mixins, status
 from rest_framework.response import Response
 
 from common.api import CommonApiMixin
@@ -36,11 +36,6 @@ class CeleryPeriodTaskViewSet(CommonApiMixin, viewsets.ModelViewSet):
         name = self.kwargs.get('name')
         obj = get_object_or_404(PeriodicTask, name=name)
         return obj
-
-
-class CelerySummaryAPIView(generics.RetrieveAPIView):
-    def get(self, request, *args, **kwargs):
-        pass
 
 
 class CeleryTaskFilterSet(BaseFilterSet):

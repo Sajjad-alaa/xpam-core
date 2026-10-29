@@ -926,22 +926,6 @@ class CustomFilterBackend(filters.BaseFilterBackend):
         return queryset
 
 
-def current_user_filter(user_field="user"):
-    class CurrentUserFilter(filters.BaseFilterBackend):
-        def filter_queryset(self, request, queryset, view):
-            return queryset.filter(**{user_field: request.user})
-
-    return CurrentUserFilter
-
-
-class UUIDInFilter(drf_filters.BaseInFilter, drf_filters.UUIDFilter):
-    pass
-
-
-class NumberInFilter(drf_filters.BaseInFilter, drf_filters.NumberFilter):
-    pass
-
-
 class AttrRulesFilterBackend(filters.BaseFilterBackend):
     def get_schema_operation_parameters(self, view):
         return [

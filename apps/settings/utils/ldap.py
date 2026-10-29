@@ -720,7 +720,6 @@ class LDAPTestUtil(object):
         try:
             self._test_config()
         except LDAPInvalidServerError as e:
-            raise e
             msg = _('Error (Invalid LDAP server): {}').format(e)
         except LDAPBindError as e:
             msg = _('Error (Invalid Bind DN): {}').format(e)

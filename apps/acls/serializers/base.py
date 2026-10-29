@@ -12,46 +12,6 @@ common_help_text = _(
 )
 
 
-class ACLUsersSerializer(serializers.Serializer):
-    username_group = serializers.ListField(
-        default=["*"],
-        child=serializers.CharField(max_length=128),
-        label=_("Username"),
-        help_text=common_help_text,
-    )
-
-
-class ACLAssetsSerializer(serializers.Serializer):
-    address_group_help_text = _(
-        "With * indicating a match all. "
-        "Such as: "
-        "192.168.10.1, 192.168.1.0/24, 10.1.1.1-10.1.1.20, 2001:db8:2de::e13, 2001:db8:1a:1110::/64"
-        " (Domain name support)"
-    )
-
-    name_group = serializers.ListField(
-        default=["*"],
-        child=serializers.CharField(max_length=128),
-        label=_("Name"),
-        help_text=common_help_text,
-    )
-    address_group = serializers.ListField(
-        default=["*"],
-        child=serializers.CharField(max_length=1024),
-        label=_("IP/Host"),
-        help_text=address_group_help_text,
-    )
-
-
-class ACLAccountsSerializer(serializers.Serializer):
-    username_group = serializers.ListField(
-        default=["*"],
-        child=serializers.CharField(max_length=128),
-        label=_("Username"),
-        help_text=common_help_text,
-    )
-
-
 class ActionAclSerializer(serializers.Serializer):
     action = LabeledChoiceField(
         choices=ActionChoices.choices, default=ActionChoices.reject, label=_("Action")

@@ -261,20 +261,6 @@ def test_merge_delay_run(users=()):
     print("Hello, %s, now is %s" % (name, time.time()))
 
 
-def do_test():
-    s = time.time()
-    print("start : %s" % time.time())
-    for i in range(100):
-        # test_delay_run('test', year=i)
-        test_merge_delay_run(users=['test %s' % i])
-        test_merge_delay_run(users=['best %s' % i])
-        test_delay_run('test run %s' % i)
-
-    end = time.time()
-    using = end - s
-    print("end : %s, using: %s" % (end, using))
-
-
 def cached_method(ttl=20):
     _cache = {}
 
@@ -293,31 +279,6 @@ def cached_method(ttl=20):
 
         return wrapper
 
-    return decorator
-
-
-def cached_method_to_redis(key, ttl, should_cache=None):
-    from django.core.cache import cache
-    
-    def decorator(func):
-        @wraps(func)
-        def wrapper(*args, **kwargs):
-            # 尝试从缓存读取
-            cached_result = cache.get(key)
-            if cached_result is not None:
-                return cached_result
-            
-            # 执行函数
-            result = func(*args, **kwargs)
-            
-            # 判断是否缓存
-            if should_cache is None or should_cache(result):
-                cache.set(key, result, ttl)
-            
-            return result
-        
-        return wrapper
-    
     return decorator
 
 

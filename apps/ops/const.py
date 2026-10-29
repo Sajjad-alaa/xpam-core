@@ -4,13 +4,6 @@ from django.utils.translation import gettext_lazy as _, pgettext_lazy
 from common.utils import string_punctuation
 
 
-class StrategyChoice(models.TextChoices):
-    push = 'push', _('Push')
-    verify = 'verify', _('Verify')
-    collect = 'collect', _('Collect')
-    change_secret = 'change_secret', _('Change secret')
-
-
 class SSHKeyStrategy(models.TextChoices):
     add = 'add', _('Append SSH KEY')
     set = 'set', _('Empty and append SSH KEY')

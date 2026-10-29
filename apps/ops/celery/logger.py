@@ -6,7 +6,6 @@ from celery import current_task
 from celery.signals import task_prerun, task_postrun
 from django.conf import settings
 from kombu import Connection, Exchange, Queue, Producer
-from kombu.mixins import ConsumerMixin
 
 from .utils import get_celery_task_log_path
 from ..ansible.utils import get_ansible_task_log_path
@@ -15,37 +14,6 @@ from ..const import CELERY_LOG_MAGIC_MARK
 routing_key = 'celery_log'
 celery_log_exchange = Exchange('celery_log_exchange', type='direct')
 celery_log_queue = [Queue('celery_log', celery_log_exchange, routing_key=routing_key)]
-
-
-class CeleryLoggerConsumer(ConsumerMixin):
-    def __init__(self):
-        self.connection = Connection(settings.CELERY_LOG_BROKER_URL)
-
-    def get_consumers(self, Consumer, channel):
-        return [Consumer(queues=celery_log_queue,
-                         accept=['json'],
-                         callbacks=[self.process_task])
-                ]
-
-    def handle_task_start(self, task_id, message):
-        pass
-
-    def handle_task_end(self, task_id, message):
-        pass
-
-    def handle_task_log(self, task_id, msg, message):
-        pass
-
-    def process_task(self, body, message):
-        action = body.get('action')
-        task_id = body.get('task_id')
-        msg = body.get('msg')
-        if action == CeleryLoggerProducer.ACTION_TASK_LOG:
-            self.handle_task_log(task_id, msg, message)
-        elif action == CeleryLoggerProducer.ACTION_TASK_START:
-            self.handle_task_start(task_id, message)
-        elif action == CeleryLoggerProducer.ACTION_TASK_END:
-            self.handle_task_end(task_id, message)
 
 
 class CeleryLoggerProducer:
@@ -196,48 +164,6 @@ class CeleryThreadingLoggerHandler(CeleryTaskLoggerHandler):
 
     def handleError(self, record) -> None:
         pass
-
-
-class CeleryTaskMQLoggerHandler(CeleryTaskLoggerHandler):
-    def __init__(self):
-        self.producer = CeleryLoggerProducer()
-        super().__init__(stream=None)
-
-    def write_task_log(self, task_id, record):
-        msg = self.format(record)
-        self.producer.log(task_id, msg)
-
-    def flush(self):
-        self.producer.flush()
-
-
-class CeleryTaskFileHandler(CeleryTaskLoggerHandler):
-    def __init__(self, *args, **kwargs):
-        self.f = None
-        super().__init__(*args, **kwargs)
-
-    def emit(self, record):
-        if (
-                self.is_routine_task_success(record)
-                or self.is_internal_automation_message(record)
-        ):
-            return
-        msg = self.format(record)
-        if not self.f or self.f.closed:
-            return
-        self.f.write(msg)
-        self.f.write(self.terminator)
-        self.flush()
-
-    def flush(self):
-        self.f and self.f.flush()
-
-    def handle_task_start(self, task_id):
-        log_path = get_celery_task_log_path(task_id)
-        self.f = open(log_path, 'a')
-
-    def handle_task_end(self, task_id):
-        self.f and self.f.close()
 
 
 class CeleryThreadTaskFileHandler(CeleryThreadingLoggerHandler):

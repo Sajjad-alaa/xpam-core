@@ -90,15 +90,3 @@ def after_app_ready_start(func):
     return decorate
 
 
-def after_app_shutdown_clean_periodic(func):
-    # Because when this decorator run, the task was not created,
-    # So we can't use func.name
-    name = '{func.__module__}.{func.__name__}'.format(func=func)
-    if name not in _after_app_shutdown_clean_periodic_tasks:
-        add_after_app_shutdown_clean_task(name)
-
-    @wraps(func)
-    def decorate(*args, **kwargs):
-        return func(*args, **kwargs)
-
-    return decorate

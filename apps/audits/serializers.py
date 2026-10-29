@@ -9,7 +9,6 @@ from common.utils import reverse, i18n_trans
 from common.utils.timezone import as_current_tz
 from ops.serializers.job import JobExecutionSerializer, JobSerializer
 from orgs.mixins.serializers import BulkOrgResourceModelSerializer
-from terminal.models import Session
 from users.models import User
 from . import models
 from .const import (
@@ -160,12 +159,6 @@ class PasswordChangeLogSerializer(serializers.ModelSerializer):
     class Meta:
         model = models.PasswordChangeLog
         fields = ("id", "user", "change_by", "remote_addr", "datetime")
-
-
-class SessionAuditSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Session
-        fields = "__all__"
 
 
 class ActivityUnionLogSerializer(serializers.Serializer):

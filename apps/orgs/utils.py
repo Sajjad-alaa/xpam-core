@@ -70,10 +70,6 @@ def set_to_root_org():
     set_current_org(Organization.root())
 
 
-def set_to_system_org():
-    set_current_org(Organization.system())
-
-
 def _find(attr):
     return getattr(thread_local, attr, None)
 
@@ -187,11 +183,3 @@ def org_aware_func(org_arg_name):
 current_org = LocalProxy(get_current_org)
 
 
-def ensure_in_real_or_default_org(func):
-    @wraps(func)
-    def wrapper(*args, **kwargs):
-        if not current_org or current_org.is_root():
-            raise ValueError('You must in a real or default org!')
-        return func(*args, **kwargs)
-
-    return wrapper

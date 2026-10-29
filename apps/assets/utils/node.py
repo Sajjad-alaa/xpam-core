@@ -4,10 +4,9 @@ from collections import defaultdict
 from uuid import uuid4
 
 from django.core.cache import cache
-from django.db.models import Count, F, Q
+from django.db.models import Count, Q
 
-from common.struct import Stack
-from common.utils import dict_get_any, is_uuid, get_object_or_none, timeit
+from common.utils import dict_get_any, is_uuid, get_object_or_none
 from common.utils.http import is_true
 from common.utils.lock import DistributedLock
 from ..models import Node
@@ -260,64 +259,3 @@ class NodeAssetsInfo:
         return self.key
 
 
-class NodeAssetsUtil:
-    def __init__(self, nodes, nodekey_assetsid_mapper):
-        """
-        :param nodes: 节点
-        :param nodekey_assetsid_mapper:  节点直接资产id的映射 {"key1": set(), "key2": set()}
-        """
-        self.nodes = nodes
-        # node_id --> set(asset_id1, asset_id2)
-        self.nodekey_assetsid_mapper = nodekey_assetsid_mapper
-        self.nodekey_assetsinfo_mapper = {}
-
-    @timeit
-    def generate(self):
-        # 准备排序好的资产信息数据
-        infos = []
-        for node in self.nodes:
-            assets = self.nodekey_assetsid_mapper.get(node.key, set())
-            info = NodeAssetsInfo(key=node.key, assets_amount=0, assets=assets)
-            infos.append(info)
-        infos = sorted(infos, key=lambda i: [int(i) for i in i.key.split(':')])
-        # 这个守卫需要添加一下，避免最后一个无法出栈
-        guarder = NodeAssetsInfo(key='', assets_amount=0, assets=set())
-        infos.append(guarder)
-
-        stack = Stack()
-        for info in infos:
-            # 如果栈顶的不是这个节点的父祖节点，那么可以出栈了，可以计算资产数量了
-            while stack.top and not info.key.startswith(f'{stack.top.key}:'):
-                pop_info = stack.pop()
-                pop_info.assets_amount = len(pop_info.assets)
-                self.nodekey_assetsinfo_mapper[pop_info.key] = pop_info
-                if not stack.top:
-                    continue
-                stack.top.assets.update(pop_info.assets)
-            stack.push(info)
-
-    def get_assets_by_key(self, key):
-        info = self.nodekey_assetsinfo_mapper[key]
-        return info['assets']
-
-    def get_assets_amount(self, key):
-        info = self.nodekey_assetsinfo_mapper[key]
-        return info.assets_amount
-
-    @classmethod
-    def test_it(cls):
-        from assets.models import Node, Asset
-
-        nodes = list(Node.objects.all())
-        nodes_assets = Asset.nodes.through.objects.all() \
-            .annotate(aid=F('asset_id')) \
-            .values_list('node__key', 'aid')
-
-        mapping = defaultdict(set)
-        for key, asset_id in nodes_assets:
-            asset_id = str(asset_id)
-            mapping[key].add(asset_id)
-
-        util = cls(nodes, mapping)
-        util.generate()
-        return util

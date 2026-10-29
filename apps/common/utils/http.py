@@ -26,19 +26,6 @@ def http_date(timeval=None):
     return formatdate(timeval, usegmt=True)
 
 
-def http_to_unixtime(time_string):
-    """把HTTP Date格式的字符串转换为UNIX时间（自1970年1月1日UTC零点的秒数）。
-
-    HTTP Date形如 `Sat, 05 Dec 2015 11:10:29 GMT` 。
-    """
-    return to_unixtime(time_string, _GMT_FORMAT)
-
-
-def iso8601_to_unixtime(time_string):
-    """把ISO8601时间字符串（形如，2012-02-24T06:07:48.000Z）转换为UNIX时间，精确到秒。"""
-    return to_unixtime(time_string, _ISO8601_FORMAT)
-
-
 def is_true(value):
     return value in BooleanField.TRUE_VALUES
 

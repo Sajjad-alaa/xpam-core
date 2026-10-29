@@ -67,20 +67,6 @@ def asset_permission_date_expired_default():
     return timezone.now() + timezone.timedelta(days=days)
 
 
-def union_queryset(*args, base_queryset=None):
-    if len(args) == 1:
-        return args[0]
-    elif len(args) == 0:
-        raise ValueError("args is empty")
-    args = [q.order_by() for q in args]
-    sub_query = args[0].union(*args[1:])
-    queryset_id = list(sub_query.values_list('id', flat=True))
-    if not base_queryset:
-        base_queryset = args[0].model.objects
-    queryset = base_queryset.filter(id__in=queryset_id)
-    return queryset
-
-
 def get_log_keep_day(s, defaults=200):
     try:
         days = int(getattr(settings, s))

@@ -12,9 +12,7 @@
 import uuid
 
 from django.db import models
-from django.db import transaction
-from django.db.models import F, ExpressionWrapper, CASCADE
-from django.db.models import QuerySet
+from django.db.models import CASCADE
 from django.utils.translation import gettext_lazy as _
 
 from ..const.signals import OP_LOG_SKIP_SIGNAL
@@ -47,36 +45,6 @@ class JMSBaseModel(BaseCreateUpdateModel):
 
     def __str__(self):
         return str(self.id)
-
-
-# Mysql PostgreSQL incompatible (ce6e5038a6134fad83aba220e6204cf9 ce6e5038-a613-4fad-83ab-a220e6204cf9)
-def output_as_string(field_name):
-    return ExpressionWrapper(F(field_name), output_field=models.CharField())
-
-
-class MultiTableChildQueryset(QuerySet):
-    def bulk_create(self, objs, batch_size=None):
-        assert batch_size is None or batch_size > 0
-        if not objs:
-            return objs
-
-        self._for_write = True
-        objs = list(objs)
-        parent_model = self.model._meta.pk.related_model
-
-        parent_objs = []
-        for obj in objs:
-            parent_values = {}
-            for field in [f for f in parent_model._meta.fields if hasattr(obj, f.name)]:
-                parent_values[field.name] = getattr(obj, field.name)
-            parent_objs.append(parent_model(**parent_values))
-            setattr(obj, self.model._meta.pk.attname, obj.id)
-        parent_model.objects.bulk_create(parent_objs, batch_size=batch_size)
-
-        with transaction.atomic(using=self.db, savepoint=False):
-            self._batched_insert(objs, self.model._meta.local_fields, batch_size)
-
-        return objs
 
 
 def CASCADE_SIGNAL_SKIP(collector, field, sub_objs, using):

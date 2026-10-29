@@ -1,7 +1,6 @@
 import json
 import logging
 import os
-import sys
 import uuid
 from collections import defaultdict
 from datetime import timedelta, datetime
@@ -10,7 +9,6 @@ from functools import partial
 from celery import current_task
 from django.conf import settings
 from django.db import models
-from django.db.models import Q
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
@@ -21,7 +19,6 @@ from simple_history.models import HistoricalRecords
 from accounts.models import Account
 from acls.models import CommandFilterACL, DataMaskingRule
 from assets.const import Protocol
-from assets.models import Asset
 from assets.automations.base.manager import SSHTunnelManager
 from common.db.encoder import ModelJSONFieldEncoder
 from ops.ansible import (
@@ -65,16 +62,6 @@ def check_upload_permission(host, *, user, asset, account, **kwargs):
             'Asset ({asset}) authorization lacks upload permissions'
         ).format(asset=asset.name)
     return host
-
-
-def get_parent_keys(key, include_self=True):
-    keys = []
-    split_keys = key.split(':')
-    for i in range(len(split_keys)):
-        keys.append(':'.join(split_keys[:i + 1]))
-    if not include_self:
-        keys.pop()
-    return keys
 
 
 class JMSPermedInventory(JMSInventory):

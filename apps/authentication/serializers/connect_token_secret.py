@@ -124,17 +124,6 @@ class _ConnectionTokenPlatformSerializer(PlatformSerializer):
         return names
 
 
-class _ConnectionTokenConnectMethodSerializer(serializers.Serializer):
-    name = serializers.CharField(label=_('Name'))
-    protocol = serializers.CharField(label=_('Protocol'))
-    os = serializers.CharField(label=_('OS'))
-    is_builtin = serializers.BooleanField(label=_('Is builtin'))
-    is_active = serializers.BooleanField(label=_('Is active'))
-    platform = _ConnectionTokenPlatformSerializer(label=_('Platform'))
-    action = ActionChoicesField(label=_('Action'))
-    options = serializers.JSONField(label=_('Options'))
-
-
 class _ConnectTokenConnectMethodSerializer(serializers.Serializer):
     label = serializers.CharField(label=_('Label'))
     value = serializers.CharField(label=_('Value'))

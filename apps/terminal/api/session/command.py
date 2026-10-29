@@ -2,18 +2,13 @@
 #
 from datetime import datetime
 
-from django.utils import timezone
 from rest_framework import generics
-from rest_framework.fields import DateTimeField
 from rest_framework.response import Response
 
 from acls.models import CommandFilterACL, CommandGroup
 from common.api import JMSBulkModelViewSet
 from common.utils import get_logger
-from orgs.utils import current_org
-from terminal.backends import (
-    get_command_storage, get_multi_command_storage
-)
+from terminal.backends import get_command_storage
 from terminal.const import RiskLevelChoices
 from terminal.exceptions import StorageInvalid
 from terminal.filters import CommandFilter
@@ -25,69 +20,6 @@ from terminal.serializers import (
 
 logger = get_logger(__name__)
 __all__ = ['CommandViewSet', 'InsecureCommandAlertAPI']
-
-
-class CommandQueryMixin:
-    command_store = get_command_storage()
-    filterset_fields = [
-        "asset", "account", "user", "session",
-        "risk_level", "input"
-    ]
-    default_days_ago = 5
-
-    @staticmethod
-    def get_org_id():
-        if current_org.is_default():
-            org_id = ''
-        else:
-            org_id = current_org.id
-        return org_id
-
-    def get_query_risk_level(self):
-        risk_level = self.request.query_params.get('risk_level')
-        if risk_level is None:
-            return None
-        if risk_level.isdigit():
-            return int(risk_level)
-        return None
-
-    def get_queryset(self):
-        # 解决访问 /docs/ 问题
-        if hasattr(self, 'swagger_fake_view'):
-            return self.command_store.model.objects.none()
-        date_from, date_to = self.get_date_range()
-        q = self.request.query_params
-        multi_command_storage = get_multi_command_storage()
-        queryset = multi_command_storage.filter(
-            date_from=date_from, date_to=date_to,
-            user=q.get("user"), asset=q.get("asset"), account=q.get("account"),
-            input=q.get("input"), session=q.get("session_id", q.get('session')),
-            risk_level=self.get_query_risk_level(), org_id=self.get_org_id(),
-        )
-        return queryset
-
-    def filter_queryset(self, queryset):
-        # 解决es存储命令时，父类根据filter_fields过滤出现异常的问题，返回的queryset类型list
-        return queryset
-
-    def get_date_range(self):
-        now = timezone.now()
-        days_ago = now - timezone.timedelta(days=self.default_days_ago)
-        date_from_st = days_ago.timestamp()
-        date_to_st = now.timestamp()
-
-        query_params = self.request.query_params
-        date_from_q = query_params.get("date_from")
-        date_to_q = query_params.get("date_to")
-
-        dt_parser = DateTimeField().to_internal_value
-
-        if date_from_q:
-            date_from_st = dt_parser(date_from_q).timestamp()
-
-        if date_to_q:
-            date_to_st = dt_parser(date_to_q).timestamp()
-        return date_from_st, date_to_st
 
 
 class CommandViewSet(JMSBulkModelViewSet):

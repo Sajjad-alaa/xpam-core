@@ -62,10 +62,15 @@ class RenderToJsonMixin:
     @action(methods=[POST, PUT], detail=False, url_path='render-to-json')
     def render_to_json(self, request: Request, *args, **kwargs):
         rows = request.data
-        if rows and isinstance(rows[0], dict):
+        # (the import file's rows: anything else, e.g. an empty object, is a bad request, not a server error)
+        if not isinstance(rows, (list, tuple)) or not any(rows):
+            return Response(data={"error": _("Request file format may be wrong")}, status=400)
+        if isinstance(rows[0], dict) and rows[0]:
             first = list(rows[0].values())[0]
             if str(first).startswith('#Help'):
                 rows.pop(0)
+        if not any(rows):
+            return Response(data={"error": _("Request file format may be wrong")}, status=400)
 
         data = {
             'title': (),
@@ -76,7 +81,4 @@ class RenderToJsonMixin:
         column_title_field_pairs = jms_context.get('column_title_field_pairs', ())
         data['title'] = column_title_field_pairs
 
-        if isinstance(request.data, (list, tuple)) and not any(request.data):
-            error = _("Request file format may be wrong")
-            return Response(data={"error": error}, status=400)
         return Response(data=data)

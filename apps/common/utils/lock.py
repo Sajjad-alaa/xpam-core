@@ -19,10 +19,6 @@ class AcquireFailed(RuntimeError):
     pass
 
 
-class LockHasTimeOut(RuntimeError):
-    pass
-
-
 class DistributedLock(RedisLock):
     def __init__(self, name, *, expire=None, release_on_transaction_commit=False,
                  reentrant=False, release_raise_exc=False, auto_renewal_seconds=60):

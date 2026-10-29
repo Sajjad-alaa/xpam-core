@@ -49,11 +49,6 @@ class InvalidElasticsearchProduct(JMSException):
     default_detail = _('The server is not Elasticsearch or this product is not supported')
 
 
-class NotSupportElasticsearch8(JMSException):
-    default_code = 'not_support_elasticsearch8'
-    default_detail = _('Not Support Elasticsearch8')
-
-
 class InvalidElasticsearchSSL(JMSException):
     default_code = 'invalid_elasticsearch_SSL'
     default_detail = _(

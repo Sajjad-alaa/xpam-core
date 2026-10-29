@@ -53,8 +53,3 @@ class AssetPaginationBase(LimitOffsetPagination):
         raise NotImplementedError
 
 
-class NodeAssetTreePagination(AssetPaginationBase):
-    def get_count_from_nodes(self, queryset):
-        # Node.assets_amount is no longer maintained. Let the filtered asset
-        # queryset execute an exact COUNT instead of returning a cached value.
-        return None

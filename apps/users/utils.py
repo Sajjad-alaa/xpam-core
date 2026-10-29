@@ -124,21 +124,6 @@ def check_password_rules(password, is_org_admin=False):
     return bool(match_obj)
 
 
-class BlockUtil:
-    BLOCK_KEY_TMPL: str
-
-    def __init__(self, username):
-        username = username.lower()
-        self.block_key = self.BLOCK_KEY_TMPL.format(username)
-        self.key_ttl = int(settings.SECURITY_LOGIN_LIMIT_TIME) * 60
-
-    def block(self):
-        cache.set(self.block_key, True, self.key_ttl)
-
-    def is_block(self):
-        return bool(cache.get(self.block_key))
-
-
 class BlockUtilBase:
     LIMIT_KEY_TMPL: str
     BLOCK_KEY_TMPL: str
@@ -316,10 +301,6 @@ def is_auth_password_time_valid(session):
     return is_auth_time_valid(session, 'auth_password_expired_at')
 
 
-def is_auth_otp_time_valid(session):
-    return is_auth_time_valid(session, 'auth_otp_expired_at')
-
-
 def is_confirm_time_valid(session, key):
     if not settings.SECURITY_VIEW_AUTH_NEED_MFA:
         return True
@@ -327,10 +308,6 @@ def is_confirm_time_valid(session, key):
     if time.time() - mfa_verify_time < settings.SECURITY_MFA_VERIFY_TTL:
         return True
     return False
-
-
-def is_auth_confirm_time_valid(session):
-    return is_confirm_time_valid(session, 'MFA_VERIFY_TIME')
 
 
 @contextmanager

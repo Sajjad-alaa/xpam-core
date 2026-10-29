@@ -42,20 +42,6 @@ class CustomAutoSchema(AutoSchema):
         tags = ['_'.join(operation_keys[:2])]
         return tags
    
-    def get_operation(self, path, *args, **kwargs):
-        if path.endswith('render-to-json/'):
-            return None
-        # if not path.startswith('/api/v1/users'):
-            # return None
-        operation = super().get_operation(path, *args, **kwargs)
-        if not operation:
-            return operation
-
-        if not operation.get('summary', ''):
-            operation['summary'] = operation.get('operationId')
-
-        return operation
-
     def get_operation_id(self):
         tokenized_path = self._tokenize_path()
         # replace dashes as they can be problematic later in code generation
@@ -290,7 +276,6 @@ class CustomAutoSchema(AutoSchema):
 # 添加自定义字段的 OpenAPI 扩展
 from drf_spectacular.extensions import OpenApiSerializerFieldExtension
 from drf_spectacular.openapi import AutoSchema
-from drf_spectacular.plumbing import build_basic_type
 from common.serializers.fields import ObjectRelatedField, LabeledChoiceField, BitChoicesField
 
 

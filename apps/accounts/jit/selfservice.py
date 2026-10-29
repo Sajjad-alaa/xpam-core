@@ -619,11 +619,6 @@ def explain_pending(ticket):
         logger.warning('JIT approval note on %s failed: %s', ticket, e)
 
 
-def require_second_approval(ticket):
-    """Kept for compatibility: the routing above handles "two approvers"."""
-    route_approvers(ticket)
-
-
 def drop_first_approver(ticket, step):
     """The person who approved the first step cannot approve the second one too."""
     nxt = step.next()

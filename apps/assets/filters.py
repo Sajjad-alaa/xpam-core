@@ -6,43 +6,6 @@ from rest_framework import filters
 from assets.utils import get_node_from_request, is_query_node_all_assets
 
 
-class AssetByNodeFilterBackend(filters.BaseFilterBackend):
-    fields = ['node', 'all']
-
-    def get_schema_operation_parameters(self, view):
-        return [
-            {
-                'name': field,
-                'in': 'query',
-                'required': False,
-                'description': '',
-                'schema': {'type': 'string'},
-                'example': '',
-            }
-            for field in self.fields
-        ]
-
-    def filter_node_related_all(self, queryset, node):
-        return queryset.filter(
-            Q(nodes__key__istartswith=f'{node.key}:') |
-            Q(nodes__key=node.key)
-        ).distinct()
-
-    def filter_node_related_direct(self, queryset, node):
-        return queryset.filter(nodes__key=node.key).distinct()
-
-    def filter_queryset(self, request, queryset, view):
-        node = get_node_from_request(request)
-        if node is None:
-            return queryset
-
-        query_all = is_query_node_all_assets(request)
-        if query_all:
-            return self.filter_node_related_all(queryset, node)
-        else:
-            return self.filter_node_related_direct(queryset, node)
-
-
 class NodeFilterBackend(filters.BaseFilterBackend):
     """
     需要与 `assets.api.mixin.NodeFilterMixin` 配合使用

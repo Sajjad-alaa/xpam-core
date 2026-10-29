@@ -68,15 +68,6 @@ class AssetLabelSerializer(serializers.ModelSerializer):
         }
 
 
-class AssetPlatformSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Platform
-        fields = ['id', 'name']
-        extra_kwargs = {
-            'name': {'required': False}
-        }
-
-
 class AssetAccountSerializer(AccountSerializer):
     add_org_fields = False
     asset = serializers.PrimaryKeyRelatedField(queryset=Asset.objects, required=False, write_only=True)

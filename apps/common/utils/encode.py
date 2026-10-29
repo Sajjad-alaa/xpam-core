@@ -5,7 +5,6 @@ import hashlib
 import json
 import os
 import re
-import time
 from io import StringIO
 
 import paramiko
@@ -19,7 +18,6 @@ from itsdangerous import (
 )
 from six import string_types
 
-from .http import http_date
 
 UUID_PATTERN = re.compile(r'[0-9a-zA-Z\-]{36}')
 
@@ -232,55 +230,12 @@ def content_md5(data):
     return value.decode('utf-8')
 
 
-def make_signature(access_key_secret, date=None):
-    if isinstance(date, bytes):
-        date = bytes.decode(date)
-    if isinstance(date, int):
-        date_gmt = http_date(date)
-    elif date is None:
-        date_gmt = http_date(int(time.time()))
-    else:
-        date_gmt = date
-
-    data = str(access_key_secret) + "\n" + date_gmt
-    return content_md5(data)
-
-
-def encrypt_password(password, salt=None, algorithm='sha512'):
-    from passlib.hash import sha512_crypt, des_crypt
-
-    def sha512():
-        return sha512_crypt.using(rounds=5000).hash(password, salt=salt)
-
-    def des():
-        return des_crypt.hash(password, salt=salt[:2])
-
-    support_algorithm = {
-        'sha512': sha512,
-        'des': des
-    }
-
-    if isinstance(algorithm, str):
-        algorithm = algorithm.lower()
-
-    if algorithm not in support_algorithm.keys():
-        algorithm = 'sha512'
-
-    if password and support_algorithm[algorithm]:
-        return support_algorithm[algorithm]()
-    return None
-
-
 def get_signer():
     s = Signer(settings.SECRET_KEY)
     return s
 
 
 signer = get_signer()
-
-
-def ensure_last_char_is_ascii(data):
-    remain = ''
 
 
 def data_to_json(data, sort_keys=True, indent=2, cls=None):

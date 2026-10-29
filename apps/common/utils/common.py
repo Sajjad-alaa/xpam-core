@@ -6,15 +6,13 @@ import logging
 import os
 import platform
 import re
-import socket
 import textwrap
 import time
 import uuid
 import hmac
 import hashlib
 from collections import OrderedDict
-from functools import wraps, cached_property
-from itertools import chain
+from functools import cached_property
 
 from bs4 import BeautifulSoup
 from markdownify import markdownify
@@ -26,17 +24,6 @@ from common.permissions import ServiceAccountSignaturePermission
 
 UUID_PATTERN = re.compile(r'\w{8}(-\w{4}){3}-\w{12}')
 ipip_db = None
-
-
-def combine_seq(s1, s2, callback=None):
-    for s in (s1, s2):
-        if not hasattr(s, '__iter__'):
-            return []
-
-    seq = chain(s1, s2)
-    if callback:
-        seq = map(callback, seq)
-    return seq
 
 
 def get_logger(name=''):
@@ -79,22 +66,6 @@ def timesince(dt, since='', default="just now"):
     return default
 
 
-def setattr_bulk(seq, key, value):
-    def set_attr(obj):
-        setattr(obj, key, value)
-        return obj
-
-    return map(set_attr, seq)
-
-
-def set_or_append_attr_bulk(seq, key, value):
-    for obj in seq:
-        ori = getattr(obj, key, None)
-        if ori:
-            value += " " + ori
-        setattr(obj, key, value)
-
-
 def capacity_convert(size, expect='auto', rate=1000):
     """
     :param size: '100MB', '1G'
@@ -134,19 +105,6 @@ def capacity_convert(size, expect='auto', rate=1000):
 
     expect_size = std_size / rate_mapping[expect]
     return expect_size, expect
-
-
-def sum_capacity(cap_list):
-    total = 0
-    for cap in cap_list:
-        size, _ = capacity_convert(cap, expect='K')
-        total += size
-    total = '{} K'.format(total)
-    return capacity_convert(total, expect='auto')
-
-
-def get_short_uuid_str():
-    return str(uuid.uuid4()).split('-')[-1]
 
 
 def is_uuid(seq):
@@ -236,22 +194,6 @@ def validate_ip(ip):
     return False
 
 
-def with_cache(func):
-    cache = {}
-    key = "_{}.{}".format(func.__module__, func.__name__)
-
-    @wraps(func)
-    def wrapper(*args, **kwargs):
-        cached = cache.get(key)
-        if cached:
-            return cached
-        res = func(*args, **kwargs)
-        cache[key] = res
-        return res
-
-    return wrapper
-
-
 logger = get_logger(__name__)
 
 
@@ -272,13 +214,6 @@ def timeit(func):
         return result
 
     return wrapper
-
-
-def group_obj_by_count(objs, count=50):
-    objs_grouped = [
-        objs[i:i + count] for i in range(0, len(objs), count)
-    ]
-    return objs_grouped
 
 
 def dict_get_any(d, keys):
@@ -391,16 +326,6 @@ def unique(objects, key=None):
     return list(seen.values())
 
 
-def get_file_by_arch(dir, filename):
-    platform_name = platform.system()
-    arch = platform.machine()
-
-    file_path = os.path.join(
-        settings.BASE_DIR, dir, platform_name, arch, filename
-    )
-    return file_path
-
-
 def pretty_string(data, max_length=128, ellipsis_str='...'):
     """
     params:
@@ -421,25 +346,6 @@ def pretty_string(data, max_length=128, ellipsis_str='...'):
     end = data[-half:]
     data = f'{start}{ellipsis_str}{end}'
     return data
-
-
-def group_by_count(it, count):
-    return [it[i:i + count] for i in range(0, len(it), count)]
-
-
-def test_ip_connectivity(host, port, timeout=0.5):
-    """
-    timeout: seconds
-    """
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.settimeout(timeout)
-    result = sock.connect_ex((host, int(port)))
-    sock.close()
-    if result == 0:
-        connectivity = True
-    else:
-        connectivity = False
-    return connectivity
 
 
 def static_or_direct(logo_path):
