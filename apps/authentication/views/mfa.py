@@ -31,7 +31,8 @@ class UserLoginMFAView(mixins.AuthMixin, FormView):
         try:
             self._check_if_no_active_mfa(user)
         except errors.MFAUnsetError as e:
-            return redirect(e.url + '?_=login_mfa')
+            # (the URL may already have a query, e.g. the "MFA unavailable" message page's ?code=)
+            return redirect(e.url + ('&' if '?' in e.url else '?') + '_=login_mfa')
 
         return super().get(*args, **kwargs)
 
