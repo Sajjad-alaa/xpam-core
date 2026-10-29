@@ -72,8 +72,19 @@ def can_revoke(ticket, user, perm):
     """ an approver of the request, or whoever may change permissions in its organization """
     if user.is_superuser or ticket.has_all_assignee(user):
         return True
-    with tmp_to_org(perm.org_id):
-        return user.has_perm('perms.change_assetpermission')
+    return has_perm_in_org(user, 'perms.change_assetpermission', perm.org_id)
+
+
+def has_perm_in_org(user, codename, org_id):
+    """ XPAM: does `user` hold `codename` in the organization `org_id`? A user's permissions are worked out once
+    per user object, for the organization that was current at that moment (the request's, which the caller chooses
+    with X-JMS-ORG): ask a fresh copy of the user inside the organization instead """
+    from users.models import User
+    fresh = User.objects.filter(id=user.id, is_active=True).first()
+    if fresh is None:
+        return False
+    with tmp_to_org(org_id):
+        return bool(fresh.is_superuser or fresh.has_perm(codename))
 
 
 def ticket_access(ticket, viewer):

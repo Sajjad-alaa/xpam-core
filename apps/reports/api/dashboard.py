@@ -27,7 +27,7 @@ WIDGET_CATALOG = [
         'title': _('HA & Vault Protection Status'),
         'description': _('Live High Availability cluster health, Vault reachability, and secret storage status.'),
         'default_span': 24,
-        'perm': 'settings.view_setting',
+        'perm': 'settings.change_setting',
     },
     {
         'id': 'console_realtime',
@@ -233,6 +233,18 @@ def can_manage(user, action='change'):
     return bool(user.is_superuser or user.has_perm(f'reports.{action}_customdashboard'))
 
 
+def is_org_member(user, org):
+    """XPAM: the request's organization is chosen by the caller (X-JMS-ORG): only its members (and a superuser)
+    may read its dashboards. The root organization is for superusers only."""
+    if not user or not user.is_authenticated:
+        return False
+    if user.is_superuser:
+        return True
+    if org is None or org.is_root() or org.is_system():
+        return False
+    return User.get_org_users(org=org).filter(id=user.id).exists()
+
+
 def normalize_layout(raw_layout, template_id=None):
     if not raw_layout and template_id in TEMPLATE_BY_ID:
         raw_layout = TEMPLATE_BY_ID[template_id]['widgets']
@@ -411,6 +423,12 @@ class CustomDashboardViewSet(viewsets.ModelViewSet):
         # (the request's organization, read before switching to the root organization for the query)
         org = get_current_org()
         org_id, in_root = str(org.id), org.is_root()
+        # XPAM: permissions are worked out here, in the request's organization: user.perms is cached on the user
+        # for the rest of the request, so asking inside tmp_to_root_org() would cache the root organization's
+        # (system roles only)
+        sees_all = can_manage(user, 'view')
+        if not is_org_member(user, org):
+            return CustomDashboard.objects.none()
         with tmp_to_root_org():
             qs = CustomDashboard.objects.select_related('owner').prefetch_related('shared_users', 'shared_groups')
             # Strict organization isolation: non-root orgs only ever see their own org_id.
@@ -422,7 +440,7 @@ class CustomDashboardViewSet(viewsets.ModelViewSet):
             else:
                 qs = qs.filter(org_id=org_id)
 
-            if not can_manage(user, 'view'):
+            if not sees_all:
                 qs = qs.filter(
                     Q(owner=user)
                     | Q(is_shared_all=True)
@@ -459,8 +477,11 @@ class CustomDashboardViewSet(viewsets.ModelViewSet):
     @action(methods=['get'], detail=False, url_path='catalog')
     def catalog(self, request, *args, **kwargs):
         from accounts.jit.policy import tickets_enabled
-        jit_enabled = tickets_enabled()
         user = request.user
+        if not is_org_member(user, current_org):
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied(_('You are not a member of this organization'))
+        jit_enabled = tickets_enabled()
         widgets = []
         for w in WIDGET_CATALOG:
             if w['category'] == 'jit' and not jit_enabled:
@@ -502,6 +523,9 @@ class CustomDashboardViewSet(viewsets.ModelViewSet):
     def share_targets(self, request, *args, **kwargs):
         """Users and user groups of the current organization that a dashboard can be shared with."""
         self._require(request, 'change')
+        if not is_org_member(request.user, current_org):
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied(_('You are not a member of this organization'))
         search = (request.query_params.get('search') or '').strip()[:128]
         org = current_org
         users_qs = (

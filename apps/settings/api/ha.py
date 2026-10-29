@@ -92,7 +92,8 @@ def ha_alerts(agent=None):
 
 
 class HAStatusApi(GenericAPIView):
-    rbac_perms = {'GET': 'settings.view_setting'}
+    # XPAM: platform infrastructure (servers, witness, vault): system roles only, never an organization's role
+    rbac_perms = {'GET': 'settings.change_setting'}
 
     def get(self, request):
         if not ha_enabled():

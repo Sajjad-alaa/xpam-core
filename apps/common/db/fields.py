@@ -338,6 +338,27 @@ class RelatedManager:
                 continue
         return q
 
+    SECRET_ATTR_WORDS = ('password', 'secret', 'token', 'private_key', 'otp', 'passphrase', 'apikey', 'api_key')
+
+    @classmethod
+    def _check_attr_name(cls, name, to_model):
+        """
+        XPAM: an attribute rule names a plain field of the model: no "__" (a way through relations to other
+        tables' columns), no secret columns. Anything else is refused with one generic text — what exists
+        and what does not must not be learnt from the errors.
+        """
+        from django.core.exceptions import FieldDoesNotExist
+        error = ValueError(_('The attribute rule is not valid'))
+        if not isinstance(name, str) or not name or '__' in name:
+            raise error
+        try:
+            field = to_model._meta.get_field(name)
+        except FieldDoesNotExist:
+            raise error
+        lowered = name.lower().lstrip('_')
+        if isinstance(field, EncryptMixin) or any(w in lowered for w in cls.SECRET_ATTR_WORDS):
+            raise error
+
     @classmethod
     def _get_filter_attrs_qs(cls, value, to_model):
         filters = []
@@ -366,6 +387,19 @@ class RelatedManager:
             if custom_filter_q:
                 filters.append(custom_filter_q)
                 continue
+
+            # XPAM: an encrypted column (e.g. the user's e-mail) cannot be compared in the database: an exact match uses
+            # its keyed hash column (<name>_lookup) when the model has one; any other match finds nothing, as before
+            lookup_field = '{}_lookup'.format(name)
+            if isinstance(name, str) and '__' not in name and \
+                    isinstance(getattr(to_model._meta, '_forward_fields_map', {}).get(name), EncryptMixin):
+                if match == 'exact' and lookup_field in {f.name for f in to_model._meta.get_fields()}:
+                    from common.utils.common import text_hmac_sha256
+                    filters.append(Q(**{lookup_field: text_hmac_sha256(str(val))}))  # (hashed as stored)
+                else:
+                    filters.append(Q(pk__in=[]))
+                continue
+            cls._check_attr_name(name, to_model)
 
             if match == 'ip_in':
                 q = cls.get_ip_in_q(name, val)

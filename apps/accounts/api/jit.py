@@ -150,10 +150,13 @@ class JITPolicyViewSet(JITTicketRequiredMixin, OrgBulkModelViewSet):
             # the approval screen: the applicant of the request
             from tickets.models import ApplyAssetTicket
             from orgs.utils import current_org, tmp_to_root_org
+            # XPAM: the request's organization is read before the root organization is switched on (inside it
+            # current_org is always root, which skipped the organization filter)
+            org_id, in_root = str(current_org.id), current_org.is_root()
             with tmp_to_root_org():
                 qs = ApplyAssetTicket.objects.filter(id=params['ticket'])
-                if not current_org.is_root():
-                    qs = qs.filter(org_id=current_org.id)
+                if not in_root:
+                    qs = qs.filter(org_id=org_id)
                 ticket = qs.select_related('applicant').first()
             user = ticket.applicant if ticket else None
         elif params.get('user') and is_uuid(params['user']):
@@ -198,8 +201,8 @@ class JITPolicyViewSet(JITTicketRequiredMixin, OrgBulkModelViewSet):
                 for q in RelatedManager.get_to_filter_qs(value, Asset):
                     qs = qs.filter(q)
             total = qs.distinct().count()
-        except Exception as e:  # a malformed attribute rule
-            return Response({'detail': str(e)[:200]}, status=400)
+        except Exception:  # a malformed attribute rule (XPAM: one generic text, never the error)
+            return Response({'detail': _('The attribute rule is not valid')}, status=400)
         policy = JITPolicy(credential_type=request.data.get('credential_type') or 'password')
         problems, ready, checked = {}, 0, 0
         for asset in qs.distinct().select_related('platform').prefetch_related('protocols')[:limit]:

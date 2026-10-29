@@ -96,7 +96,8 @@ class VaultRestoreDataAPI(VaultSyncDataAPI):
 class DataKeyStatusAPI(APIView):
     """ XPAM: the data key — provider, current version, values per version, rotation """
     perm_model = Setting
-    rbac_perms = {'GET': 'settings.view_setting'}
+    # XPAM: platform infrastructure (servers, witness, vault): system roles only, never an organization's role
+    rbac_perms = {'GET': 'settings.change_setting'}
 
     def get(self, request, *args, **kwargs):
         from settings.tasks.datakey import data_key_status

@@ -16,7 +16,7 @@ from assets.const import Category, AllTypes
 from assets.models import Asset
 from common.serializers import SecretReadableMixin, SecretReadableCheckMixin, CommonBulkModelSerializer
 from common.serializers.fields import ObjectRelatedField, LabeledChoiceField
-from common.utils import get_logger
+from common.utils import get_logger, is_uuid
 from accounts.utils import validate_account_username
 from .base import BaseAccountSerializer, AuthValidateMixin
 
@@ -257,14 +257,34 @@ class AccountSerializer(AccountCreateUpdateSerializerMixin, BaseAccountSerialize
         # 手动判断唯一性校验
         validators = []
 
+    @staticmethod
+    def _connection_type(connection_id):
+        from ..models import VaultConnection
+        return VaultConnection.objects.filter(id=connection_id).values_list('type', flat=True).first()
+
     def _validate_external_secret(self, attrs):
         # XPAM: a password read from an existing vault — XPAM keeps no copy and never changes it
         if attrs.get('secret_source', getattr(self.instance, 'secret_source', 'xpam')) == 'external':
             from ..models import VaultConnection
             ref = attrs.get('secret_ref', getattr(self.instance, 'secret_ref', None)) or {}
             ref = {k: str(ref.get(k) or '').strip() for k in ('connection', 'path', 'field')}
-            if not ref['path'] or not VaultConnection.objects.filter(id=ref['connection'] or None, is_active=True).exists():
+            if not ref['path'] or not is_uuid(ref['connection']) or not VaultConnection.objects.filter(id=ref['connection'] or None, is_active=True).exists():
                 raise serializers.ValidationError({'secret_ref': _('An active vault connection and the secret path are required')})
+            # XPAM: an external reference reads whatever the vault connection can reach: only the people who manage the
+            # vault connections may point an account at one (or change where it points)
+            old_ref = getattr(self.instance, 'secret_ref', None) or {}
+            changed = getattr(self.instance, 'secret_source', 'xpam') != 'external' or any(
+                str(old_ref.get(k) or '').strip() != ref[k] for k in ('connection', 'path', 'field'))
+            user = getattr(self.context.get('request'), 'user', None)
+            if changed and not (user and (user.is_superuser or user.has_perm('settings.change_vault'))):
+                raise serializers.ValidationError({'secret_ref': _(
+                    'Only administrators who manage the vault connections can read a password from an existing vault')})
+            try:
+                from accounts.backends.hcp.service import external_path
+                if self._connection_type(ref['connection']) in ('hcp', 'openbao'):
+                    external_path(ref['path'])
+            except ValueError as e:
+                raise serializers.ValidationError({'secret_ref': str(e)})
             attrs['secret_ref'] = ref
             attrs.pop('secret', None)
             attrs['secret_reset'] = False

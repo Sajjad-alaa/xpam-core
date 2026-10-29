@@ -112,6 +112,8 @@ class PolicyMatcher:
             if p.is_rule_based:
                 self.rules_by_org.setdefault(str(p.org_id), []).append(p)
         self._memo = {}
+        # XPAM: "just-in-time only" rules whose check failed (not a match: nothing is granted by an error)
+        self.failed_jit_only = set()
 
     def __bool__(self):
         return bool(self.by_id)
@@ -153,6 +155,10 @@ class PolicyMatcher:
             except Exception as e:  # a broken rule must not break connecting
                 logger.warning('JIT policy %s: %s rule could not be checked: %s', policy, field, e)
                 self._memo[key] = False
+                if policy.jit_only:
+                    # (fail closed: the standing accounts stay hidden, see jit_grant_for_perms; an error never
+                    # gives anybody a just-in-time account)
+                    self.failed_jit_only.add(policy.id)
         return self._memo[key]
 
     def rule_policy(self, user, asset, org_id, from_ticket):
@@ -205,6 +211,8 @@ def jit_grant_for_perms(perms, user, asset):
         actions |= perm.actions
         expired.append(perm.date_expired)
         jit_only = jit_only or policy.jit_only
+    # XPAM: a "just-in-time only" rule that could not be checked counts as covering: nothing standing is offered
+    jit_only = jit_only or bool(matcher.failed_jit_only)
     if not tickets_enabled():
         # without Tickets no just-in-time account; "JIT only" still hides the standing accounts
         return 0, [], jit_only

@@ -12,6 +12,7 @@ Several Vault servers may be given (VAULT_HCP_HOST comma-separated): on a connec
 used. TLS is always verified — against VAULT_HCP_CA_FILE only when it is set (else the system CAs) — and must be
 TLS 1.3 (VAULT_HCP_TLS_MIN_VERSION=1.2 only for an older Vault outside the kit).
 """
+import os
 import ssl
 import threading
 import time
@@ -25,6 +26,32 @@ from common.utils import get_logger
 logger = get_logger(__name__)
 
 __all__ = ['VaultKVClient', 'VaultRequestError']
+
+
+# XPAM: an external reference reads a customer's secret, never Vault's own API or XPAM's own storage
+EXTERNAL_BLOCKED_PREFIXES = ('sys', 'auth', 'identity', 'transit', 'cubbyhole')
+
+
+def external_path(path, own_mounts=()):
+    """ the clean API path of an external reference; ValueError when it may not be read through XPAM """
+    from django.conf import settings
+    raw = str(path or '')
+    if '%' in raw or '\\' in raw or '?' in raw or '#' in raw:
+        raise ValueError('The secret path is not valid')
+    parts = [p for p in raw.strip().split('/') if p]
+    if not parts or any(p in ('.', '..') for p in parts):
+        raise ValueError('The secret path is not valid')
+    clean = '/'.join(parts)
+    lowered = clean.lower()
+    protected = {m.strip('/').lower() for m in (
+        *own_mounts, getattr(settings, 'VAULT_HCP_MOUNT_POINT', ''), getattr(settings, 'VAULT_OPENBAO_MOUNT_POINT', ''),
+        getattr(settings, 'VAULT_TRANSIT_MOUNT', '') or 'xpam-transit',
+        os.environ.get('XPAM_VAULT_STARTUP_PATH', ''),
+    ) if m and m.strip('/')}
+    if parts[0].lower() in EXTERNAL_BLOCKED_PREFIXES or any(
+            lowered == m or lowered.startswith(m + '/') for m in protected):
+        raise ValueError('This secret path cannot be read through an external reference')
+    return clean
 
 
 class VaultRequestError(Exception):
@@ -214,7 +241,7 @@ class VaultKVClient(object):
 
     def read_external(self, path, field=''):
         """ XPAM: an existing secret (API path after /v1/, e.g. secret/data/app/db; KV v1 or v2), not encrypted by XPAM """
-        data = self._request('GET', path.strip('/')).get('data') or {}
+        data = self._request('GET', external_path(path, (self.mount_point,))).get('data') or {}
         if isinstance(data.get('data'), dict) and 'metadata' in data:  # KV v2
             data = data['data']
         if field:

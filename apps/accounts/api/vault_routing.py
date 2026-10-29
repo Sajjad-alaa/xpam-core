@@ -22,8 +22,9 @@ class VaultConnectionViewSet(JMSModelViewSet):
     filterset_fields = ('name', 'type', 'is_active', 'managed')
     search_fields = ('name', 'comment')
     rbac_perms = {
-        'list': 'settings.view_setting',
-        'retrieve': 'settings.view_setting',
+        # XPAM: the vaults are platform infrastructure (addresses, logins): system roles only
+        'list': 'settings.change_setting',
+        'retrieve': 'settings.change_setting',
         'create': 'settings.change_vault',
         'update': 'settings.change_vault',
         'partial_update': 'settings.change_vault',

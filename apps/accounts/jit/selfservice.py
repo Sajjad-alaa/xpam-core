@@ -147,6 +147,24 @@ def _hours(start, end):
     return max(0.0, (end - start).total_seconds() / 3600)
 
 
+def _visible(user, assets, matcher):
+    """ XPAM: of `assets`, those `user` may know of: a rule that includes the user covers them, or a valid
+    permission gives them to the user. Names of other assets are never answered (an error counts as "no"). """
+    from perms.utils import PermAssetDetailUtil
+    result = []
+    for asset in assets:
+        try:
+            if matcher.rule_policy(user, asset, asset.org_id, from_ticket=True) is not None:
+                result.append(asset)
+                continue
+            with tmp_to_org(asset.org_id):
+                if list(PermAssetDetailUtil(user, asset).user_asset_perms)[:1]:
+                    result.append(asset)
+        except Exception as e:
+            logger.debug('JIT visibility check of %s failed: %s', asset, e)
+    return result
+
+
 def coverage(user, asset_ids, node_ids, limit=MAX_ASSETS):
     """Which of the chosen assets a rule gives the user a just-in-time account on (request form)."""
     from assets.models import Asset, Node
@@ -165,6 +183,9 @@ def coverage(user, asset_ids, node_ids, limit=MAX_ASSETS):
     matcher = PolicyMatcher()
     # only assets of organizations the user belongs to (no names of other organizations' assets)
     unique = [a for a in unique if matcher._member(a.org_id, user)]
+    known = len(unique)
+    unique = _visible(user, unique, matcher)
+    hidden = known - len(unique)  # (counted, never named)
     covered, uncovered, jit_only = [], [], False
     for asset in unique:
         policy = _request_policy(matcher, user, asset)
@@ -173,7 +194,7 @@ def coverage(user, asset_ids, node_ids, limit=MAX_ASSETS):
             jit_only = jit_only or policy.jit_only
         else:
             uncovered.append({'id': str(asset.id), 'name': asset.name})
-    return {'covered': covered, 'uncovered': uncovered, 'jit_only': jit_only}
+    return {'covered': covered, 'uncovered': uncovered, 'jit_only': jit_only, 'unavailable': hidden}
 
 
 def ticket_policies(ticket, matcher=None):
@@ -216,7 +237,10 @@ def _decision(mapping, start, end, accounts, reason, protocols=None, actions=Non
             ext_mode = getattr(policy, 'extension_approval', 'same') or 'same'
             if ext_mode == 'manual':
                 return None, _('the rule %s requires manual approval for extensions') % policy
-            if ext_mode == 'same' and (not policy.auto_approve or policy.approvals_required > 1):
+            if policy.approvals_required > 1:
+                # XPAM: four eyes also for extensions set to "approve automatically"
+                return None, _('the rule %s asks for two approvers') % policy
+            if ext_mode == 'same' and not policy.auto_approve:
                 return None, _('the rule %s does not approve requests by itself') % policy
         elif not policy.auto_approve or policy.approvals_required > 1:
             return None, _('the rule %s does not approve requests by itself') % policy
@@ -461,10 +485,16 @@ def preview(user, asset_ids, hours=None, reason='', node_ids=(), start=None, end
     if len(orgs) != 1 or not matcher._member(next(iter(orgs)), user):
         return {'instant': False, 'covered': False, 'why': '', 'route': []}
     org_id = orgs.pop()
+    # XPAM: only assets the user may know of (a rule covers them, or a permission gives them): no names of others
+    assets = _visible(user, assets, matcher)
+    if not assets:
+        return {'instant': False, 'covered': False, 'why': '', 'route': []}
     if end is None:
         try:
             hours = float(hours)
         except (TypeError, ValueError):
+            hours = 0
+        if not 0 < hours < 24 * 365:
             hours = 0
         start = timezone.now()
         end = start + timezone.timedelta(hours=hours) if hours > 0 else None
@@ -610,8 +640,15 @@ def submit(request, asset_ids, hours, reason='', title='', start=None, end=None,
            protocols=None, actions=None):
     """Create an access request for `asset_ids`; it may be approved by itself. Returns the ticket."""
     from assets.models import Asset
+    from common.utils import is_uuid
+    if not isinstance(asset_ids, (list, tuple)):
+        raise SelfServiceError(_('Choose at least one asset you can request'))
+    asset_ids = [i for i in asset_ids if is_uuid(i)]
+    for name, value in (('protocols', protocols), ('actions', actions)):
+        if value is not None and not isinstance(value, (list, tuple)):
+            raise SelfServiceError(_('%s must be a list') % name)
     with tmp_to_root_org():
-        assets = list(Asset.objects.filter(id__in=list(asset_ids)[:MAX_ASSETS], is_active=True)
+        assets = list(Asset.objects.filter(id__in=asset_ids[:MAX_ASSETS], is_active=True)
                       .select_related('platform'))
     if not assets:
         raise SelfServiceError(_('Choose at least one asset you can request'))
@@ -678,6 +715,8 @@ def _submit(request, assets, hours, reason, title, start, end, extends=None, pro
         try:
             hours = float(hours)
         except (TypeError, ValueError):
+            raise SelfServiceError(_('Choose how long you need access'))
+        if not 0 < hours < 24 * 365:  # (also refuses nan and inf)
             raise SelfServiceError(_('Choose how long you need access'))
         end = start + timezone.timedelta(hours=hours)
     if not 0 < _hours(start, end) <= max_hours + 1 / 60:
@@ -774,7 +813,10 @@ def my_access(user):
 
 
 def _own_grant(user, perm_id):
+    from common.utils import is_uuid
     from perms.models import AssetPermission
+    if not is_uuid(perm_id):
+        raise SelfServiceError(_('This access is not yours'))
     with tmp_to_root_org():
         perm = AssetPermission.objects.filter(id=perm_id, from_ticket=True, users=user).first()
     if not perm:
@@ -791,7 +833,7 @@ def extend(request, perm_id, hours, reason=''):
         hours = float(hours)
     except (TypeError, ValueError):
         raise SelfServiceError(_('Choose how long you need access'))
-    if hours <= 0:
+    if not 0 < hours < 24 * 365:  # (also refuses nan and inf)
         raise SelfServiceError(_('Choose how long you need access'))
     start = max(perm.date_expired, timezone.now())
     end = start + timezone.timedelta(hours=hours)
@@ -847,9 +889,12 @@ def release_grant(user, perm, reason):
 
 
 def cancel(user, ticket_id):
+    from common.utils import is_uuid
     from tickets.models import ApplyAssetTicket
-    with tmp_to_root_org():
-        ticket = ApplyAssetTicket.objects.filter(id=ticket_id, applicant=user, status='open').first()
+    ticket = None
+    if is_uuid(ticket_id):
+        with tmp_to_root_org():
+            ticket = ApplyAssetTicket.objects.filter(id=ticket_id, applicant=user, status='open').first()
     if not ticket:
         raise SelfServiceError(_('This request cannot be cancelled'))
     ticket.close()

@@ -87,8 +87,11 @@ def pending_for(user, limit=50):
 def decide(user, ticket_id, action, comment=''):
     from tickets.models import ApplyAssetTicket, Comment
     from tickets.errors import AlreadyClosed, TicketStateChanged
+    from common.utils import is_uuid
     if action not in ('approve', 'reject'):
         raise ApprovalError(_('Illegal approval action'))
+    if not is_uuid(ticket_id):
+        raise ApprovalError(_('Request not found'))
     comment = (comment or '').strip()[:1000]
     if action == 'reject' and not comment:
         raise ApprovalError(_('Tell the requester why the request is rejected'))
@@ -100,13 +103,17 @@ def decide(user, ticket_id, action, comment=''):
         raise ApprovalError(_('You cannot approve your own request'))
     if not ticket.has_current_assignee(user):
         raise ApprovalError(_('You are not an approver of this request (or it was already decided)'))
-    if comment:
-        Comment.objects.create(ticket=ticket, body=comment, user=user, user_display=str(user), type='common')
     try:
         with tmp_to_org(ticket.org_id):
             getattr(ticket, action)(user)
     except (AlreadyClosed, TicketStateChanged) as e:
         raise ApprovalError(str(e))
+    except PermissionError as e:
+        # (four eyes: not the requester, not who approved an earlier step)
+        raise ApprovalError(str(e))
+    # XPAM: the note is written only once the decision went through
+    if comment:
+        Comment.objects.create(ticket=ticket, body=comment, user=user, user_display=str(user), type='common')
     ticket.refresh_from_db()
     return ticket
 

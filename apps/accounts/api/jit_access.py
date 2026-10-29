@@ -1,9 +1,11 @@
 """XPAM self-service just-in-time access for every signed-in user (the workspace "Access" page)."""
+from django.utils.translation import gettext_lazy as _
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
+from common.utils import is_uuid
 from ..jit import approvals, selfservice
 from .jit import JITTicketRequiredMixin
 
@@ -18,6 +20,11 @@ def _ticket_brief(ticket):
     }
 
 
+def _data(request):
+    """ XPAM: the JSON body when it is an object (a list or a string there is an empty request) """
+    return request.data if isinstance(request.data, dict) else {}
+
+
 class JITAccessViewSet(JITTicketRequiredMixin, viewsets.ViewSet):
     """
     GET  /accounts/jit-access/                  the user's access, pending requests and live accounts
@@ -28,6 +35,13 @@ class JITAccessViewSet(JITTicketRequiredMixin, viewsets.ViewSet):
     POST /accounts/jit-access/<request>/cancel/ cancel a pending request
     """
     permission_classes = (IsAuthenticated,)
+
+    @staticmethod
+    def _bad_id(pk):
+        """ XPAM: a 400 for an id that is not a UUID (instead of a database error) """
+        if is_uuid(pk):
+            return None
+        return Response({'detail': _('Request not found')}, status=status.HTTP_400_BAD_REQUEST)
 
     def list(self, request):
         return Response(selfservice.my_access(request.user))
@@ -54,6 +68,8 @@ class JITAccessViewSet(JITTicketRequiredMixin, viewsets.ViewSet):
         """ XPAM: before sending — approved at once, or who approves it and why it waits """
         from django.utils.dateparse import parse_datetime
         data = request.data
+        if not isinstance(data, dict):
+            return Response({'detail': _('Invalid request')}, status=status.HTTP_400_BAD_REQUEST)
 
         def when(name):
             from django.utils import timezone
@@ -82,6 +98,8 @@ class JITAccessViewSet(JITTicketRequiredMixin, viewsets.ViewSet):
     @action(methods=['post'], detail=False, url_path='request')
     def submit(self, request):
         data = request.data
+        if not isinstance(data, dict):
+            return Response({'detail': _('Invalid request')}, status=status.HTTP_400_BAD_REQUEST)
         try:
             ticket = selfservice.submit(request, data.get('assets') or [], data.get('hours'),
                                         reason=data.get('reason') or '',
@@ -92,14 +110,18 @@ class JITAccessViewSet(JITTicketRequiredMixin, viewsets.ViewSet):
 
     @action(methods=['post'], detail=True)
     def extend(self, request, pk=None):
+        if not is_uuid(pk):
+            return self._bad_id(pk)
         try:
-            ticket = selfservice.extend(request, pk, request.data.get('hours'), request.data.get('reason') or '')
+            ticket = selfservice.extend(request, pk, _data(request).get('hours'), _data(request).get('reason') or '')
         except selfservice.SelfServiceError as e:
             return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
         return Response(_ticket_brief(ticket), status=status.HTTP_201_CREATED)
 
     @action(methods=['post'], detail=True)
     def end(self, request, pk=None):
+        if not is_uuid(pk):
+            return self._bad_id(pk)
         try:
             selfservice.end_now(request.user, pk)
         except selfservice.SelfServiceError as e:
@@ -108,6 +130,8 @@ class JITAccessViewSet(JITTicketRequiredMixin, viewsets.ViewSet):
 
     @action(methods=['post'], detail=True)
     def cancel(self, request, pk=None):
+        if not is_uuid(pk):
+            return self._bad_id(pk)
         try:
             selfservice.cancel(request.user, pk)
         except selfservice.SelfServiceError as e:
@@ -129,8 +153,10 @@ class JITAccessViewSet(JITTicketRequiredMixin, viewsets.ViewSet):
 
     @staticmethod
     def _decide(request, pk, act):
+        if not is_uuid(pk):
+            return JITAccessViewSet._bad_id(pk)
         try:
-            ticket = approvals.decide(request.user, pk, act, request.data.get('comment') or '')
+            ticket = approvals.decide(request.user, pk, act, str(_data(request).get('comment') or ''))
         except approvals.ApprovalError as e:
             return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
         return Response(_ticket_brief(ticket))
