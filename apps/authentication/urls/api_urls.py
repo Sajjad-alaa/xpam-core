@@ -31,6 +31,8 @@ urlpatterns = [
 
     path('face/callback/', api.FaceCallbackApi.as_view(), name='face-callback'),
     path('face/context/', api.FaceContextApi.as_view(), name='face-context'),
+    path('face/engine/context/', api.FaceEngineContextApi.as_view(), name='face-engine-context'),
+    path('face/engine/compare/', api.FaceEngineCompareApi.as_view(), name='face-engine-compare'),
 
     path('face-monitor/callback/', api.FaceMonitorCallbackApi.as_view(), name='face-monitor-callback'),
     path('face-monitor/context/', api.FaceMonitorContextApi.as_view(), name='face-monitor-context'),

@@ -634,8 +634,13 @@ class Config(dict):
 
         # 人脸识别
         'FACE_RECOGNITION_ENABLED': False,
-        'FACE_RECOGNITION_DISTANCE_THRESHOLD': 0.35,
-        'FACE_RECOGNITION_COSINE_THRESHOLD': 0.45,
+        # OpenCV SFace (the facelive engine): same person when the cosine similarity of the two features is at
+        # least COSINE_THRESHOLD and their L2 distance (features scaled to length 1) is at most
+        # DISTANCE_THRESHOLD. OpenCV documents 0.363 / 1.128 for SFace; XPAM is a little stricter (0.40)
+        # because this is a login factor. The two numbers describe the same cut
+        # (distance = sqrt(2 - 2 * cosine)): 0.40 <-> 1.0954.
+        'FACE_RECOGNITION_DISTANCE_THRESHOLD': 1.0955,
+        'FACE_RECOGNITION_COSINE_THRESHOLD': 0.40,
         'FACE_RECOGNITION_IDENTITY_THRESHOLD': 0.38,
         'FACE_RECOGNITION_DEVICE': 'auto',
         'FACE_RECOGNITION_PROVIDERS': [],

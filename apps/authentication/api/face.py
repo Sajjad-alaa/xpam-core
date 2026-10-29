@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.core.cache import cache
 from django.utils.translation import gettext as _
 from rest_framework.exceptions import NotFound
@@ -10,6 +11,8 @@ from common.permissions import IsServiceAccount
 from common.utils import get_logger, get_object_or_none
 from orgs.utils import tmp_to_root_org
 from terminal.api.session.task import create_sessions_tasks
+from terminal.const import TerminalType
+from users import face_sface
 from users.models import User
 from .. import serializers
 from ..const import (
@@ -21,13 +24,34 @@ from ..const import (
 )
 from ..mixins import AuthMixin
 from ..models import ConnectionToken
-from ..serializers.face import FaceMonitorCallbackSerializer, FaceMonitorContextSerializer
+from ..serializers.face import (
+    FaceEngineCompareSerializer, FaceMonitorCallbackSerializer, FaceMonitorContextSerializer
+)
 
 logger = get_logger(__name__)
+
+# Most comparisons the engine may ask for with one capture token
+FACE_ENGINE_COMPARE_LIMIT = 40
+# Faces that did not match a user: past this many in FACE_ENGINE_FAIL_WINDOW seconds, that user's face sign-in waits
+# (someone with the password trying photo after photo gets no more tries meanwhile)
+FACE_ENGINE_FAIL_LIMIT = 30
+FACE_ENGINE_FAIL_WINDOW = 15 * 60
+
+
+class IsFaceEngine(IsServiceAccount):
+    """The face engine's own service account: not the SSH/RDP service, the AI or another component."""
+
+    def has_permission(self, request, view):
+        if not super().has_permission(request, view):
+            return False
+        terminal = getattr(request.user, 'terminal', None)
+        return bool(terminal and terminal.type == TerminalType.facelive and not terminal.is_deleted)
 
 __all__ = [
     'FaceCallbackApi',
     'FaceContextApi',
+    'FaceEngineContextApi',
+    'FaceEngineCompareApi',
     'FaceMonitorContext',
     'FaceMonitorContextApi',
     'FaceMonitorCallbackApi'
@@ -35,12 +59,15 @@ __all__ = [
 
 
 class FaceCallbackApi(AuthMixin, CreateAPIView):
-    permission_classes = (IsServiceAccount,)
+    permission_classes = (IsFaceEngine,)
     serializer_class = serializers.FaceCallbackSerializer
 
     def perform_create(self, serializer):
         token = serializer.validated_data.get('token')
         context = self._get_context_from_cache(token)
+        if context.get('is_finished'):
+            # (a result is final: a second callback must not turn a failure into a success)
+            raise ValidationError({'error': "the face capture is already finished"})
 
         if not serializer.validated_data.get('success', False):
             self._update_context_with_error(
@@ -139,6 +166,102 @@ class FaceContextApi(AuthMixin, RetrieveAPIView, CreateAPIView):
             "success": context.get('success', False),
             "error_message": _(context.get("error_message", ''))
         })
+
+
+class FaceEngineMixin:
+    """What the facelive engine (a service account) may ask about a capture token."""
+
+    @staticmethod
+    def fail_key(user):
+        return f"FACE_ENGINE_FAILS_{user.id}"
+
+    def too_many_failures(self, user):
+        return (cache.get(self.fail_key(user)) or 0) >= FACE_ENGINE_FAIL_LIMIT
+
+    def count_failure(self, user):
+        key = self.fail_key(user)
+        cache.add(key, 0, FACE_ENGINE_FAIL_WINDOW)
+        try:
+            count = cache.incr(key)
+        except ValueError:
+            count = 1
+        if count == FACE_ENGINE_FAIL_LIMIT:
+            logger.warning('Face sign-in of user %s paused: %s faces did not match', user.username, count)
+
+    @staticmethod
+    def get_open_context(token):
+        """The capture context of this token, or None when it is unknown, finished or has no usable user."""
+        context = cache.get(f"{FACE_CONTEXT_CACHE_KEY_PREFIX}_{token}")
+        if not context or context.get('is_finished'):
+            return None, None
+        user_id = context.get('user_id')
+        user = User.objects.filter(id=user_id, is_active=True).first() if user_id else None
+        if not user:
+            return None, None
+        return context, user
+
+
+class FaceEngineContextApi(FaceEngineMixin, RetrieveAPIView):
+    """The engine asks, before it streams anything, what this capture token is for.
+
+    Answers only: is the token usable, enrol or authenticate, the user's display name and the threshold.
+    No face data is returned.
+    """
+    permission_classes = (IsFaceEngine,)
+
+    def retrieve(self, request, *args, **kwargs):
+        token = request.query_params.get('token', '')
+        context, user = self.get_open_context(token)
+        if not context:
+            raise NotFound({'error': 'Token does not exist, has expired or is finished.'})
+        if user.is_face_code_set:
+            if self.too_many_failures(user):
+                raise NotFound({'error': 'Too many faces did not match. Try again later.'})
+            mode = 'auth'
+        elif context.get('authenticated'):
+            mode = 'enroll'
+        else:
+            # A login that is still waiting for its second factor must not bind a new face
+            raise NotFound({'error': 'Face enrollment needs a signed-in user.'})
+        return Response({
+            'valid': True,
+            'mode': mode,
+            'action': context.get('action', ''),
+            'target_name': user.name or user.username,
+            'threshold': settings.FACE_RECOGNITION_COSINE_THRESHOLD,
+        })
+
+
+class FaceEngineCompareApi(FaceEngineMixin, CreateAPIView):
+    """The engine asks if a face code is the user of this capture token (the stored face never leaves core).
+
+    The answer is yes or no only: a similarity score would tell someone at the camera how close a photo or a mask
+    comes to the stored face, and help them improve it.
+    """
+    permission_classes = (IsFaceEngine,)
+    serializer_class = FaceEngineCompareSerializer
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        token = serializer.validated_data['token']
+        face_code = serializer.validated_data['face_code']
+        context, user = self.get_open_context(token)
+        if not context or not user.is_face_code_set:
+            raise NotFound({'error': 'Token does not exist, has expired or has no enrolled face.'})
+        counter_key = f"FACE_ENGINE_COMPARE_{token}"
+        cache.add(counter_key, 0, FACE_CONTEXT_CACHE_TTL)
+        try:
+            count = cache.incr(counter_key)
+        except ValueError:
+            count = 1
+        if count > FACE_ENGINE_COMPARE_LIMIT or self.too_many_failures(user):
+            raise ValidationError({'error': 'Too many comparisons for this capture.'})
+        matched = bool(face_sface.similarity(str(user.face_vector), face_code) is not None
+                       and user.check_face(face_code))
+        if not matched:
+            self.count_failure(user)
+        return Response({'matched': matched})
 
 
 class FaceMonitorContext:
@@ -257,9 +380,8 @@ class FaceMonitorCallbackApi(CreateAPIView):
     def _check_face_codes(face_codes, user):
         matched = False
         for face_code in face_codes:
-            matched = user.check_face(face_code,
-                                      distance_threshold=0.45,
-                                      similarity_threshold=0.92)
+            # (the thresholds come from the settings: FACE_RECOGNITION_*_THRESHOLD)
+            matched = user.check_face(face_code)
             if matched:
                 break
         return matched

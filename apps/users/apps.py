@@ -12,4 +12,7 @@ class UsersConfig(AppConfig):
         from . import signal_handlers  # noqa
         from . import tasks  # noqa
         from . import notifications  # noqa
+        from . import face_sface
+        # Face codes of the facelive engine (without this, check_face says "backend is not available")
+        face_sface.register()
         super().ready()

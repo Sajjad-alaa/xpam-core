@@ -600,7 +600,9 @@ class AuthFaceMixin:
             "action": "mfa",
             "token": token,
             "user_id": user_id,
-            "is_finished": False
+            "is_finished": False,
+            # The engine enrols a new face only for a user who is fully signed in (not in the middle of a login)
+            "authenticated": bool(getattr(self.request.user, 'is_authenticated', False)),
         }
         if data:
             context_data.update(data)
