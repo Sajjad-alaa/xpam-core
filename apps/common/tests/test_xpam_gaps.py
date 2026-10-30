@@ -37,6 +37,11 @@ class ClosedGapsTest(TestCase):
         r = self.client.post('/api/v1/ops/playbooks/', data=json.dumps({}), content_type=J)
         self.assertEqual(r.status_code, 400)
 
+    def test_the_login_confirmation_status_does_not_sign_out(self):
+        # (a GET any page could embed: without a confirmation in progress it changes nothing)
+        self.assertEqual(self.client.get('/api/v1/authentication/login-confirm-ticket/status/').status_code, 404)
+        self.assertEqual(self.client.get('/api/v1/users/profile/').status_code, 200)
+
     def test_a_passkey_is_made_by_registration_only(self):
         r = self.client.post('/api/v1/authentication/passkeys/', data=json.dumps({}), content_type=J)
         self.assertEqual(r.status_code, 405)

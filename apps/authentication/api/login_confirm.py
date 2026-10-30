@@ -17,6 +17,10 @@ class TicketStatusApi(mixins.AuthMixin, APIView):
     permission_classes = (AllowAny,)
 
     def get(self, request, *args, **kwargs):
+        # XPAM: without a login confirmation in progress there is nothing to check: answering it must not sign the
+        # caller out (any page could embed this GET and sign XPAM users out) nor record a failed login
+        if not request.session.get('auth_ticket_id'):
+            return Response({'error': 'No login confirmation in progress'}, status=404)
         try:
             self.check_user_login_confirm()
             self.request.session['auth_third_party_done'] = 1

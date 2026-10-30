@@ -27,7 +27,8 @@ class CustomSMS(BaseSMSClient):
                 code=template_param.get('code'), phone_numbers=phone_numbers_str
             )
 
-        logger.info(f'Custom sms send: phone_numbers={phone_numbers}, param={params}')
+        # (not the parameters: they carry the one-time code, which must not be written to the logs)
+        logger.info(f'Custom sms send: phone_numbers={phone_numbers}')
         if settings.CUSTOM_SMS_REQUEST_METHOD == 'post':
             action = requests.post
             kwargs = {'json': params}
