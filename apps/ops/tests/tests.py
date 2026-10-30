@@ -28,6 +28,7 @@ class CheckUploadPermissionTestCase(SimpleTestCase):
         inventory = JMSPermedInventory.__new__(JMSPermedInventory)
         inventory.assets = [asset]
         inventory.exclude_hosts = {}
+        inventory.exclude_host_details = {}
         inventory.group_by_platform = Mock(return_value={platform: [asset]})
         inventory.set_platform_protocol_setting_to_asset = Mock(return_value=[])
         inventory.select_account = Mock(return_value=Mock())

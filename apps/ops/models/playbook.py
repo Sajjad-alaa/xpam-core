@@ -35,7 +35,7 @@ class Playbook(JMSBaseModel):
     vcs_url = models.CharField(max_length=1024, default='', verbose_name=_('VCS URL'), null=True, blank=True)
 
     def __str__(self):
-        return self.name
+        return self.name or str(self.id)
 
     def check_dangerous_keywords(self):
         result = []

@@ -9,7 +9,7 @@ from rest_framework.views import APIView, Response
 
 from common.api import JMSBulkModelViewSet
 from common.const.http import POST
-from common.utils import get_object_or_none
+from common.utils import get_object_or_none, is_uuid
 from orgs.utils import tmp_to_root_org
 from terminal import serializers
 from terminal.const import TaskNameType
@@ -95,6 +95,9 @@ class KillSessionForTicketAPI(APIView):
     def post(self, request, *args, **kwargs):
         session_ids = request.data
         user_id = request.user.id
+        # (a list of session ids: anything else is a bad request, not a server error)
+        if not isinstance(session_ids, list) or not all(isinstance(i, str) and is_uuid(i) for i in session_ids):
+            return Response({'error': 'a list of session ids is required'}, status=status.HTTP_400_BAD_REQUEST)
 
         for session_id in session_ids:
             if not is_session_approver(session_id, user_id):

@@ -26,6 +26,13 @@ class PlaybookSerializer(ScopeSerializerMixin, CommonBulkModelSerializer, Writab
             data['name'] = parse_playbook_name(data['path'].name)
         return super().to_internal_value(data)
 
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        # (a name, or a file to take it from: a playbook without one broke the audit log)
+        if not attrs.get('name') and not getattr(self.instance, 'name', None):
+            raise serializers.ValidationError({'name': _('This field is required.')})
+        return attrs
+
     class Meta:
         model = Playbook
         read_only_fields = ["id", "date_created", "date_updated", "created_by"]

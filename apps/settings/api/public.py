@@ -23,6 +23,14 @@ class OpenPublicSettingApi(generics.RetrieveAPIView):
     def interface_setting(self):
         return get_interface_setting_or_default()
 
+    def public_interface(self):
+        # XPAM: the exact version is for signed-in users (About); a visitor of the login page only gets the
+        # appearance (the version would tell an attacker which fixes are missing)
+        data = dict(self.interface_setting)
+        if not self.request.user.is_authenticated:
+            data.pop('version', None)
+        return data
+
     def get_object(self):
         try:
             from xpack.utils import has_ticket_license
@@ -33,7 +41,7 @@ class OpenPublicSettingApi(generics.RetrieveAPIView):
         return {
             "XPACK_ENABLED": settings.XPACK_ENABLED,
             "HAS_TICKET_LICENSE": has_ticket,
-            "INTERFACE": self.interface_setting,
+            "INTERFACE": self.public_interface(),
             "LANGUAGES":  [
                 {
                     'name': title,

@@ -99,7 +99,11 @@ def get_ip_city(ip):
     if ':' in ip:
         return 'IPv6'
 
-    info = get_ip_city_by_ipip(ip)
+    try:
+        info = get_ip_city_by_ipip(ip)
+    except FileNotFoundError:
+        # (no IP database: the place is unknown; a login, and its audit log, must not fail for it)
+        info = None
     if info:
         city = info.get('city') or _("Unknown")
         country = info.get('country')
@@ -108,7 +112,10 @@ def get_ip_city(ip):
         is_zh = settings.LANGUAGE_CODE.startswith('zh')
         if country == '中国' and is_zh:
             return city
-    return get_ip_city_by_geoip(ip)
+    try:
+        return get_ip_city_by_geoip(ip)
+    except FileNotFoundError:
+        return _("Unknown")
 
 
 def lookup_domain(domain):

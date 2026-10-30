@@ -5,6 +5,7 @@ from django.http import JsonResponse
 from django.shortcuts import render
 from django.utils.translation import gettext as _
 from rest_framework.decorators import action
+from rest_framework.exceptions import MethodNotAllowed
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
@@ -34,6 +35,10 @@ class PasskeyViewSet(AuthMixin, FlashMessageMixin, JMSModelViewSet):
 
     def get_queryset(self):
         return Passkey.objects.filter(user=self.request.user)
+
+    def create(self, request, *args, **kwargs):
+        # (a passkey is made by the WebAuthn registration only, which proves the key: register/)
+        raise MethodNotAllowed(request.method)
 
     @action(methods=['get', 'post'], detail=False, url_path='register')
     def register(self, request):

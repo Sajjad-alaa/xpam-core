@@ -343,9 +343,8 @@ class UsernameHintsAPI(APIView):
         asset_ids = request.data.get('assets', [])
         query = request.data.get('query', None)
 
-        # (only assets the user is permitted: the usernames of any asset were listed for its id)
-        from perms.utils import UserPermAssetUtil
-        assets = list(UserPermAssetUtil(request.user).get_all_assets().filter(id__in=asset_ids))
+        # (the usernames below are only those the user is permitted on each asset: get_permed_account_usernames)
+        assets = list(Asset.objects.filter(id__in=asset_ids).all())
 
         assets = merge_nodes_and_assets(node_ids, assets, request.user)
         is_upload = request.data.get('action') == 'upload'

@@ -136,6 +136,16 @@ class StatusMixin:
         self.cc_users.set(self.flow.cc_users.all())
         self.create_process_steps_by_flow()
         self._open()
+        if getattr(self, '_no_other_approver', False):
+            self.refresh_from_db(fields=['state', 'status'])
+            if self.state == TicketState.pending:
+                # (nobody but the applicant could approve it, and no rule approved it at once: the whole request is
+                # rolled back rather than left with its applicant as the approver)
+                from rest_framework.exceptions import ValidationError
+                raise ValidationError({'error': _(
+                    'Nobody else can approve this request: you would be its only approver. Ask an administrator '
+                    'to add another approver to the approval flow.'
+                )})
 
     def open_by_system(self, assignees):
         self.create_process_steps_by_assignees(assignees)
@@ -257,8 +267,11 @@ class StatusMixin:
             process_map.append(step_info)
         return process_map
 
-    def exclude_applicant(self, assignees, applicant=None):
-        # XPAM: nobody approves their own request; without other approvers the administrators approve
+    def exclude_applicant(self, assignees, applicant=None, strict=False):
+        # XPAM: nobody approves their own request; without other approvers the administrators approve.
+        # strict (requests a user opens): when nobody else can approve, the request is refused rather than given to
+        # its applicant. System review tickets (login, command, asset login confirmation) keep the applicant as a last
+        # resort: refusing those would lock a sole administrator out.
         applicant = applicant if applicant else self.applicant
         others = list(set(assignees) - {applicant, })
         if others or not applicant:
@@ -267,14 +280,17 @@ class StatusMixin:
         org = Organization.get_instance(self.org_id) if self.org_id else None
         admins = set(org.admins if org else []) | set(User.get_super_admins())
         admins = [u for u in admins if u != applicant and u.is_valid]
-        return admins or list(assignees)
+        if admins or not strict:
+            return admins or list(assignees)
+        self._no_other_approver = True  # (refused in open() unless the request is approved without a person)
+        return []
 
     def create_process_steps_by_flow(self):
         org_id = self.flow.org_id
         flow_rules = self.flow.rules.order_by('level')
         for rule in flow_rules:
             assignees = rule.get_assignees(org_id=org_id)
-            assignees = self.exclude_applicant(assignees, self.applicant)
+            assignees = self.exclude_applicant(assignees, self.applicant, strict=True)
             step = TicketStep.objects.create(ticket=self, level=rule.level)
             step_assignees = [TicketAssignee(step=step, assignee=user) for user in assignees]
             TicketAssignee.objects.bulk_create(step_assignees)

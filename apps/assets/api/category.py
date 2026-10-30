@@ -31,5 +31,7 @@ class CategoryViewSet(ListModelMixin, JMSGenericViewSet):
     def constraints(self, request, *args, **kwargs):
         category = request.query_params.get('category')
         tp = request.query_params.get('type')
+        if not category or not tp:
+            return Response({'error': 'category and type are required'}, status=400)
         constraints = AllTypes.get_constraints(category, tp)
         return Response(constraints)

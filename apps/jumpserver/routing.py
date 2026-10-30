@@ -100,6 +100,50 @@ class SocketContextMiddleware:
         return None
 
 
+class WsOriginMiddleware:
+    """ XPAM: a browser's WebSocket must come from XPAM's own pages (cross-site WebSocket hijacking: a page on
+    another site, open in an administrator's browser, could otherwise connect with the administrator's cookies).
+    Allowed: the Origin's host is the host the browser connected to (the gateway forwards it), or a name in DOMAINS
+    or SITE_URL (DOMAINS=* allows any). A connection without an Origin header is not a browser page (components,
+    clients) and carries its own credentials: allowed. Same-origin needs no configuration, so access by IP works. """
+
+    def __init__(self, app):
+        self.app = app
+
+    @staticmethod
+    def _hostname(value):
+        from urllib.parse import urlsplit
+        try:
+            return (urlsplit(value if '://' in value else f'//{value}').hostname or '').lower()
+        except ValueError:
+            return ''
+
+    def allowed_hosts(self):
+        names = {name.strip().lower() for name in str(settings.DOMAINS or '').split(',') if name.strip()}
+        if '*' in names:
+            return None
+        hosts = {self._hostname(name) for name in names}
+        hosts.add(self._hostname(settings.SITE_URL or ''))
+        return {h for h in hosts if h}
+
+    async def __call__(self, scope, receive, send):
+        headers = dict(scope.get('headers') or [])
+        origin = headers.get(b'origin', b'').decode('latin-1').strip()
+        if origin and origin != 'null':
+            origin_host = self._hostname(origin)
+            request_host = self._hostname(headers.get(b'host', b'').decode('latin-1'))
+            allowed = self.allowed_hosts()
+            if not origin_host or (origin_host != request_host and allowed is not None and origin_host not in allowed):
+                logger.warning('WebSocket refused: origin %s for host %s', origin[:200], request_host)
+                await send({'type': 'websocket.close', 'code': 4403})
+                return
+        elif origin == 'null':
+            # (a sandboxed frame or a file: page: not one of XPAM's pages)
+            await send({'type': 'websocket.close', 'code': 4403})
+            return
+        return await self.app(scope, receive, send)
+
+
 application = ProtocolTypeRouter({
     # Django's ASGI application to handle traditional HTTP requests
     "http": SocketContextMiddleware(
@@ -107,11 +151,11 @@ application = ProtocolTypeRouter({
     ),
 
     # WebSocket chat handler
-    "websocket": SocketContextMiddleware(
+    "websocket": WsOriginMiddleware(SocketContextMiddleware(
         WsSignatureAuthMiddleware(
             AuthMiddlewareStack(
                 URLRouter(urlpatterns)
             )
         )
-    ),
+    )),
 })
