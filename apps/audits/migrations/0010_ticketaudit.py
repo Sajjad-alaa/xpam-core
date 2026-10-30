@@ -4,7 +4,7 @@ from django.db import migrations
 class Migration(migrations.Migration):
     dependencies = [
         ('audits', '0009_alter_passwordchangelog_datetime'),
-        ('tickets', '0009_ticketassignee_assignee_display_and_more'),
+        ('tickets', '0011_xpam_apply_protocols'),  # (XPAM: a proxy of Ticket; XPAM's tickets history)
     ]
 
     operations = [

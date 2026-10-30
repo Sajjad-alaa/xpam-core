@@ -6,7 +6,7 @@ from django.db import migrations
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('settings', '0004_alter_setting_options'),
+        ('settings', '0005_xpam_data_keys'),  # (XPAM: after XPAM's own 0005)
     ]
 
     operations = [
