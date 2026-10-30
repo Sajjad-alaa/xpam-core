@@ -12,9 +12,10 @@ from users.models.user import User
 
 class UserFilter(BaseFilterSet):
     email = filters.CharFilter(method='filter_email', label=_('Email'))
-    mfa_level = filters.TypedChoiceFilter(
+    # (a ChoiceFilter, the value made a number in the method: TypedChoiceFilter's form field breaks the OpenAPI
+    # schema, which the AI assistant loads at start)
+    mfa_level = filters.ChoiceFilter(
         choices=User.MFA_LEVEL_CHOICES,
-        coerce=int,
         method='filter_mfa_level',
     )
     groups = filters.CharFilter(
@@ -68,6 +69,10 @@ class UserFilter(BaseFilterSet):
 
     @staticmethod
     def filter_mfa_level(queryset, name, value):
+        try:
+            value = int(value)
+        except (TypeError, ValueError):
+            return queryset.none()
         queryset = queryset.filter(**{name: value})
         if value != 0:
             return queryset

@@ -42,6 +42,17 @@ class ClosedGapsTest(TestCase):
         self.assertEqual(self.client.get('/api/v1/authentication/login-confirm-ticket/status/').status_code, 404)
         self.assertEqual(self.client.get('/api/v1/users/profile/').status_code, 200)
 
+    def test_the_openapi_schema_builds(self):
+        # (the AI assistant loads it at start: a filter it cannot describe kept the assistant down)
+        r = self.client.get('/api/swagger.json')
+        self.assertEqual(r.status_code, 200)
+        self.assertIn('paths', r.json())
+
+    def test_the_mfa_level_filter_still_filters(self):
+        r = self.client.get('/api/v1/users/users/?mfa_level=0')
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(self.client.get('/api/v1/users/users/?mfa_level=x').status_code, 400)
+
     def test_a_passkey_is_made_by_registration_only(self):
         r = self.client.post('/api/v1/authentication/passkeys/', data=json.dumps({}), content_type=J)
         self.assertEqual(r.status_code, 405)
