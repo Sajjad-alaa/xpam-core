@@ -135,7 +135,10 @@ class RoleManager(models.Manager):
         return deleted
 
     def cache_set(self, roles):
-        query = self._get_queryset()
+        # (the roles are already loaded: a light query holds them; building the user's full roles query for every
+        # user of a list cost more than the list itself. Filtering it later still narrows the same roles.)
+        roles = list(roles)
+        query = self.role_cls.objects.filter(id__in=[r.id for r in roles])
         query._result_cache = roles
         self._cache = query
 
