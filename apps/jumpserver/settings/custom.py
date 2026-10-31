@@ -323,7 +323,25 @@ SMALL_LOGO_MODE = CONFIG.SMALL_LOGO_MODE
 
 REMOTE_APP_STORE_URL = CONFIG.REMOTE_APP_STORE_URL
 
-FLOWER_ENABLED = CONFIG.FLOWER_ENABLED
+
+def _server_size():
+    """ XPAM: the services follow the server's size (SERVER_SIZE=small|medium|large in config.txt chooses one).
+    small (< 4 CPUs or < 7 GB): 1 web worker; medium (< 8 CPUs or < 15 GB): 2; large: 4. Below large, one
+    background worker serves every queue and the task monitor (Flower) does not run. """
+    size = os.environ.get('SERVER_SIZE', 'auto')
+    if size in ('small', 'medium', 'large'):
+        return size
+    import psutil
+    cpus, memory_gb = psutil.cpu_count(), psutil.virtual_memory().total / 1024 ** 3
+    if cpus < 4 or memory_gb < 7:
+        return 'small'
+    if cpus < 8 or memory_gb < 15:
+        return 'medium'
+    return 'large'
+
+
+SERVER_SIZE = _server_size()
+FLOWER_ENABLED = CONFIG.FLOWER_ENABLED and SERVER_SIZE == 'large'
 
 LANGUAGES_SUPPORTED = [code.strip() for code in CONFIG.LANGUAGES_SUPPORTED.split(',')]
 

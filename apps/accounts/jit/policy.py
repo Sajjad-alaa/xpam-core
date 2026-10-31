@@ -309,10 +309,28 @@ def explain(user, asset, request=False, matcher=None):
     return result
 
 
+_no_mfa_policies_until = 0.0  # (this process saw no rule asking for MFA: lists read it for every user)
+
+
 def user_must_keep_mfa(user):
-    """A just-in-time rule that asks for MFA covers this user (cached for a minute)."""
-    from django.core.cache import cache
+    """A just-in-time rule that asks for MFA covers this user (cached for a minute, and on the user for the
+    request: a user list asks twice per user)."""
     if not getattr(user, 'id', None):
+        return False
+    if '_xpam_must_keep_mfa' not in user.__dict__:
+        user.__dict__['_xpam_must_keep_mfa'] = _user_must_keep_mfa(user)
+    return user.__dict__['_xpam_must_keep_mfa']
+
+
+def _user_must_keep_mfa(user):
+    global _no_mfa_policies_until
+    import time
+    from django.core.cache import cache
+    if time.monotonic() < _no_mfa_policies_until:
+        return False
+    any_key = 'xpam-jit-mfa-policies'
+    if cache.get(any_key) is False:
+        _no_mfa_policies_until = time.monotonic() + 10
         return False
     key = f'xpam-jit-mfa-user:{user.id}'
     cached = cache.get(key)
@@ -321,13 +339,12 @@ def user_must_keep_mfa(user):
     result = False
     try:
         from accounts.models import JITPolicy
-        any_key = 'xpam-jit-mfa-policies'
-        if cache.get(any_key) is False:
-            return False
         with tmp_to_root_org():
             policies = list(JITPolicy.objects.filter(is_active=True, require_mfa=True))
         cache.set(any_key, bool(policies), 60)
-        if policies:
+        if not policies:
+            _no_mfa_policies_until = time.monotonic() + 10
+        else:
             matcher = PolicyMatcher()
             result = any(matcher._includes(p, 'users', user) for p in policies if p.is_rule_based) or \
                 any(p.asset_permissions.filter(Q(users=user) | Q(user_groups__users=user)).exists() for p in policies)

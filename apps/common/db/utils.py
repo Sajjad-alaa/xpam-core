@@ -127,7 +127,9 @@ class Encryptor:
         plain_value = crypto.decrypt(self.value)
 
         # 如果没有解开，使用原来的signer解密
-        if not plain_value:
+        # XPAM: only when no key opened it (None): an empty value opened (and verified) by the current key is ''
+        # — it used to go through the signature check with every key too, for every empty column read
+        if plain_value is None:
             plain_value = signer.unsign(self.value) or ""
         return plain_value
 

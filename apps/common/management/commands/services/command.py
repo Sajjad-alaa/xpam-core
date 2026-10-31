@@ -1,5 +1,4 @@
 import os
-import psutil
 import multiprocessing
 
 from django.core.management.base import BaseCommand
@@ -8,16 +7,9 @@ from django.db.models import TextChoices
 from .hands import *
 from .utils import ServicesUtil
 
-
-SERVER_SIZE = os.environ.get('SERVER_SIZE', 'auto')
-if SERVER_SIZE == 'auto':
-    cpu_count = psutil.cpu_count()
-    mem_total = psutil.virtual_memory().total / 1024 / 1024 / 1024
-
-    if cpu_count < 4 or mem_total < 7:
-        SERVER_SIZE = 'small'
-    else:
-        SERVER_SIZE = 'large'
+# XPAM: small, medium or large — from the server, or SERVER_SIZE in config.txt (jumpserver/settings/custom.py)
+SERVER_SIZE = settings.SERVER_SIZE
+WEB_WORKERS = {'small': 1, 'medium': 2}
 
 class Services(TextChoices):
     gunicorn = 'gunicorn', 'gunicorn'
@@ -47,14 +39,14 @@ class Services(TextChoices):
 
     @classmethod
     def web_services(cls):
-        if SERVER_SIZE == 'small' or os.environ.get('FLOWER_ENABLED', '1') == '0':
+        if not settings.FLOWER_ENABLED:
             return [cls.gunicorn]
         else:
             return [cls.gunicorn, cls.flower]
 
     @classmethod
     def celery_services(cls):
-        if SERVER_SIZE == 'small' or os.environ.get('CELERY_COMBINE_QUEUES', '0') == '1':
+        if SERVER_SIZE != 'large' or os.environ.get('CELERY_COMBINE_QUEUES', '0') == '1':
             return [cls.celery_combine]
         else:
             return [cls.celery_ansible, cls.celery_default]
@@ -123,10 +115,7 @@ class BaseActionCommand(BaseCommand):
         parser.add_argument('-f', '--force', nargs="?", const=True)
 
     def get_services_kwargs(self, options):
-        worker = options.get('worker', 4)
-
-        if SERVER_SIZE == 'small':
-            worker = 1
+        worker = WEB_WORKERS.get(SERVER_SIZE) or options.get('worker', 4)
 
         return {
             'gunicorn': {

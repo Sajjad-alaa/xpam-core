@@ -41,8 +41,9 @@ class AssetPermedSerializer(OrgResourceModelSerializerMixin, ResourceLabelsMixin
     @classmethod
     def setup_eager_loading(cls, queryset):
         """ Perform necessary eager loading of data. """
-        queryset = queryset.prefetch_related('zone', 'nodes', 'labels', 'labels__label') \
-            .prefetch_related('platform') \
+        # XPAM: the single relations come with the rows (a join), the many-valued ones are prefetched
+        queryset = queryset.select_related('zone', 'platform') \
+            .prefetch_related('nodes', 'labels', 'labels__label') \
             .annotate(category=F("platform__category")) \
             .annotate(type=F("platform__type"))
         return queryset

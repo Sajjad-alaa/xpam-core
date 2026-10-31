@@ -164,7 +164,9 @@ def on_session_finished_release_jit(sender, instance, created=False, **kwargs):
 def on_jit_policy_change(sender, instance=None, **kwargs):
     _schedule_jit_reconcile()
     from django.core.cache import cache
+    from accounts.jit import policy
     cache.delete('xpam-jit-mfa-policies')
+    policy._no_mfa_policies_until = 0.0  # (other processes notice within 10 s)
     if instance is not None:
         deleted = kwargs.get('signal') is post_delete
         transaction.on_commit(lambda: _safe_sync_commands(instance, deleted))

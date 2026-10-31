@@ -139,8 +139,9 @@ class EncryptMixin:
         if value is None:
             return value
 
-        encryptor = Encryptor(value)
-        plain_value = encryptor.decrypt()
+        # XPAM: an empty column (never set) decrypts to '' anyway, after a failed decryption and a failed signature
+        # check: most users' phone, WeChat and OTP columns, on every row read
+        plain_value = Encryptor(value).decrypt() if value else value
 
         # 可能和Json mix，所以要先解密，再json
         sp = super()

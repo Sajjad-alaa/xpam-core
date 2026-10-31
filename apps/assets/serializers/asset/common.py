@@ -246,8 +246,10 @@ class AssetSerializer(BulkOrgResourceModelSerializer, ResourceLabelsMixin, Writa
     @classmethod
     def setup_eager_loading(cls, queryset):
         """ Perform necessary eager loading of data. """
-        queryset = queryset.prefetch_related('zone', 'nodes', 'protocols', 'directory_services') \
-            .prefetch_related('platform', 'platform__automation') \
+        # XPAM: the single relations come with the rows (one join instead of three more queries and their
+        # per-row prefetch work); the many-valued ones are prefetched
+        queryset = queryset.select_related('zone', 'platform', 'platform__automation') \
+            .prefetch_related('nodes', 'protocols', 'directory_services') \
             .annotate(category=F("platform__category")) \
             .annotate(type=F("platform__type"))
         return queryset

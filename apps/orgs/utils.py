@@ -142,14 +142,8 @@ def filter_org_queryset(queryset):
     else:
         kwargs = {'org_id': org.id}
 
-    # import traceback
-    # lines = traceback.format_stack()
-    # print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>")
-    # for line in lines[-10:-1]:
-    #     print(line)
-    # print("<<<<<<<<<<<<<<<<<<<<<<<<<<<<")
-    queryset = queryset.filter(**kwargs)
-    return queryset
+    # (the global organization filters nothing: no copy of the queryset)
+    return queryset.filter(**kwargs) if kwargs else queryset
 
 
 def org_aware_func(org_arg_name):

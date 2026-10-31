@@ -191,6 +191,7 @@ class RoleMixin:
     _system_roles = None
     PERM_CACHE_KEY = "USER_PERMS_ROLES_{}_{}"
     PERM_ORG_KEY = "USER_PERMS_ORG_{}"
+    PERM_BINDINGS_KEY = "USER_PERMS_ORG_{}_bindings"  # XPAM (orgs/middleware.py): cleared with USER_PERMS_ORG_*
     _is_superuser = None
     _update_superuser = False
 
@@ -294,6 +295,7 @@ class RoleMixin:
         cache.delete_pattern(key)
         key = self.PERM_ORG_KEY.format(self.id)
         cache.delete(key)
+        cache.delete(self.PERM_BINDINGS_KEY.format(self.id))
 
     @classmethod
     def expire_users_rbac_perms_cache(cls):

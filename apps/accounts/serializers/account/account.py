@@ -299,7 +299,12 @@ class AccountSerializer(AccountCreateUpdateSerializerMixin, BaseAccountSerialize
             'asset', 'asset__platform',
             'asset__platform__automation'
         )
+        if cls.defer_secret:
+            # XPAM: the list never shows the secret (write-only): not read, nor decrypted, for every row
+            queryset = queryset.defer('_secret')
         return queryset
+
+    defer_secret = True
 
     def validate(self, attrs):
         attrs = self.validate_dynamic_credential(attrs)
@@ -321,6 +326,7 @@ class AccountSerializer(AccountCreateUpdateSerializerMixin, BaseAccountSerialize
 
 class AccountDetailSerializer(AccountSerializer):
     has_secret = serializers.BooleanField(label=_("Has secret"), read_only=True)
+    defer_secret = False  # (has_secret reads it)
 
     class Meta(AccountSerializer.Meta):
         model = Account
@@ -518,6 +524,7 @@ class AssetAccountBulkSerializer(
 
 class AccountSecretSerializer(SecretReadableCheckMixin, SecretReadableMixin, AccountSerializer):
     spec_info = serializers.DictField(label=_('Spec info'), read_only=True)
+    defer_secret = False
 
     class Meta(AccountSerializer.Meta):
         fields = AccountSerializer.Meta.fields + ['spec_info']

@@ -41,8 +41,15 @@ class OrgMiddleware:
             return org
         if org.is_root() or (org.internal and not org.is_default()):
             return org
+        from django.core.cache import cache
         from rbac.builtin import BuiltinRole
-        bindings = list(RoleBinding._base_manager.filter(user=user).values_list('scope', 'role_id', 'org_id'))
+        # (read on every API request: cached with the user's other role data — a role change clears it — and for a
+        # minute at most)
+        key = user.PERM_BINDINGS_KEY.format(user.id)
+        bindings = cache.get(key)
+        if bindings is None:
+            bindings = list(RoleBinding._base_manager.filter(user=user).values_list('scope', 'role_id', 'org_id'))
+            cache.set(key, bindings, 60)
         if any(scope == 'system' and str(role_id) != str(BuiltinRole.system_user.id) for scope, role_id, _ in bindings):
             return org
         member_org_ids = [str(org_id) for scope, _, org_id in bindings if scope == 'org' and org_id]
