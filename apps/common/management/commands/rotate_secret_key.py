@@ -18,9 +18,11 @@ from django.core.management.base import BaseCommand, CommandError
 from django.db import models, transaction
 from django.db.models.functions import Cast
 
-from common.db.datakey import PREFIXES
+from common.db.datakey import PREFIXES, provider as datakey_provider
 from common.db.fields import EncryptMixin
 from common.utils.common import text_hmac_sha256
+
+VAULT_MARK = '# Secret-has-been-saved-to-vault #'  # (the database copy of a secret kept in a vault)
 
 
 class DryRun(Exception):
@@ -106,7 +108,7 @@ class Command(BaseCommand):
             raise CommandError('The new key is the current key')
         cryptor = new_cryptor(new_key)
         stats, samples = {}, []
-        total = unreadable = 0
+        total = unreadable = in_vault = 0
         from users.models import User
         try:
             with transaction.atomic():
@@ -121,6 +123,9 @@ class Command(BaseCommand):
                     for pk, raw in raws.iterator(chunk_size=500):
                         if raw.startswith(PREFIXES):
                             continue  # XPAM: a data key value (Vault Transit / keyring): not keyed by SECRET_KEY
+                        if raw == VAULT_MARK:
+                            in_vault += 1  # (the secret is in a vault: nothing to re-encrypt here)
+                            continue
                         plain, readable = read_old(raw)
                         if not readable:
                             unreadable += 1
@@ -163,6 +168,14 @@ class Command(BaseCommand):
                     User._base_manager.filter(pk=pk).update(email_lookup=lookup)
                     count += 1
                 stats['users.User.email_lookup'] = count
+
+                # without a data key the vaults (all but OpenBao) hold the secrets encrypted with SECRET_KEY, and
+                # they are not re-encrypted here: they would be lost with the old key
+                if in_vault and datakey_provider() == 'legacy':
+                    raise CommandError(
+                        f'{in_vault} secrets are kept in a vault, which without a data key may hold them encrypted '
+                        'with SECRET_KEY: set up a data key first (Vault, or: xpamctl vault data-key local), then '
+                        'rotate. Nothing was changed.')
 
                 checked = total + unreadable
                 if checked and (unreadable == checked or (unreadable / checked > 0.1 and not options['force'])):

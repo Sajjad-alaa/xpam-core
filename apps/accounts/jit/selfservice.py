@@ -824,6 +824,10 @@ def extend(request, perm_id, hours, reason=''):
     hours count from the current end, so they are checked against the rule's maximum on their own."""
     from tickets.models import ApplyAssetTicket
     perm = _own_grant(request.user, perm_id)
+    # (an access that ended, or that an approver revoked, is asked for again, not extended: an approved
+    # extension of it would create a new access, under rules meant for continuing one)
+    if not perm.is_active or perm.date_expired <= timezone.now():
+        raise SelfServiceError(_('This access has ended: request access again'))
     try:
         hours = float(hours)
     except (TypeError, ValueError):

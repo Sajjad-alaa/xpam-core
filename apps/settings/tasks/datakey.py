@@ -172,17 +172,27 @@ def _reencrypt_vaults(current):
                     connection, mirror = router._stored(obj)
                     backend = router.backend(connection)
                     if backend.type == 'openbao':
-                        continue  # (it keeps the secret as it is: no data key is involved)
+                        # (it keeps the secret as it is: no data key is involved — but a mirror in another vault
+                        # holds it under the data key, and must not keep an old version once it is retired)
+                        mirror_backend = router.backend(mirror) if mirror else None
+                        if not mirror_backend or mirror_backend.type in ('openbao', 'local'):
+                            continue
+                        stored = _vault_value(mirror_backend, mirror_backend.build_entry(obj))
+                        if not stored or datakey.is_current(stored, current):
+                            continue
+                        obj._secret = backend.get_for_restore(obj)  # (strict: a missing secret is an error)
+                        if not obj._secret:
+                            raise RuntimeError('the secret is missing from OpenBao')
+                        router._mirror_write(mirror, obj)
+                        done += 1
+                        continue
                     if backend.type == 'local':
                         if settings.VAULT_ENABLED:
                             # (the configured vault could not be set up: what it holds cannot be checked)
                             raise RuntimeError('the vault client is not available')
                         continue  # (no vault in use: a marker left from an earlier one is not ours to read)
                     entry = backend.build_entry(obj)
-                    if backend.type == 'hcp':
-                        stored = (backend.client.get(path=entry.full_path).get('data') or {}).get('secret') or ''
-                    else:
-                        stored = backend.client.get(name=entry.full_path, strict=True) or ''
+                    stored = _vault_value(backend, entry)
                     if not stored or datakey.is_current(stored, current):
                         continue
                     obj._secret = entry.get_decrypt_secret(stored, strict=True)
@@ -195,6 +205,13 @@ def _reencrypt_vaults(current):
                     logger.warning(f'data key: {model.__name__} {obj.pk} in its vault could not be re-encrypted: {e}')
     _reencrypt_vaults.failed = failed
     return done
+
+
+def _vault_value(backend, entry):
+    """ the value a vault holds for the entry, as stored (encrypted) """
+    if backend.type == 'hcp':
+        return (backend.client.get(path=entry.full_path).get('data') or {}).get('secret') or ''
+    return backend.client.get(name=entry.full_path, strict=True) or ''
 
 
 def _retire(current):

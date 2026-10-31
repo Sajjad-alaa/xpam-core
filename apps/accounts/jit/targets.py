@@ -386,6 +386,9 @@ class _Module:
 
 
 def _device_commands(text, values):
+    # (a line break in a value would send a command of its own to the device)
+    if any('\r' in value or '\n' in value for value in values.values()):
+        raise TargetError('A value for the device commands contains a line break')
     lines = []
     for line in (text or '').replace('\r\n', '\n').split('\n'):
         if not line.strip():

@@ -175,6 +175,8 @@ class Driver:
     def change(self, username, password, old_password=''):
         check_username(username)
         check_password(password)
+        if old_password:
+            check_password(old_password)  # (FortiOS takes it on the command line too)
         if not self.user(username):
             raise DeviceError('The account %s does not exist on the device' % username)
         self.set_password(username, password, old_password)
@@ -527,11 +529,19 @@ class CiscoNXOS(Driver):
             return custom_role
         return self.ROLE[role]
 
+    @staticmethod
+    def check_nx_password(password):
+        # (NX-OS runs the commands of one line separated by ;)
+        if ';' in password:
+            raise DeviceError("The password contains characters network devices do not accept: ';'")
+
     def create_user(self, username, password, role, custom_role=''):
+        self.check_nx_password(password)
         self.configure(['username %s password %s role %s' % (username, password, self.nx_role(role, custom_role))],
                        password)
 
     def set_password(self, username, password, old_password=''):
+        self.check_nx_password(password)
         self.configure(['username %s password %s' % (username, password)], password)
 
     def delete_user(self, username):

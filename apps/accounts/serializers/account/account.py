@@ -174,6 +174,8 @@ class AccountCreateUpdateSerializerMixin(serializers.Serializer):
         if on_invalid == AccountInvalidPolicy.SKIP:
             return instance, 'skipped'
         elif on_invalid == AccountInvalidPolicy.UPDATE:
+            # XPAM: as in update(), an account's user name does not change (it may have been found by its name)
+            vd.pop('username', None)
             for k, v in vd.items():
                 setattr(instance, k, v)
             instance.save()
