@@ -21,6 +21,7 @@ from ops.models import CeleryTaskExecution
 from orgs.utils import tmp_to_root_org
 from terminal.backends import server_replay_storage
 from terminal.models import Session, Command
+from .const import ActivityChoices
 from .models import UserLoginLog, OperateLog, FTPLog, ActivityLog, PasswordChangeLog
 
 logger = get_logger(__name__)
@@ -184,6 +185,111 @@ def clean_expired_session_period():
 
     find_and_delete_empty_dirs(replay_dir)
     logger.info("Clean session replay done")
+
+
+REPLAY_FILE_TYPES = ('.json', '.tar', '.gz', '.mp4')  # (as remove_files_by_days)
+REPLAY_RECENT_SECONDS = 600
+
+
+def _local_recordings(replay_dir):
+    """ XPAM: {session id: {'size', 'mtime', 'files'}} of the recordings on this server's disk:
+    replay/<date>/<session id>.<type> or replay/<date>/<session id>/<parts> """
+    from common.utils import is_uuid
+    recordings = {}
+    for root, dirs, files in os.walk(replay_dir):
+        parts = os.path.relpath(root, replay_dir).split(os.sep)
+        for name in files:
+            if not name.endswith(REPLAY_FILE_TYPES):
+                continue
+            session_id = parts[1] if len(parts) >= 2 else name.split('.', 1)[0]
+            if not is_uuid(session_id):
+                continue
+            path = os.path.join(root, name)
+            try:
+                stat = os.stat(path)
+            except OSError:
+                continue
+            item = recordings.setdefault(session_id, {'size': 0, 'mtime': 0, 'files': []})
+            item['size'] += stat.st_size
+            item['mtime'] = max(item['mtime'], stat.st_mtime)
+            item['files'].append(path)
+    return recordings
+
+
+def replay_bytes_to_free(replay_dir, used):
+    """ how much the recordings must shrink to keep both limits (System settings → Tasks → Regular clean-up) """
+    import shutil
+    need = 0
+    max_gb = int(getattr(settings, 'TERMINAL_REPLAY_MAX_GB', 0) or 0)
+    if max_gb > 0:
+        need = max(need, used - max_gb * 1024 ** 3)
+    min_free = int(getattr(settings, 'TERMINAL_REPLAY_MIN_FREE_PERCENT', 0) or 0)
+    if min_free > 0:
+        disk = shutil.disk_usage(replay_dir)
+        need = max(need, int(disk.total * min_free / 100) - disk.free)
+    return need
+
+
+def enforce_replay_disk_limit():
+    """ XPAM: a full disk stops XPAM (the database cannot write). Recordings kept on this server are deleted,
+    oldest first, until they fit the size limit and the disk has the free space asked for. Recordings of
+    sessions still running, or written in the last minutes, are kept; each deletion is in the session's
+    activity log and the session no longer offers a playback. Returns the deleted session ids. """
+    import shutil
+    from django.utils.translation import gettext_noop
+    from common.utils import i18n_fmt
+    replay_dir = safe_join(default_storage.base_location, 'replay')
+    if not os.path.isdir(replay_dir):
+        return []
+    recordings = _local_recordings(replay_dir)
+    need = replay_bytes_to_free(replay_dir, sum(r['size'] for r in recordings.values()))
+    if need <= 0:
+        return []
+    recent = timezone.now().timestamp() - REPLAY_RECENT_SECONDS
+    with tmp_to_root_org():
+        running = {str(i) for i in Session.objects.filter(id__in=list(recordings), is_finished=False)
+                   .values_list('id', flat=True)}
+    deleted, freed = [], 0
+    for session_id, item in sorted(recordings.items(), key=lambda kv: kv[1]['mtime']):
+        if freed >= need:
+            break
+        if session_id in running or item['mtime'] > recent:
+            continue
+        for path in item['files']:
+            try:
+                os.remove(path)
+            except OSError as e:
+                logger.error(f'Recording {path} could not be deleted: {e}')
+        for part_dir in {os.path.dirname(p) for p in item['files']}:
+            if os.path.basename(part_dir) == session_id:  # (a recording in parts: its folder too)
+                shutil.rmtree(part_dir, ignore_errors=True)
+        freed += item['size']
+        deleted.append(session_id)
+    if not deleted:
+        logger.warning(f'Recordings: {need} bytes should be freed, but every recording is recent or running')
+        return []
+    detail = i18n_fmt(gettext_noop('Recording deleted to keep disk space (%s)'),
+                      f"{freed // 1024 ** 2} MB, {len(deleted)} recordings")
+    with tmp_to_root_org():
+        sessions = list(Session.objects.filter(id__in=deleted).values_list('id', 'org_id'))
+        Session.objects.filter(id__in=deleted).update(has_replay=False, replay_size=0)
+        ActivityLog.objects.bulk_create([
+            ActivityLog(resource_id=str(sid), type=ActivityChoices.session_log, detail=detail, org_id=org_id)
+            for sid, org_id in sessions
+        ])
+    logger.warning(f'Recordings: deleted the {len(deleted)} oldest ({freed // 1024 ** 2} MB) to keep the disk limits')
+    return deleted
+
+
+@shared_task(
+    verbose_name=_('Keep recordings within the disk limits'),
+    description=_('Every 10 minutes: deletes the oldest session recordings kept on this server when they exceed the '
+                  'size limit or the disk has less free space than asked (System settings → Tasks → Regular '
+                  'clean-up)')
+)
+@register_as_period_task(interval=600)
+def enforce_replay_disk_limit_period():
+    enforce_replay_disk_limit()
 
 
 @shared_task(

@@ -725,6 +725,10 @@ class Config(dict):
         'TERMINAL_ASSET_LIST_SORT_BY': 'name',
         'TERMINAL_ASSET_LIST_PAGE_SIZE': 'auto',
         'TERMINAL_SESSION_KEEP_DURATION': 200,
+        # XPAM: recordings kept on this server's disk: at most this many GB (0: no limit), and at least this much
+        # of the disk free (0: off) — the oldest recordings are deleted first
+        'TERMINAL_REPLAY_MAX_GB': 0,
+        'TERMINAL_REPLAY_MIN_FREE_PERCENT': 10,
         'TERMINAL_HOST_KEY': '',
         'TERMINAL_COMMAND_STORAGE': {},
         # 未来废弃(目前迁移会用)

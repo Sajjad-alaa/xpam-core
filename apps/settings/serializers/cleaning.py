@@ -46,6 +46,17 @@ class CleaningSerializer(serializers.Serializer):
         help_text=_(
             'Session, record, command will be delete if more than duration, only in database, OSS will not be affected.')
     )
+    # XPAM: a full disk stops XPAM; recordings are what fills it
+    TERMINAL_REPLAY_MAX_GB = serializers.IntegerField(
+        min_value=0, max_value=1000000, required=False, default=0, label=_('Recordings: size limit (GB)'),
+        help_text=_('Session recordings kept on this server use at most this much space: the oldest are deleted '
+                    'first. 0: no limit. Recordings in object storage (S3, SFTP...) are not affected.')
+    )
+    TERMINAL_REPLAY_MIN_FREE_PERCENT = serializers.IntegerField(
+        min_value=0, max_value=90, required=False, default=10, label=_('Recordings: keep disk free (%)'),
+        help_text=_('When the disk holding the recordings has less free space than this, the oldest recordings '
+                    'are deleted until it has (checked every 10 minutes). 0: off.')
+    )
 
     ACCOUNT_CHANGE_SECRET_RECORD_KEEP_DAYS = serializers.IntegerField(
         min_value=MIN_VALUE, max_value=9999,
