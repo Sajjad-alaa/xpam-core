@@ -309,7 +309,7 @@ class JMSInventory:
                 'protocols': [{'name': p.name, 'port': p.port} for p in protocols],
                 'origin_address': asset.address,
                 # (rendered by Ansible: escaped like every other user-controlled value)
-                'platform': type(account).escape_jinja2_syntax(platform.name) if platform and account else '',
+                'platform': escape_jinja2_syntax(platform.name) if platform else '',
             },
             'jms_account': {
                 'id': str(account.id),
