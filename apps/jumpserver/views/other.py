@@ -85,7 +85,7 @@ class ResourceDownload(TemplateView):
         OPENSSH_VERSION=v9.4.0.0
         TINKER_VERSION=v0.1.6
         VIDEO_PLAYER_VERSION=0.5.2
-        CLIENT_VERSION=5.0.0
+        CLIENT_VERSION=5.1.28
         """
         version_file = os.path.join(settings.DATA_DIR, 'version.txt')
         try:
