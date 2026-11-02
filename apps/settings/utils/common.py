@@ -1,10 +1,19 @@
 # coding: utf-8
+import functools
 import re
 from jumpserver.context_processor import default_interface
 from django.conf import settings
 from IPy import IP
 
 from common.utils import lookup_domain
+
+
+@functools.lru_cache(maxsize=32)
+def _uploaded_image_ok(path, mtime_ns):
+    """ (cached per file version: the interface is read on every page) """
+    from xpack.api.interface import readable_image
+    with open(path, 'rb') as f:
+        return readable_image(f.read())
 
 
 def get_interface_setting_or_default():
@@ -22,15 +31,15 @@ def get_interface_setting_or_default():
     # The version always comes from the running software, never from a saved appearance setting
     data['version'] = default_interface.get('version', '')
 
-    # An uploaded image whose file is gone would render as a broken <img>; use the default instead.
+    # An uploaded image whose file is gone, or damaged, would render as a broken <img>; use the default instead.
     try:
         import os
         from xpack.api.interface import INTERFACE_UPLOAD_URL, INTERFACE_UPLOAD_DIR
         for field in ('logo_index', 'logo_logout', 'favicon', 'login_image'):
             value = data.get(field)
             if isinstance(value, str) and value.startswith(INTERFACE_UPLOAD_URL):
-                filename = os.path.basename(value)
-                if not os.path.isfile(os.path.join(INTERFACE_UPLOAD_DIR, filename)):
+                path = os.path.join(INTERFACE_UPLOAD_DIR, os.path.basename(value))
+                if not os.path.isfile(path) or not _uploaded_image_ok(path, os.stat(path).st_mtime_ns):
                     data[field] = default_interface.get(field)
     except Exception:
         pass
