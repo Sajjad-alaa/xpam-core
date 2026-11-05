@@ -309,6 +309,15 @@ class SettingsLogoApi(APIView):
 
 class ClientVersionView(APIView):
     permission_classes = (AllowAny,)
+    # XPAM: the desktop client compares its major.minor version with these and suggests the last one. The client
+    # the download page offers (CLIENT_VERSION, set by the installer) comes last: without it, an XPAM client
+    # (5.1.x) was told it does not match and to use 5.0.0.
+    DEFAULT_CLIENT_VERSION = '5.1.28'
 
     def get(self, request, *args, **kwargs):
-        return Response(['4.0.0', '4.1.0', '4.1.1', '4.1.2', '5.0.0'], status=status.HTTP_200_OK)
+        import os
+        versions = ['4.0.0', '4.1.0', '4.1.1', '4.1.2', '5.0.0']
+        current = (os.environ.get('CLIENT_VERSION') or self.DEFAULT_CLIENT_VERSION).strip()
+        if current not in versions:
+            versions.append(current)
+        return Response(versions, status=status.HTTP_200_OK)

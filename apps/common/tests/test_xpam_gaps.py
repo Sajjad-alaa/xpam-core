@@ -56,3 +56,10 @@ class ClosedGapsTest(TestCase):
     def test_a_passkey_is_made_by_registration_only(self):
         r = self.client.post('/api/v1/authentication/passkeys/', data=json.dumps({}), content_type=J)
         self.assertEqual(r.status_code, 405)
+
+    def test_the_desktop_client_offered_matches_the_server(self):
+        # (an XPAM 5.1 client was told it does not match and to use 5.0.0: the list ended at upstream's 5.0.0)
+        import os
+        versions = self.anon.get('/api/v1/settings/client/versions/').json()
+        self.assertEqual(versions[-1], os.environ.get('CLIENT_VERSION') or '5.1.28')
+        self.assertIn('5.0.0', versions)
