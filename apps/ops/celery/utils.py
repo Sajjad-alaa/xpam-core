@@ -113,14 +113,22 @@ def get_celery_task_log_path(task_id):
     return get_task_log_path(settings.CELERY_LOG_DIR, task_id)
 
 
+def _active_queue_workers(active_nodes):
+    # XPAM: small/medium servers run one combined worker named like 'ansible,celery@host': it counts as both
+    workers = set()
+    for n in active_nodes:
+        if n:
+            workers.update(w for w in n.split('@')[0].split(',') if w)
+    return workers
+
+
 def get_celery_status():
     from . import app
     i = app.control.inspect()
     ping_data = i.ping() or {}
     active_nodes = [k for k, v in ping_data.items() if v.get('ok') == 'pong']
-    active_queue_worker = set([n.split('@')[0] for n in active_nodes if n])
     # Celery Worker 数量: 2
-    if len(active_queue_worker) < 2:
+    if len(_active_queue_workers(active_nodes)) < 2:
         print("Not all celery worker worked")
         return False
     else:

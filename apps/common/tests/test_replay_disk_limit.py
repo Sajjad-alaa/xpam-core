@@ -66,6 +66,17 @@ class ReplayDiskLimitTest(TestCase):
             self.assertEqual(tasks.enforce_replay_disk_limit(), [])
         self.assertTrue(os.path.exists(path))
 
+    def test_free_space_rule_deletes_nothing_when_recordings_cannot_cover_it(self):
+        from audits import tasks
+        s1, s2 = self.session(), self.session()
+        p1 = self.write(f'2026-10-01/{s1.id}.cast.gz', 300, age=9000)
+        p2 = self.write(f'2026-10-02/{s2.id}.cast.gz', 300, age=8000)
+        with override_settings(TERMINAL_REPLAY_MAX_GB=0):
+            with mock.patch.object(tasks, 'replay_bytes_to_free', return_value=10 * GB):
+                with self.assertLogs(tasks.logger, 'WARNING'):
+                    self.assertEqual(tasks.enforce_replay_disk_limit(), [])
+        self.assertTrue(os.path.exists(p1) and os.path.exists(p2))
+
     def test_the_limits(self):
         from audits.tasks import replay_bytes_to_free
         disk = Usage(total=100 * GB, used=95 * GB, free=5 * GB)

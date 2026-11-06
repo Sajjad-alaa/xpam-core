@@ -249,6 +249,18 @@ def enforce_replay_disk_limit():
     with tmp_to_root_org():
         running = {str(i) for i in Session.objects.filter(id__in=list(recordings), is_finished=False)
                    .values_list('id', flat=True)}
+    # XPAM: the free-space rule only deletes when the recordings can cover it; a disk full of other data
+    # (database, images, logs) must not wipe every recording. The size limit rule is kept as it is.
+    max_gb = int(getattr(settings, 'TERMINAL_REPLAY_MAX_GB', 0) or 0)
+    size_need = max(0, sum(r['size'] for r in recordings.values()) - max_gb * 1024 ** 3) if max_gb > 0 else 0
+    if need > size_need:
+        deletable = sum(r['size'] for sid, r in recordings.items() if sid not in running and r['mtime'] <= recent)
+        if deletable < need:
+            logger.warning(f'Recordings: the disk is full but not because of recordings ({need} bytes should be '
+                           f'freed, all deletable recordings are {deletable} bytes): none deleted for the free-space rule')
+            need = size_need
+            if need <= 0:
+                return []
     deleted, freed = [], 0
     for session_id, item in sorted(recordings.items(), key=lambda kv: kv[1]['mtime']):
         if freed >= need:

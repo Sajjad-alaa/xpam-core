@@ -68,6 +68,7 @@ class SettingsApi(generics.RetrieveUpdateAPIView):
         'huawei': serializers.HuaweiSMSSettingSerializer,
         'cmpp2': serializers.CMPP2SMSSettingSerializer,
         'custom': serializers.CustomSMSSettingSerializer,
+        'custom_file': serializers.BaseSMSSettingSerializer,  # XPAM: the console page asks for it
         'vault': serializers.VaultSettingSerializer,
         'openbao': serializers.OpenBaoSerializer,
         'ssh_ca': serializers.SSHCAOpenBaoSerializer,
@@ -129,6 +130,8 @@ class SettingsApi(generics.RetrieveUpdateAPIView):
         'tencent': 'settings.change_sms',
         'huawei': 'settings.change_sms',
         'cmpp2': 'settings.change_sms',
+        'custom': 'settings.change_sms',
+        'custom_file': 'settings.change_sms',
         'vault': 'settings.change_vault',
         'openbao': 'settings.change_vault',
         'ssh_ca': 'settings.change_vault',

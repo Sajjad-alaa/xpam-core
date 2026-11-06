@@ -261,13 +261,13 @@ class AccountSerializer(AccountCreateUpdateSerializerMixin, BaseAccountSerialize
 
     @staticmethod
     def _connection_type(connection_id):
-        from ..models import VaultConnection
+        from accounts.models import VaultConnection
         return VaultConnection.objects.filter(id=connection_id).values_list('type', flat=True).first()
 
     def _validate_external_secret(self, attrs):
         # XPAM: a password read from an existing vault — XPAM keeps no copy and never changes it
         if attrs.get('secret_source', getattr(self.instance, 'secret_source', 'xpam')) == 'external':
-            from ..models import VaultConnection
+            from accounts.models import VaultConnection
             ref = attrs.get('secret_ref', getattr(self.instance, 'secret_ref', None)) or {}
             ref = {k: str(ref.get(k) or '').strip() for k in ('connection', 'path', 'field')}
             if not ref['path'] or not is_uuid(ref['connection']) or not VaultConnection.objects.filter(id=ref['connection'] or None, is_active=True).exists():

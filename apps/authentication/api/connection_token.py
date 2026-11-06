@@ -43,7 +43,7 @@ from common.utils.django import get_request_os
 from common.utils.http import is_true, is_false
 from orgs.mixins.api import RootOrgViewMixin
 from orgs.models import Organization
-from orgs.utils import get_org_from_request, tmp_to_org
+from orgs.utils import get_org_from_request, tmp_to_org, tmp_to_root_org
 from perms.models import ActionChoices
 from terminal.connect_methods import NativeClient, ConnectMethodUtil, WebMethod
 from terminal.models import EndpointRule, Endpoint
@@ -911,7 +911,9 @@ class ConnectionTokenViewSet(AuthFaceMixin, ExtraActionApiMixin, RootOrgViewMixi
             ))
 
         from assets.models import Asset
-        active_assets_count = Asset.objects.filter(is_active=True).count()
+        # XPAM: the licence counts the assets of all organizations, not only the current one
+        with tmp_to_root_org():
+            active_assets_count = Asset.objects.filter(is_active=True).count()
         allowed_assets = get_license_asset_count()
         if active_assets_count > allowed_assets:
             raise PermissionDenied(_(
