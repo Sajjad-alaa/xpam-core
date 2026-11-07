@@ -162,7 +162,7 @@ def parse_ssh_private_key_str(text: bytes, password=None) -> str:
     return private_key_bytes.decode('utf-8')
 
 
-def parse_ssh_public_key_str(text: bytes = "", password=None) -> str:
+def parse_ssh_public_key_str(text: bytes = b"", password=None) -> str:
     private_key = _parse_ssh_private_key(text, password=password)
     if private_key is None:
         return ""
