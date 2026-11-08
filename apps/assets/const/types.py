@@ -1,5 +1,6 @@
 import json
 from collections import defaultdict
+from copy import deepcopy
 
 from django.conf import settings
 from django.utils.functional import lazy
