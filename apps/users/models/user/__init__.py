@@ -178,10 +178,6 @@ class User(
     
 
     @property
-    def has_jdmc(self):
-        return self.has_perm("rbac.view_jdmc")
-
-    @property
     def secret_key(self):
         instance = self.preferences.filter(name="secret_key").first()
         if not instance:
@@ -230,7 +226,11 @@ class User(
 
     @property
     def lang(self):
-        return self.preference.get_value("lang")
+        # XPAM is English only: a language saved before (e.g. zh-hans) no longer switches the
+        # messages and pages that follow the user's language
+        lang = self.preference.get_value("lang")
+        supported = {code for code, name in settings.LANGUAGES}
+        return lang if lang in supported else settings.LANGUAGE_CODE
 
     @lang.setter
     def lang(self, value):

@@ -73,14 +73,14 @@ class UserProfileSerializer(UserSerializer):
     class Meta(UserSerializer.Meta):
         read_only_fields = [
             'date_joined', 'last_login', 'created_by', 'source',
-            'receive_backends', 'has_jdmc', 'allowed_mfa_types',
+            'receive_backends', 'allowed_mfa_types',
         ]
         fields_mini = [
             'id', 'name', 'username', 'email',
         ]
         fields = UserSerializer.Meta.fields + [
             'public_key_comment', 'public_key_hash_md5', 'guide_url',
-            'lang', 'has_jdmc'
+            'lang',
         ] + read_only_fields
 
         extra_kwargs = dict(UserSerializer.Meta.extra_kwargs)

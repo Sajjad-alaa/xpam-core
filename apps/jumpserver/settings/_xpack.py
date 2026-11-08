@@ -12,7 +12,6 @@ corporation = 'XPAM'
 
 XPACK_DIR = os.path.join(const.BASE_DIR, 'apps', 'xpack')
 XPACK_ENABLED = True
-JDMC_ENABLED = False
 XPACK_TEMPLATES_DIR = []
 XPACK_CONTEXT_PROCESSOR = []
 XPACK_LICENSE_IS_VALID = False

@@ -330,6 +330,8 @@ AUTH_PASSWORD_VALIDATORS = [
 # Internationalization
 # https://docs.djangoproject.com/en/1.10/topics/i18n/
 LANGUAGE_CODE = 'en'
+# XPAM is English only: Django never picks another language from the browser or a cookie
+LANGUAGES = [('en', 'English')]
 
 TIME_ZONE = CONFIG.TIME_ZONE
 

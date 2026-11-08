@@ -137,11 +137,6 @@ special_pid_mapper = {
 }
 
 
-if settings.XPACK_ENABLED and settings.JDMC_ENABLED:
-    view_nodes_data.append({'id': 'view_jdmc', 'name': _('JDMC console')})
-    special_pid_mapper["rbac.view_jdmc"] = "view_jdmc"
-
-
 special_setting_pid_mapper = {
     "rbac.view_userloginreport": "report_node",
     "rbac.add_userloginreport": "report_node",

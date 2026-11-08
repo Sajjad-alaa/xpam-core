@@ -870,9 +870,6 @@ class Config(dict):
         'OAUTH2_PROVIDER_REFRESH_TOKEN_EXPIRE_SECONDS': 60 * 60 * 24 * 7,
         'VENDOR': 'JumpServer',
 
-        # JDMC
-        'JDMC_ENABLED': True,
-        'JDMC_SOCK_PATH': '',
         'SMALL_LOGO_MODE': os.environ.get('SMALL_LOGO_MODE', False),
 
         'FLOWER_ENABLED': True,
