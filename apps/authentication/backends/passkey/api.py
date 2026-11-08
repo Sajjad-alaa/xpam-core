@@ -17,7 +17,7 @@ from .models import Passkey
 from .serializer import PasskeySerializer
 from ...const import ConfirmType
 from ...permissions import UserConfirmation
-from ...views import FlashMessageMixin
+from ...views.mixins import FlashMessageMixin
 
 
 class PasskeyViewSet(AuthMixin, FlashMessageMixin, JMSModelViewSet):

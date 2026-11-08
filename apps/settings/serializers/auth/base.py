@@ -17,14 +17,8 @@ class AuthSettingSerializer(serializers.Serializer):
     AUTH_SAML2 = serializers.BooleanField(default=False, label=_("SAML2 Auth"))
     AUTH_OAUTH2 = serializers.BooleanField(default=False, label=_("OAuth2 Auth"))
     AUTH_RADIUS = serializers.BooleanField(required=False, label=_('RADIUS Auth'))
-    AUTH_DINGTALK = serializers.BooleanField(default=False, label=_('DingTalk Auth'))
-    AUTH_FEISHU = serializers.BooleanField(default=False, label=_('FeiShu Auth'))
-    AUTH_LARK = serializers.BooleanField(default=False, label=_('Lark Auth'))
-    AUTH_WECOM = serializers.BooleanField(default=False, label=_('Slack Auth'))
-    AUTH_SLACK = serializers.BooleanField(default=False, label=_('WeCom Auth'))
     AUTH_SSO = serializers.BooleanField(default=False, label=_("SSO Auth"))
     AUTH_PASSKEY = serializers.BooleanField(default=False, label=_("Passkey Auth"))
-    AUTH_UKEY = serializers.BooleanField(default=False, label=_("UKey Auth"))
     EMAIL_SUFFIX = serializers.CharField(
         required=False, max_length=1024, label=_("Email suffix"),
         help_text=_(

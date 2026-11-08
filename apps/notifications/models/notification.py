@@ -60,6 +60,8 @@ class SystemMsgSubscription(JMSBaseModel):
         for user in users:
             recevier = {'name': str(user), 'id': user.id}
             for backend in receive_backends:
+                if backend not in BACKEND.values:  # a channel of a removed integration
+                    continue
                 recevier[backend] = bool(BACKEND(backend).get_account(user))
             receviers.append(recevier)
 

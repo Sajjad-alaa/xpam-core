@@ -4,7 +4,6 @@ from django.conf import settings
 from django.template.loader import render_to_string
 from django.utils.translation import gettext_lazy as _
 
-from common.sdk.im.wecom import wecom_tool
 from common.utils import get_logger, reverse
 from common.utils import lazyproperty, text_hmac_sha256
 from common.utils.timezone import local_now_display
@@ -118,13 +117,6 @@ class CommandWarningMessage(CommandAlertMixin, UserMessage):
         message = render_to_string('terminal/_msg_command_warning.html', context)
         return {'subject': self.subject, 'message': message}
 
-    def get_wecom_msg(self):
-        session_url = wecom_tool.wrap_redirect_url(
-            self.get_session_url(external=False)
-        )
-        message = self.gen_html_string(session_url=session_url)
-        return self.html_to_markdown(message)
-
     def get_html_msg(self) -> dict:
         return self.gen_html_string(session_url=self.get_session_url())
 
@@ -179,13 +171,6 @@ class CommandAlertMessage(CommandAlertMixin, SystemMessage):
         context.update(other_context)
         message = render_to_string('terminal/_msg_command_alert.html', context)
         return {'subject': self.subject, 'message': message}
-
-    def get_wecom_msg(self):
-        session_url = wecom_tool.wrap_redirect_url(
-            self.get_session_url(external=False)
-        )
-        message = self.gen_html_string(session_url=session_url)
-        return self.html_to_markdown(message)
 
     def get_html_msg(self) -> dict:
         return self.gen_html_string(session_url=self.get_session_url())
@@ -246,13 +231,6 @@ class CommandExecutionAlert(CommandAlertMixin, SystemMessage):
         context.update(other_context)
         message = render_to_string('terminal/_msg_command_execute_alert.html', context)
         return {'subject': self.subject, 'message': message}
-
-    def get_wecom_msg(self):
-        assets_with_url = self.get_asset_urls(
-            external=False, tran_func=wecom_tool.wrap_redirect_url
-        )
-        message = self.gen_html_string(assets_with_url=assets_with_url)
-        return self.html_to_markdown(message)
 
     def get_html_msg(self) -> dict:
         return self.gen_html_string(assets_with_url=self.get_asset_urls())

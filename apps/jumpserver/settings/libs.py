@@ -65,8 +65,10 @@ REST_FRAMEWORK = {
 }
 
 SPECTACULAR_SETTINGS = {
-    'TITLE': f'{CONFIG.VENDOR} API Docs',
-    'DESCRIPTION': f'{CONFIG.VENDOR} Restful api docs',
+    # XPAM: the product name directly (CONFIG.VENDOR stays 'JumpServer': storage paths and connect
+    # methods depend on it)
+    'TITLE': 'XPAM API Docs',
+    'DESCRIPTION': 'XPAM REST API',
     'VERSION': 'v1',
     "SERVE_INCLUDE_SCHEMA": False,
     'SERVE_PUBLIC': True,
@@ -99,9 +101,7 @@ if CONFIG.VENDOR.lower() == 'jumpserver':
             'url': 'https://www.gnu.org/licenses/gpl-3.0.html',
         },
         'CONTACT': {
-            'name': 'JumpServer',
-            'url': 'https://jumpserver.org',
-            'email': 'support@jumpserver.org',
+            'name': 'XPAM',
         },
     })
 

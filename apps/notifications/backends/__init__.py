@@ -8,12 +8,7 @@ client_name_mapper = {}
 
 class BACKEND(models.TextChoices):
     EMAIL = 'email', _('Email')
-    WECOM = 'wecom', _('WeCom')
-    DINGTALK = 'dingtalk', _('DingTalk')
     SITE_MSG = 'site_msg', _('Site message')
-    FEISHU = 'feishu', _('FeiShu')
-    LARK = 'lark', 'Lark'
-    SLACK = 'slack', _('Slack')
 
     # SMS = 'sms', _('SMS')
 

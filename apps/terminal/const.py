@@ -25,10 +25,7 @@ class ReplayStorageType(TextChoices):
     s3 = 's3', 'S3'
     ceph = 'ceph', 'Ceph'
     swift = 'swift', 'Swift'
-    oss = 'oss', 'OSS'
     azure = 'azure', 'Azure'
-    obs = 'obs', 'OBS'
-    cos = 'cos', 'COS'
     sftp = 'sftp', 'SFTP'
 
 

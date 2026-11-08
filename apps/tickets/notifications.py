@@ -8,7 +8,6 @@ from django.template.loader import render_to_string
 from django.utils.translation import gettext_lazy as _
 
 from common.db.encoder import ModelJSONFieldEncoder
-from common.sdk.im.wecom import wecom_tool
 from common.utils import get_logger, random_string, reverse
 from notifications.notifications import UserMessage
 from . import const
@@ -41,12 +40,6 @@ class BaseTicketMessage(UserMessage):
     def get_html_context(self):
         return {'ticket_detail_url': self.get_ticket_detail_url()}
 
-    def get_wecom_context(self):
-        ticket_detail_url = wecom_tool.wrap_redirect_url(
-            self.get_ticket_detail_url(external=False)
-        )
-        return {'ticket_detail_url': ticket_detail_url}
-
     def gen_html_string(self, **other_context):
         context = {
             'title': self.content_title, 'content': self.content,
@@ -59,10 +52,6 @@ class BaseTicketMessage(UserMessage):
 
     def get_html_msg(self) -> dict:
         return self.gen_html_string(**self.get_html_context())
-
-    def get_wecom_msg(self):
-        message = self.gen_html_string(**self.get_wecom_context())
-        return self.html_to_markdown(message)
 
     @classmethod
     def gen_test_msg(cls):

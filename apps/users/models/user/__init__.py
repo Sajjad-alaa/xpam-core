@@ -328,12 +328,6 @@ class User(
             return True
         return False
 
-    def set_ukey_sn(self, ukey_sn):
-        if not isinstance(ukey_sn, str):
-            return
-        self.ukey_sn = ukey_sn.strip() or None
-        self.save(update_fields=['ukey_sn'])
-
     def save(self, *args, **kwargs):
         is_creating = getattr(self, '_state', None) and self._state.adding
         if is_creating and not getattr(self, 'is_service_account', False):

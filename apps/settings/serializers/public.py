@@ -53,11 +53,6 @@ class PrivateSettingSerializer(PublicSettingSerializer):
     HELP_SUPPORT_URL = serializers.CharField()
 
     AUTH_PASSKEY = serializers.BooleanField()
-    AUTH_WECOM = serializers.BooleanField()
-    AUTH_DINGTALK = serializers.BooleanField()
-    AUTH_FEISHU = serializers.BooleanField()
-    AUTH_LARK = serializers.BooleanField()
-    AUTH_SLACK = serializers.BooleanField()
     AUTH_TEMP_TOKEN = serializers.BooleanField()
 
     TERMINAL_RAZOR_ENABLED = serializers.BooleanField()
@@ -93,7 +88,6 @@ class PrivateSettingSerializer(PublicSettingSerializer):
     REMOTE_APP_STORE_URL = serializers.CharField()
     VENDOR = serializers.CharField()
 
-    AUTH_UKEY = serializers.BooleanField()
 
 
 class ServerInfoSerializer(serializers.Serializer):

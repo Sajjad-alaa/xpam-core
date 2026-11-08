@@ -1,6 +1,6 @@
 # coding:utf-8
 #
-from django.urls import path, include
+from django.urls import path
 from django.conf import settings
 from rest_framework.routers import DefaultRouter
 
@@ -20,14 +20,8 @@ router.register('ssh-key', api.SSHkeyViewSet, 'ssh-key')
 router.register('access-tokens', api.AccessTokenViewSet, 'access-token')
 
 urlpatterns = [
-    path('<str:backend>/qr/unbind/', api.QRUnBindForUserApi.as_view(), name='qr-unbind'),
-    path('<str:backend>/qr/unbind/<uuid:user_id>/', api.QRUnBindForAdminApi.as_view(), name='qr-unbind-for-admin'),
 
-    path('feishu/event/subscription/callback/', api.FeiShuEventSubscriptionCallback.as_view(),
-         name='feishu-event-subscription-callback'),
 
-    path('lark/event/subscription/callback/', api.LarkEventSubscriptionCallback.as_view(),
-         name='lark-event-subscription-callback'),
 
     path('face/callback/', api.FaceCallbackApi.as_view(), name='face-callback'),
     path('face/context/', api.FaceContextApi.as_view(), name='face-context'),
@@ -48,9 +42,6 @@ urlpatterns = [
     path('password/verify/', api.UserPasswordVerifyApi.as_view(), name='user-password-verify'),
     path('login-confirm-ticket/status/', api.TicketStatusApi.as_view(), name='login-confirm-ticket-status'),
     path('user-session/', api.UserSessionApi.as_view(), name='user-session'),
-]
-urlpatterns += [
-    path('ukey/', include(('authentication.backends.ukey.api_urls', 'ukey'), namespace='ukey'))
 ]
 
 if settings.AUTH_CUSTOM_SSO:

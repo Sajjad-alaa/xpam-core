@@ -6,9 +6,7 @@ from rest_framework import serializers
 from common.utils import i18n_fmt
 from .auth import (
     LDAPSettingSerializer, OIDCSettingSerializer, KeycloakSettingSerializer,
-    CASSettingSerializer, RadiusSettingSerializer, FeiShuSettingSerializer,
-    LarkSettingSerializer, WeComSettingSerializer, DingTalkSettingSerializer,
-    AlibabaSMSSettingSerializer, TencentSMSSettingSerializer, CMPP2SMSSettingSerializer,
+    CASSettingSerializer, RadiusSettingSerializer,
     AuthSettingSerializer, SAML2SettingSerializer, OAuth2SettingSerializer, PasskeySettingSerializer,
     CustomSMSSettingSerializer,
 )
@@ -75,10 +73,6 @@ class SettingsSerializer(
     TerminalSettingSerializer,
     LunaSettingSerializer,
     SecuritySettingSerializer,
-    WeComSettingSerializer,
-    DingTalkSettingSerializer,
-    FeiShuSettingSerializer,
-    LarkSettingSerializer,
     EmailSettingSerializer,
     EmailContentSettingSerializer,
     OtherSettingSerializer,
@@ -89,9 +83,6 @@ class SettingsSerializer(
     CASSettingSerializer,
     RadiusSettingSerializer,
     CleaningSerializer,
-    AlibabaSMSSettingSerializer,
-    TencentSMSSettingSerializer,
-    CMPP2SMSSettingSerializer,
     CustomSMSSettingSerializer,
     PasskeySettingSerializer,
     TaskNoticeSettingSerializer,

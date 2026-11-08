@@ -73,36 +73,6 @@ class ReplayStorageTypeSwiftSerializer(ReplayStorageTypeBaseSerializer):
     )
 
 
-class ReplayStorageTypeOSSSerializer(ReplayStorageTypeBaseSerializer):
-    endpoint_help_text = '''
-        OSS format: http://{REGION_NAME}.aliyuncs.com <br>
-        Such as: http://oss-cn-hangzhou.aliyuncs.com
-    '''
-    ENDPOINT = serializers.CharField(
-        validators=[replay_storage_endpoint_format_validator],
-        max_length=1024, label=_('Endpoint'), help_text=_(endpoint_help_text), allow_null=True,
-    )
-
-
-class ReplayStorageTypeOBSSerializer(ReplayStorageTypeBaseSerializer):
-    endpoint_help_text = '''
-        OBS format: obs.{REGION_NAME}.myhuaweicloud.com <br>
-        Such as: obs.cn-north-4.myhuaweicloud.com
-    '''
-    ENDPOINT = serializers.CharField(
-        max_length=1024, label=_('Endpoint'), help_text=_(endpoint_help_text), allow_null=True,
-    )
-
-
-class ReplayStorageTypeCOSSerializer(ReplayStorageTypeS3Serializer):
-    endpoint_help_text = '''Such as: http://cos.{REGION_NAME}.myqcloud.com'''
-    ENDPOINT = serializers.CharField(
-        validators=[replay_storage_endpoint_format_validator],
-        required=True, max_length=1024, label=_('Endpoint'), help_text=_(endpoint_help_text),
-        allow_null=True,
-    )
-
-
 class ReplayStorageTypeAzureSerializer(serializers.Serializer):
     class EndpointSuffixChoices(TextChoices):
         china = 'core.chinacloudapi.cn', 'core.chinacloudapi.cn'
@@ -158,10 +128,7 @@ replay_storage_type_serializer_classes_mapping = {
     const.ReplayStorageType.s3.value: ReplayStorageTypeS3Serializer,
     const.ReplayStorageType.ceph.value: ReplayStorageTypeCephSerializer,
     const.ReplayStorageType.swift.value: ReplayStorageTypeSwiftSerializer,
-    const.ReplayStorageType.oss.value: ReplayStorageTypeOSSSerializer,
     const.ReplayStorageType.azure.value: ReplayStorageTypeAzureSerializer,
-    const.ReplayStorageType.obs.value: ReplayStorageTypeOBSSerializer,
-    const.ReplayStorageType.cos.value: ReplayStorageTypeCOSSerializer,
     const.ReplayStorageType.sftp.value: ReplayStorageTypeSFTPSerializer
 }
 

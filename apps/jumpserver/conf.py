@@ -306,16 +306,6 @@ class Config(dict):
         'AUTH_CUSTOM_SSO_FILE_MD5': '',
         'AUTH_CUSTOM_SSO_QUERY_PARAMS': 'token',
 
-        'AUTH_UKEY': False,
-        'AUTH_UKEY_VENDOR': 'long_mai',
-        'AUTH_UKEY_ENROLL_ENABLED': True,
-        'AUTH_UKEY_ENROLL_VALIDITY_DAYS': 365,
-        'AUTH_UKEY_CHALLENGE_TTL': 300,
-        'AUTH_UKEY_DEFAULT_PIN': '',
-        'AUTH_UKEY_CA_KEY_CONTENT': '',
-        'AUTH_UKEY_CA_CERT_CONTENT': '',
-        'AUTH_UKEY_CA_KEY_PASS': '',
-
         # 临时密码
         'AUTH_TEMP_TOKEN': False,
 
@@ -575,64 +565,6 @@ class Config(dict):
         'FIDO_SERVER_ID': '',
         'FIDO_SERVER_NAME': 'XPAM',
 
-        # 企业微信
-        'AUTH_WECOM': False,
-        'WECOM_CORPID': '',
-        'WECOM_AGENTID': '',
-        'WECOM_SECRET': '',
-        'WECOM_RENAME_ATTRIBUTES': {
-            'name': 'name',
-            'username': 'userid',
-            'email': 'email'
-        },
-        'WECOM_ORG_IDS': [DEFAULT_ID],
-
-        # 钉钉
-        'AUTH_DINGTALK': False,
-        'DINGTALK_AGENTID': '',
-        'DINGTALK_APPKEY': '',
-        'DINGTALK_APPSECRET': '',
-        'DINGTALK_RENAME_ATTRIBUTES': {
-            'name': 'name',
-            'username': 'user_id',
-            'email': 'email'
-        },
-        'DINGTALK_ORG_IDS': [DEFAULT_ID],
-
-        # 飞书
-        'AUTH_FEISHU': False,
-        'FEISHU_APP_ID': '',
-        'FEISHU_APP_SECRET': '',
-        'FEISHU_RENAME_ATTRIBUTES': {
-            'name': 'name',
-            'username': 'user_id',
-            'email': 'enterprise_email'
-        },
-        'FEISHU_ORG_IDS': [DEFAULT_ID],
-
-        # Lark
-        'AUTH_LARK': False,
-        'LARK_APP_ID': '',
-        'LARK_APP_SECRET': '',
-        'LARK_RENAME_ATTRIBUTES': {
-            'name': 'en_name',
-            'username': 'user_id',
-            'email': 'enterprise_email'
-        },
-        'LARK_ORG_IDS': [DEFAULT_ID],
-
-        # Slack
-        'AUTH_SLACK': False,
-        'SLACK_CLIENT_ID': '',
-        'SLACK_CLIENT_SECRET': '',
-        'SLACK_BOT_TOKEN': '',
-        'SLACK_RENAME_ATTRIBUTES': {
-            'name': 'real_name',
-            'username': 'name',
-            'email': 'profile.email'
-        },
-        'SLACK_ORG_IDS': [DEFAULT_ID],
-
         'LOGIN_REDIRECT_TO_BACKEND': '',  # 'OPENID / CAS / SAML2
         'LOGIN_REDIRECT_MSG_ENABLED': True,
 
@@ -672,33 +604,6 @@ class Config(dict):
         'SMS_BACKEND': '',
         'SMS_CODE_LENGTH': 4,
         'SMS_TEST_PHONE': '',
-
-        'ALIBABA_ACCESS_KEY_ID': '',
-        'ALIBABA_ACCESS_KEY_SECRET': '',
-        'ALIBABA_VERIFY_SIGN_NAME': '',
-        'ALIBABA_VERIFY_TEMPLATE_CODE': '',
-
-        'TENCENT_SECRET_ID': '',
-        'TENCENT_SECRET_KEY': '',
-        'TENCENT_SDKAPPID': '',
-        'TENCENT_VERIFY_SIGN_NAME': '',
-        'TENCENT_VERIFY_TEMPLATE_CODE': '',
-
-        'HUAWEI_APP_KEY': '',
-        'HUAWEI_APP_SECRET': '',
-        'HUAWEI_SMS_ENDPOINT': '',
-        'HUAWEI_SIGN_CHANNEL_NUM': '',
-        'HUAWEI_VERIFY_SIGN_NAME': '',
-        'HUAWEI_VERIFY_TEMPLATE_CODE': '',
-
-        'CMPP2_HOST': '',
-        'CMPP2_PORT': 7890,
-        'CMPP2_SP_ID': '',
-        'CMPP2_SP_SECRET': '',
-        'CMPP2_SRC_ID': '',
-        'CMPP2_SERVICE_ID': '',
-        'CMPP2_VERIFY_SIGN_NAME': '',
-        'CMPP2_VERIFY_TEMPLATE_CODE': '{code}',
 
         'CUSTOM_SMS_URL': '',
         'CUSTOM_SMS_API_PARAMS': {'phone_numbers': '{phone_numbers}', 'content': _('The verification code is: {code}')},
@@ -978,7 +883,8 @@ class Config(dict):
         'TRUSTED_IP_SIGN_HEADER': '',
         'TRUSTED_IP_SIGN_KEY': '',
 
-        'REMOTE_APP_STORE_URL': 'https://apps.fit2cloud.com/jumpserver',
+        # XPAM: no remote applet store (upstream pointed at FIT2CLOUD's; the console does not use it)
+        'REMOTE_APP_STORE_URL': '',
         'LANGUAGES_SUPPORTED': '',
 
         # rdp sign cert

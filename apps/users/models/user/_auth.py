@@ -172,10 +172,6 @@ class AuthMixin:
     def can_use_ssh_key_login():
         return settings.TERMINAL_PUBLIC_KEY_AUTH
     
-    @staticmethod
-    def can_use_ukey_login():
-        return settings.AUTH_UKEY
-
     def is_history_password(self, password):
         allow_history_password_count = settings.OLD_PASSWORD_HISTORY_LIMIT_COUNT
         history_passwords = self.history_passwords.all().order_by("-date_created")[

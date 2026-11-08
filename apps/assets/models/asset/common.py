@@ -42,7 +42,6 @@ SUPPORTED_ICON_SKINS = {
     'private',
     'sqlserver',
     'db2',
-    'dameng',
     'website',
     'chatgpt',
     'clickhouse',

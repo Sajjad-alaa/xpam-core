@@ -17,11 +17,6 @@ def get_auth_backend_label_mapping():
         settings.AUTH_BACKEND_SSO: _('SSO'),
         settings.AUTH_BACKEND_CUSTOM_SSO: _('Custom SSO'),
         settings.AUTH_BACKEND_AUTH_TOKEN: _('Auth Token'),
-        settings.AUTH_BACKEND_WECOM: _('WeCom'),
-        settings.AUTH_BACKEND_FEISHU: _('FeiShu'),
-        settings.AUTH_BACKEND_LARK: 'Lark',
-        settings.AUTH_BACKEND_SLACK: _('Slack'),
-        settings.AUTH_BACKEND_DINGTALK: _('DingTalk'),
         settings.AUTH_BACKEND_TEMP_TOKEN: _('Temporary token'),
         settings.AUTH_BACKEND_PASSKEY: _('Passkey'),
     })

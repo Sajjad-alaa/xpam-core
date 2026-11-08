@@ -10,7 +10,6 @@ class DatabaseTypes(BaseType):
     ORACLE = 'oracle', 'Oracle'
     SQLSERVER = 'sqlserver', 'SQLServer'
     DB2 = 'db2', 'DB2'
-    DAMENG = 'dameng', 'Dameng'
     CLICKHOUSE = 'clickhouse', 'ClickHouse'
     MONGODB = 'mongodb', 'MongoDB'
     REDIS = 'redis', 'Redis'
@@ -59,15 +58,6 @@ class DatabaseTypes(BaseType):
                 'change_secret_enabled': False,
                 'push_account_enabled': False,
             },
-            cls.DAMENG: {
-                'ansible_enabled': False,
-                'ping_enabled': False,
-                'gather_facts_enabled': False,
-                'gather_accounts_enabled': False,
-                'verify_account_enabled': False,
-                'change_secret_enabled': False,
-                'push_account_enabled': False,
-            },
             cls.CLICKHOUSE: {
                 'ansible_enabled': False,
                 'ping_enabled': False,
@@ -97,7 +87,6 @@ class DatabaseTypes(BaseType):
             cls.ORACLE: [{'name': 'Oracle'}],
             cls.SQLSERVER: [{'name': 'SQLServer'}],
             cls.DB2: [{'name': 'DB2'}],
-            cls.DAMENG: [{'name': 'Dameng'}],
             cls.CLICKHOUSE: [{'name': 'ClickHouse'}],
             cls.MONGODB: [{'name': 'MongoDB'}],
             cls.REDIS: [

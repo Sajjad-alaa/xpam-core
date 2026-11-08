@@ -143,11 +143,6 @@ class UserSerializer(
         label=_("Can public key authentication"),
         read_only=True,
     )
-    can_ukey_auth = serializers.BooleanField(
-        source="can_use_ukey_login",
-        label=_("Can UKey authentication"),
-        read_only=True,
-    )
     is_face_code_set = serializers.BooleanField(
         label=_("Is face code set"),
         read_only=True,
@@ -186,7 +181,6 @@ class UserSerializer(
         fields_write_only = ["password", "public_key", ]
         # xpack 包含的字段
         fields_xpack = [
-            "wecom_id", "dingtalk_id", "feishu_id", "lark_id", "slack_id",
             "is_org_admin", "orgs_roles", "org_roles"
         ]
         # small 指的是 不需要计算的直接能从一张表中获取到的数据
@@ -197,7 +191,6 @@ class UserSerializer(
                     "email", "wechat", "phone", "mfa_level", "allowed_mfa_types",
                     "source", *fields_xpack,
                     "created_by", "updated_by", "comment",  # 通用字段
-                    "ukey_sn",  # UKey SN号
                 ]
         )
         fields_date = [
@@ -207,7 +200,7 @@ class UserSerializer(
         fields_bool = [
             "is_superuser", "is_org_admin", "is_service_account",
             "is_valid", "is_expired", "is_active",  # 布尔字段
-            "is_otp_secret_key_bound", "can_public_key_auth", "can_ukey_auth",
+            "is_otp_secret_key_bound", "can_public_key_auth",
             "mfa_enabled", "need_update_password", "is_face_code_set",
         ]
         # 包含不太常用的字段，可以没有
@@ -344,14 +337,6 @@ class UserSerializer(
                 attrs.pop(field, None)
         return attrs
 
-    @staticmethod
-    def clean_ukey_fields(attrs):
-        for field in ("ukey_sn",):
-            value = attrs.get(field)
-            if value is None:
-                attrs.pop(field, None)
-        return attrs
-
     def check_disallow_self_update_fields(self, attrs):
         request = self.context.get("request")
         if not request or not request.user.is_authenticated:
@@ -393,7 +378,6 @@ class UserSerializer(
         attrs = self.check_disallow_self_update_fields(attrs)
         attrs = self.change_password_to_raw(attrs)
         attrs = self.clean_auth_fields(attrs)
-        attrs = self.clean_ukey_fields(attrs)
         self.check_mfa_lockout(attrs)
         password_strategy = attrs.pop("password_strategy", None)
         request = get_current_request()

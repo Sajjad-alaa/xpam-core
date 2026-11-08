@@ -55,7 +55,7 @@ class OAuthBindMessage(UserMessage):
         {"name": "username", "label": _('User'), "default": "john"},
         {"name": "name", "label": _('Name'), "default": "John"},
         {"name": "ip", "label": "IP", "default": "192.168.1.1"},
-        {"name": "oauth_name", "label": _('OAuth name'), "default": "WeCom"},
+        {"name": "oauth_name", "label": _('OAuth name'), "default": "OAuth2"},
         {"name": "oauth_id", "label": _('OAuth ID'), "default": "000001"},
     ]
 
@@ -87,4 +87,4 @@ class OAuthBindMessage(UserMessage):
         from users.models import User
         user = User.objects.first()
         ip = '8.8.8.8'
-        return cls(user, ip, _('WeCom'), '000000')
+        return cls(user, ip, 'OAuth2', '000000')

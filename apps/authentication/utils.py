@@ -128,45 +128,9 @@ def get_auth_methods():
             'auto_redirect': True
         },
         {
-            'name': _('WeCom'),
-            'enabled': settings.AUTH_WECOM,
-            'url': reverse('authentication:wecom-qr-login'),
-            'logo': static('img/login_wecom_logo.png'),
-        },
-        {
-            'name': _('DingTalk'),
-            'enabled': settings.AUTH_DINGTALK,
-            'url': reverse('authentication:dingtalk-qr-login'),
-            'logo': static('img/login_dingtalk_logo.png')
-        },
-        {
-            'name': _('FeiShu'),
-            'enabled': settings.AUTH_FEISHU,
-            'url': reverse('authentication:feishu-qr-login'),
-            'logo': static('img/login_feishu_logo.png')
-        },
-        {
-            'name': 'Lark',
-            'enabled': settings.AUTH_LARK,
-            'url': reverse('authentication:lark-qr-login'),
-            'logo': static('img/login_lark_logo.png')
-        },
-        {
-            'name': _('Slack'),
-            'enabled': settings.AUTH_SLACK,
-            'url': reverse('authentication:slack-qr-login'),
-            'logo': static('img/login_slack_logo.png')
-        },
-        {
             'name': _("Passkey"),
             'enabled': settings.AUTH_PASSKEY,
             'url': reverse('api-auth:passkey-login'),
             'logo': static('img/login_passkey.png')
         },
-        {
-            'name': _('UKey'),
-            'enabled': settings.AUTH_UKEY,
-            'url': reverse('authentication:ukey:ukey-login'),
-            'logo': static('img/login_ukey.png')
-        }
     ]

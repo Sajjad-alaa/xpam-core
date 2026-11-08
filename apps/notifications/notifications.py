@@ -6,7 +6,6 @@ from celery import shared_task
 from django.utils.translation import gettext_lazy as _
 
 from common.utils import lazyproperty, convert_html_to_markdown, convert_html_to_text
-from common.utils.timezone import local_now
 from notifications.backends import BACKEND
 from settings.utils import get_login_title
 from users.models import User
@@ -101,6 +100,8 @@ class Message(CustomMsgTemplateBase, metaclass=MessageType):
         backends.add(BACKEND.SITE_MSG)  # 站内信必须发
         backends_msg_mapper = {}
         for backend in backends:
+            if backend not in BACKEND.values:  # e.g. a channel of a removed integration
+                continue
             backend = BACKEND(backend)
             if not backend.is_enable:
                 continue
@@ -123,19 +124,14 @@ class Message(CustomMsgTemplateBase, metaclass=MessageType):
                 traceback.print_exc()
 
     @classmethod
-    def send_test_msg(cls, ding=True, wecom=False):
+    def send_test_msg(cls):
         msg = cls.gen_test_msg()
         if not msg:
             return
 
         from users.models import User
         users = User.objects.filter(username='admin')
-        backends = []
-        if ding:
-            backends.append(BACKEND.DINGTALK)
-        if wecom:
-            backends.append(BACKEND.WECOM)
-        msg.send_msg(users, backends)
+        msg.send_msg(users, [BACKEND.EMAIL])
 
     @staticmethod
     def get_common_msg() -> dict:
@@ -207,34 +203,11 @@ class Message(CustomMsgTemplateBase, metaclass=MessageType):
 
     # --------------------------------------------------------------
     # 支持不同发送消息的方式定义自己的消息内容，比如有些支持 html 标签
-    def get_dingtalk_msg(self) -> dict:
-        # 钉钉相同的消息一天只能发一次，所以给所有消息添加基于时间的序号，使他们不相同
-        message = self.markdown_msg['message']
-        time = local_now().strftime('%Y-%m-%d %H:%M:%S')
-        suffix = '\n{}: {}'.format(_('Time'), time)
-
-        return {
-            'subject': self.markdown_msg['subject'],
-            'message': message + suffix
-        }
-
-    def get_wecom_msg(self) -> dict:
-        return self.markdown_msg
-
-    def get_feishu_msg(self) -> dict:
-        return self.markdown_msg
-
-    def get_lark_msg(self) -> dict:
-        return self.markdown_msg
-
     def get_email_msg(self) -> dict:
         return self.html_msg_with_sign
 
     def get_site_msg_msg(self) -> dict:
         return self.html_msg
-
-    def get_slack_msg(self) -> dict:
-        return self.markdown_msg
 
     def get_sms_msg(self) -> dict:
         return self.text_msg_with_sign
@@ -255,12 +228,12 @@ class Message(CustomMsgTemplateBase, metaclass=MessageType):
         return messages_cls
 
     @classmethod
-    def test_all_messages(cls, ding=True, wecom=False):
+    def test_all_messages(cls):
         messages_cls = cls.get_all_sub_messages()
 
         for _cls in messages_cls:
             try:
-                _cls.send_test_msg(ding=ding, wecom=wecom)
+                _cls.send_test_msg()
             except NotImplementedError:
                 continue
 

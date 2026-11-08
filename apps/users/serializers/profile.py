@@ -80,7 +80,7 @@ class UserProfileSerializer(UserSerializer):
         ]
         fields = UserSerializer.Meta.fields + [
             'public_key_comment', 'public_key_hash_md5', 'guide_url',
-            "wecom_id", "dingtalk_id", "feishu_id", "slack_id", 'lang', 'has_jdmc'
+            'lang', 'has_jdmc'
         ] + read_only_fields
 
         extra_kwargs = dict(UserSerializer.Meta.extra_kwargs)
@@ -115,8 +115,6 @@ class UserProfileSerializer(UserSerializer):
         if settings.PRIVACY_MODE:
             for field in (
                     'phone', 'wechat',
-                    'wecom_id', 'dingtalk_id',
-                    'feishu_id', 'slack_id', 'lark_id'
             ):
                 self.fields.pop(field, None)
 

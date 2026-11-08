@@ -60,7 +60,6 @@ class UserFilter(BaseFilterSet):
             'is_active', 'is_valid', 'is_expired', 'is_login_blocked',
             'group_id', 'exclude_group_id',
             'is_password_expired', 'is_long_time_no_login', 'is_first_login',
-            'ukey_sn',
         )
 
     def filter_email(self, queryset, name, value):
