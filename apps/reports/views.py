@@ -86,6 +86,14 @@ def build_report_url(chart_path):
 
 
 def export_chart_to_pdf(chart_name, sessionid, request):
+    # XPAM: imported here (upstream dropped the import with the dependency, which left a NameError);
+    # the core image ships playwright with its headless Chromium unless built with XPAM_REPORT_PDF=0
+    try:
+        from playwright.sync_api import sync_playwright
+    except ImportError:
+        print('Report export unavailable: this image was built without playwright')
+        return None, None
+
     chart_info = charts_map.get(chart_name)
     if not chart_info:
         return None, None
