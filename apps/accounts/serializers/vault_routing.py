@@ -9,6 +9,7 @@ from ..models import VaultConnection, VaultStorageRule
 __all__ = ['VaultConnectionSerializer', 'VaultStorageRuleSerializer']
 
 SECRET_HINTS = ('PASSWORD', 'TOKEN', 'SECRET', 'API_KEY', 'CREDENTIALS', 'KEY_FILE', 'KEY_PEM')
+ENDPOINT_HINTS = ('_ADDR', '_HOST', '_URL', '_REGION_NAME', '_PROJECT')
 
 
 class VaultConnectionSerializer(serializers.ModelSerializer):
@@ -39,8 +40,25 @@ class VaultConnectionSerializer(serializers.ModelSerializer):
             wrong = [k for k in config if not str(k).startswith(prefix)]
             if wrong:
                 raise serializers.ValidationError({'config': _('Only %s* settings: %s') % (prefix, ', '.join(wrong))})
-            if instance is not None:  # an omitted or masked secret keeps its value
-                merged = dict(instance.config or {})
+            if instance is not None:  # an omitted or masked secret keeps its value only if the endpoint did not change
+                old_cfg = dict(instance.config or {})
+                endpoint_changed = any(
+                    any(k.endswith(eh) for eh in ENDPOINT_HINTS)
+                    and str(v or '').strip().rstrip('/') != str(old_cfg.get(k) or '').strip().rstrip('/')
+                    for k, v in config.items()
+                )
+                # a stored secret is carried over only when it is omitted or sent masked; an empty value
+                # clears it (e.g. switching to role-based auth), so that is not a reuse
+                reused_secret = endpoint_changed and any(
+                    any(h in k for h in SECRET_HINTS) and old_cfg.get(k)
+                    and (k not in config or config.get(k) == '******')
+                    for k in old_cfg
+                )
+                if reused_secret:
+                    raise serializers.ValidationError({
+                        'config': _('Enter the secret or token again when changing the vault address')
+                    })
+                merged = dict(old_cfg)
                 merged.update({k: v for k, v in config.items() if v != '******'})
                 attrs['config'] = merged
         return attrs

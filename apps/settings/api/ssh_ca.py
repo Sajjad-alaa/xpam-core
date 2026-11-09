@@ -10,6 +10,7 @@ from rest_framework.views import APIView
 
 from authentication.services import get_ssh_ca_client
 from .. import serializers
+from ..serializers.feature import validate_ssh_ca_openbao_address
 
 __all__ = ['SSHCAOpenBaoTestingAPI', 'SSHCAOpenBaoPublicKeyAPI']
 
@@ -22,19 +23,29 @@ class SSHCAOpenBaoTestingAPI(GenericAPIView):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         validated_data = serializer.validated_data
+        address_field = 'SSH_CA_OPENBAO_ADDR'
+        stored_addr = (getattr(settings, address_field, None) or '').strip().rstrip('/')
+        req_addr = validated_data.get(address_field)
+        if req_addr is None:
+            effective_addr = getattr(settings, address_field, None)
+        else:
+            effective_addr = req_addr
+        addr_unchanged = (effective_addr or '').strip().rstrip('/') == stored_addr
+
         data = {}
         for name in serializer.fields:
             value = validated_data.get(name, getattr(settings, name, None))
             if name == 'SSH_CA_OPENBAO_TOKEN' and value in ('', None):
-                value = getattr(settings, name, None)
+                # Only fall back to the stored token when testing the already-configured address
+                value = getattr(settings, name, None) if addr_unchanged else ''
             data[name] = value
         data['SSH_CA_OPENBAO_CACERT_FILE'] = settings.SSH_CA_OPENBAO_CACERT_FILE
 
-        address_field = 'SSH_CA_OPENBAO_ADDR'
         if not data[address_field]:
             raise ValidationError({
                 address_field: [_('This field may not be blank.')]
             })
+        validate_ssh_ca_openbao_address(data[address_field])
         return SimpleNamespace(**data)
 
     def post(self, request):

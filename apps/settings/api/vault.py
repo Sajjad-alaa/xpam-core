@@ -25,6 +25,13 @@ class VaultTestingAPI(GenericAPIView):
         'POST': 'settings.change_vault'
     }
 
+    ENDPOINT_FIELDS = (
+        'VAULT_OPENBAO_ADDR', 'VAULT_HCP_HOST', 'VAULT_AZURE_HOST',
+        'VAULT_CYBERARK_URL', 'VAULT_DELINEA_URL',
+        'VAULT_AWS_REGION_NAME', 'VAULT_GCP_PROJECT',
+    )
+    SECRET_HINTS = ('PASSWORD', 'TOKEN', 'SECRET', 'API_KEY', 'CREDENTIALS', 'KEY_FILE', 'KEY_PEM')
+
     def get_config(self, request, backend):
         serializer_class = self.backends_serializer.get(backend)
         if serializer_class is None:
@@ -32,8 +39,15 @@ class VaultTestingAPI(GenericAPIView):
         serializer = serializer_class(data=request.data)
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
+        endpoint_changed = any(
+            f in data and (str(data[f] or '').strip().rstrip('/') != str(getattr(settings, f, None) or '').strip().rstrip('/'))
+            for f in self.ENDPOINT_FIELDS if f in serializer.fields
+        )
         for name in serializer.fields:
             if name in data and data[name] not in ('', None):
+                continue
+            if endpoint_changed and any(h in name for h in self.SECRET_HINTS):
+                data[name] = ''
                 continue
             # 页面没有传递值, 从 settings 中获取。False 是有效的开关值。
             data[name] = getattr(settings, name, None)

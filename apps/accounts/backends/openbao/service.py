@@ -301,14 +301,18 @@ class OpenBaoSSHCAClient(OpenBaoKVClient):
 
     def __init__(
             self, addr=None, token='', mount_point='ssh-client-signer',
-            role='jumpserver', timeout=10, verify_tls=True,
+            role='jumpserver', timeout=10, verify_tls=True, ca_cert='', ca_cert_file='',
     ):
+        # (get_ssh_ca_client passes the CA file for TLS verification; without these parameters every SSH CA call
+        # raised TypeError: signing, the public key and the connection test)
         super().__init__(
             addr=addr,
             token=token,
             mount_point=mount_point,
             timeout=timeout,
             verify_tls=verify_tls,
+            ca_cert=ca_cert,
+            ca_cert_file=ca_cert_file,
         )
         self.role = (role or 'jumpserver').strip('/')
 

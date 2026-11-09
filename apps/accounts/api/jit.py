@@ -160,7 +160,9 @@ class JITPolicyViewSet(JITTicketRequiredMixin, OrgBulkModelViewSet):
                 ticket = qs.select_related('applicant').first()
             user = ticket.applicant if ticket else None
         elif params.get('user') and is_uuid(params['user']):
-            user = User.objects.filter(id=params['user']).first()
+            from orgs.utils import current_org
+            user_qs = User.objects if current_org.is_root() else current_org.get_members()
+            user = user_qs.filter(id=params['user']).first()
         if not user:
             return Response({'error': _('Choose a user')}, status=400)
         asset_ids = [i for i in split('assets') if is_uuid(i)]

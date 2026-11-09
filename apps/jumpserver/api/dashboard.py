@@ -33,12 +33,17 @@ class DateTimeMixin:
     def org(self):
         return current_org
 
+    MAX_DAYS = 365
+
     @lazyproperty
     def days(self):
         query_params = self.request.query_params
-        count = query_params.get('days')
-        count = int(count) if count else 1
-        return count
+        raw = query_params.get('days')
+        try:
+            count = int(raw) if raw else 1
+        except (TypeError, ValueError, OverflowError):
+            count = 1
+        return max(1, min(count, self.MAX_DAYS))
 
     @property
     def days_to_datetime(self):
@@ -207,7 +212,7 @@ class DatesLoginMetricMixin:
 
     def get_dates_metrics_total_count_login(self):
         date_metrics_dict = self.get_date_metrics(
-            UserLoginLog.objects, 'datetime', 'id'
+            self.login_logs_queryset, 'datetime', 'id'
         )
         return date_metrics_dict.get('id', [])
 

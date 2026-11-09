@@ -18,6 +18,9 @@ class HealthApiMixin(APIView):
 
 class HealthCheckView(HealthApiMixin):
     permission_classes = (AllowAny,)
+    _cache_until = 0.0
+    _cached_data = None
+    _cached_code = 200
 
     @staticmethod
     def get_db_status():
@@ -25,9 +28,9 @@ class HealthCheckView(HealthApiMixin):
         try:
             ok = User.objects.first() is not None
             t2 = time.time()
-            return ok, t2 - t1
-        except Exception as e:
-            return False, str(e)
+            return ok, round(t2 - t1, 4)
+        except Exception:
+            return False, 0
 
     @staticmethod
     def get_redis_status():
@@ -41,24 +44,29 @@ class HealthCheckView(HealthApiMixin):
             t2 = time.time()
 
             if value == got:
-                return True, t2 - t1
-            return False, 'Value not match'
-        except Exception as e:
-            return False, str(e)
+                return True, round(t2 - t1, 4)
+            return False, 0
+        except Exception:
+            return False, 0
 
     def get(self, request):
-        redis_status, redis_time = self.get_redis_status()
-        db_status, db_time = self.get_db_status()
-        status = all([redis_status, db_status])
+        now = time.monotonic()
+        if self._cached_data is not None and now < self._cache_until:
+            # a copy: the timing middleware adds keys to response.data, which must not touch the shared cache
+            return Response(dict(self._cached_data), status=self._cached_code)
+        redis_status, _redis_time = self.get_redis_status()
+        db_status, _db_time = self.get_db_status()
+        ok = all([redis_status, db_status])
         data = {
-            'status': status,
+            'status': ok,
             'db_status': db_status,
-            'db_time': db_time,
             'redis_status': redis_status,
-            'redis_time': redis_time,
-            'time': int(time.time()),
         }
-        return Response(data)
+        code = 200 if ok else 503
+        HealthCheckView._cached_data = data
+        HealthCheckView._cached_code = code
+        HealthCheckView._cache_until = now + 2.0
+        return Response(dict(data), status=code)
 
 
 class PrometheusMetricsApi(HealthApiMixin):

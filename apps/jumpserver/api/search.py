@@ -26,12 +26,18 @@ class GlobalSearchView(APIView):
         ]
 
     def search_model(self, model, fields, keyword):
-        queryset = model.objects.all()
-        if hasattr(model, 'get_queryset'):
+        from orgs.utils import current_org
+        from users.models import User
+
+        if model is User and not current_org.is_root():
+            queryset = current_org.get_members()
+        elif hasattr(model, 'get_queryset'):
             queryset = model.get_queryset()
+        else:
+            queryset = model.objects.all()
 
         if settings.DB_ENGINE == 'postgres':
-            qs = model.objects.annotate(
+            qs = queryset.annotate(
                 search=SearchVector(*fields),
             ).filter(search=keyword)
         else:
@@ -48,6 +54,7 @@ class GlobalSearchView(APIView):
         }
         content = ""
         value_list = [item.name]
+        value = ""
 
         for field in fields:
             field_label = model._meta.get_field(field).verbose_name
@@ -62,7 +69,7 @@ class GlobalSearchView(APIView):
             content += f"{field_label}: {value} "
 
         display = str(item).replace(item.name, '').replace('(', '').replace(')', '')
-        if display not in value:
+        if display and display not in str(value or ''):
             content += f" {display} "
 
         d["content"] = content
