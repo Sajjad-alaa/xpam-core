@@ -223,6 +223,10 @@ class FaceEngineContextApi(FaceEngineMixin, RetrieveAPIView):
         else:
             # A login that is still waiting for its second factor must not bind a new face
             raise NotFound({'error': 'Face enrollment needs a signed-in user.'})
+        # The engine opens a capture for this token now: refresh the token's lifetime so a user who
+        # retries (camera permission, a failed liveness, another attempt) keeps a full window each time
+        # and a later success is not rejected as "expired".
+        cache.set(f"{FACE_CONTEXT_CACHE_KEY_PREFIX}_{token}", context, FACE_CONTEXT_CACHE_TTL)
         return Response({
             'valid': True,
             'mode': mode,

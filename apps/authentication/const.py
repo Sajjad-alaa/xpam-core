@@ -43,7 +43,11 @@ class MFAType(TextChoices):
 
 
 FACE_CONTEXT_CACHE_KEY_PREFIX = "FACE_CONTEXT"
-FACE_CONTEXT_CACHE_TTL = 180
+# How long a face-login token lives in the cache. It is refreshed each time the engine opens a new
+# capture (see FaceEngineContextApi), so the window below applies per attempt, not to the whole login.
+# 180s was too short once a user retried (camera permission, a failed liveness, another try): a later
+# success then reported "expired" because the token had already gone.
+FACE_CONTEXT_CACHE_TTL = 10 * 60
 FACE_MONITOR_CONTEXT_CACHE_TTL = 10 * 60
 FACE_SESSION_KEY = "face_token"
 
