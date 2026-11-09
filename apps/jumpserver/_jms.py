@@ -1,0 +1,283 @@
+import argparse
+import logging
+import logging.handlers
+import os
+import sys
+import time
+
+import django
+from django.core import management
+from django.db.utils import OperationalError
+
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+APP_DIR = os.path.join(BASE_DIR, 'apps')
+
+os.chdir(APP_DIR)
+if APP_DIR not in sys.path:
+    sys.path.insert(0, APP_DIR)
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "jumpserver.settings")
+django.setup()
+
+try:
+    from django.conf import settings
+    log_level = logging.DEBUG if settings.DEBUG_DEV else logging.INFO
+except Exception as e:
+    print("Load settings error: {}".format(e))
+    log_level = logging.INFO
+
+logging.basicConfig(level=log_level, format="%(asctime)s %(message)s", datefmt="%Y-%m-%d %H:%M:%S")
+
+try:
+    from jumpserver import const
+
+    __version__ = const.VERSION
+except ImportError as e:
+    print("Not found __version__: {}".format(e))
+    print("Python is: ")
+    logging.info(sys.executable)
+    __version__ = 'Unknown'
+    sys.exit(1)
+
+try:
+    from jumpserver.const import CONFIG
+    from common.utils.file import download_file
+    from common.utils import make_dirs
+except ImportError as e:
+    print("Import error: {}".format(e))
+    print("Could not find config file, `cp config_example.yml config.yml`")
+    sys.exit(1)
+
+os.environ["PYTHONIOENCODING"] = "UTF-8"
+
+logger = logging.getLogger()
+
+try:
+    make_dirs(os.path.join(BASE_DIR, "data", "static"))
+    make_dirs(os.path.join(BASE_DIR, "data", "media"))
+except Exception:
+    pass
+
+
+def check_database_connection():
+    for i in range(60):
+        logging.info(f"Check database connection: {i}")
+        try:
+            management.call_command('check', '--database', 'default')
+            logging.info("Database connect success")
+            return
+        except OperationalError:
+            logging.info('Database not setup, retry')
+        except Exception as exc:
+            logging.error('Unexpect error occur: {}'.format(str(exc)))
+        time.sleep(1)
+    logging.error("Connection database failed, exit")
+    sys.exit(10)
+
+
+def expire_caches():
+    try:
+        management.call_command('expire_caches')
+    except Exception:
+        pass
+
+
+def perform_db_migrate():
+    logging.info("Check database structure change ...")
+    logging.info("Migrate model change to database ...")
+
+    try:
+        with migration_lock():
+            management.call_command('migrate')
+    except Exception as e:
+        logging.error('Perform migrate failed')
+        raise e
+
+
+class migration_lock:
+    KEY = 731_947_7331
+
+    def __enter__(self):
+        from django.db import connection
+        self.cursor = None
+        if connection.vendor == 'postgresql':
+            self.cursor = connection.cursor()
+            logging.info('Waiting for the migration lock (another server may be migrating) ...')
+            self.cursor.execute('SELECT pg_advisory_lock(%s)', [self.KEY])
+        return self
+
+    def __exit__(self, *exc):
+        if self.cursor is not None:
+            try:
+                self.cursor.execute('SELECT pg_advisory_unlock(%s)', [self.KEY])
+            except Exception as e:
+                logging.warning(f'Migration lock release: {e}')
+            finally:
+                try:
+                    self.cursor.close()
+                except Exception:
+                    pass
+        return False
+
+
+def collect_static():
+    logging.info("Collect static files")
+    try:
+        management.call_command('collectstatic', '--no-input', '-c', verbosity=0, interactive=False)
+        logging.info("Collect static files done")
+        return True
+    except Exception:
+        return False
+
+
+def compile_i18n_file():
+    django_mo_file = os.path.join(BASE_DIR, 'apps', 'core', 'locale', 'zh', 'LC_MESSAGES', 'django.mo')
+    if os.path.exists(django_mo_file):
+        return
+    os.chdir(os.path.join(BASE_DIR, 'apps'))
+    management.call_command('compilemessages', verbosity=0, interactive=False)
+    logging.info("Compile i18n files done")
+
+
+def download_ip_db():
+    db_base_dir = os.path.join(APP_DIR, 'common', 'utils', 'ip')
+    db_path_url_mapper = {
+        ('geoip', 'GeoLite2-City.mmdb'): 'https://jms-pkg.oss-cn-beijing.aliyuncs.com/ip/GeoLite2-City.mmdb',
+        ('ipip', 'ipipfree.ipdb'): 'https://jms-pkg.oss-cn-beijing.aliyuncs.com/ip/ipipfree.ipdb'
+    }
+    for p, src in db_path_url_mapper.items():
+        path = os.path.join(db_base_dir, *p)
+        if os.path.isfile(path) and os.path.getsize(path) > 1000:
+            continue
+        print("Download ip db: {}".format(path))
+        download_file(src, path)
+
+
+def install_builtin_applets():
+    logging.info("Install builtin applets")
+    try:
+        management.call_command('install_builtin_applets', verbosity=0)
+    except Exception as e:
+        logging.error("Install builtin applets err: {}".format(e))
+
+
+def init_oauth2_provider():
+    logging.info("Initialize OAuth2 Provider")
+    try:
+        management.call_command('init_oauth2_provider', verbosity=0)
+    except Exception as e:
+        logging.error("Initialize OAuth2 Provider err: {}".format(e))
+
+
+def upgrade_db():
+    static_ok = collect_static()
+    perform_db_migrate()
+    return static_ok
+
+
+BUILD_ID_FILE = os.path.join(BASE_DIR, 'BUILD_ID')
+PREPARED_FILE = os.path.join(BASE_DIR, 'data', '.xpam-prepared')
+
+
+def build_id():
+    try:
+        with open(BUILD_ID_FILE) as f:
+            return f.read().strip()
+    except OSError:
+        return ''
+
+
+def prepared_for_this_build():
+    current = build_id()
+    if not current or os.environ.get('XPAM_FULL_PREPARE') == '1':
+        return False
+    try:
+        with open(PREPARED_FILE) as f:
+            return f.read().strip() == current
+    except OSError:
+        return False
+
+
+def migrations_pending():
+    try:
+        from django.db import connections
+        from django.db.migrations.executor import MigrationExecutor
+        executor = MigrationExecutor(connections['default'])
+        return bool(executor.migration_plan(executor.loader.graph.leaf_nodes()))
+    except Exception as e:
+        logging.info(f'Migration check failed ({e}): full start')
+        return True
+
+
+def prepare():
+    check_database_connection()
+    if prepared_for_this_build() and not migrations_pending():
+        logging.info('Same build as the last start, no migration pending: quick start')
+        expire_caches()
+        return
+    static_ok = upgrade_db()
+    expire_caches()
+    download_ip_db()
+    install_builtin_applets()
+    init_oauth2_provider()
+    current = build_id()
+    if current and static_ok:
+        try:
+            with open(PREPARED_FILE, 'w') as f:
+                f.write(current)
+        except OSError as e:
+            logging.info(f'Could not record the prepared build: {e}')
+
+
+def start_services(args, action):
+    services = args.services if isinstance(args.services, list) else [args.services]
+    if action == 'start' and {'all', 'web'} & set(services):
+        prepare()
+
+    start_args = []
+    if args.daemon:
+        start_args.append('--daemon')
+    if args.force:
+        start_args.append('--force')
+    if args.worker:
+        start_args.extend(['--worker', str(args.worker)])
+    else:
+        worker = os.environ.get('CORE_WORKER')
+        if isinstance(worker, str) and worker.isdigit():
+            start_args.extend(['--worker', worker])
+
+    try:
+        management.call_command(action, *services, *start_args)
+    except KeyboardInterrupt:
+        logging.info('Cancel ...')
+        time.sleep(2)
+    except Exception as exc:
+        logging.error("Start service error {}: {}".format(services, exc))
+        time.sleep(2)
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        'action', type=str,
+        choices=("start", "stop", "restart", "status", "upgrade_db", "collect_static"),
+        help="Action to run"
+    )
+    parser.add_argument(
+        "services", type=str, default='all', nargs="*",
+        choices=("all", "web", "task", "ai"),
+        help="The service to start",
+    )
+    parser.add_argument('-d', '--daemon', nargs="?", const=True)
+    parser.add_argument('-w', '--worker', type=int, nargs="?")
+    parser.add_argument('-f', '--force', nargs="?", const=True)
+
+    args = parser.parse_args()
+
+    action = args.action
+    if action == "upgrade_db":
+        upgrade_db()
+    elif action == "collect_static":
+        collect_static()
+    else:
+        start_services(args, action)
+

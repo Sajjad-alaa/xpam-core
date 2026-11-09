@@ -6,7 +6,7 @@ import ldap
 
 from settings.ldap_tls import LDAPTLSUtil
 from ..const import CONFIG, PROJECT_DIR, BASE_DIR
-from . import exist_or_default
+from .base import exist_or_default
 
 # OTP settings
 OTP_ISSUER_NAME = CONFIG.OTP_ISSUER_NAME

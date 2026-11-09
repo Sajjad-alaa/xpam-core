@@ -73,7 +73,6 @@ class BaseMFA(abc.ABC):
         return False
 
     @staticmethod
-    @abc.abstractmethod
     def global_enabled():
         return False
 

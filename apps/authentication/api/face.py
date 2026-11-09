@@ -333,6 +333,8 @@ class FaceMonitorContextApi(CreateAPIView):
         session_id = serializer.validated_data.get('session_id')
 
         context = FaceMonitorContext.get(face_monitor_token)
+        if not context:
+            raise NotFound({'error': 'Face monitor context does not exist or has expired.'})
         context.add_session(session_id)
 
     def create(self, request, *args, **kwargs):
@@ -354,6 +356,8 @@ class FaceMonitorCallbackApi(CreateAPIView):
         token = serializer.validated_data.get('token')
 
         context = FaceMonitorContext.get(token=token)
+        if not context:
+            raise NotFound({'error': 'Face monitor context does not exist or has expired.'})
         is_finished = serializer.validated_data.get('is_finished')
         if is_finished:
             context.close()
