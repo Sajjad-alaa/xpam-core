@@ -229,6 +229,10 @@ class Config(dict):
         # availability, libpq's choice among several DB_HOST entries (read-write: the current primary)
         'DB_SSL_MODE': 'require',
         'DB_TARGET_SESSION_ATTRS': '',
+        # XPAM: a pool of PostgreSQL connections per process (settings/base.py)
+        'DB_POOL_ENABLED': True,
+        'DB_POOL_MIN_SIZE': 1,
+        'DB_POOL_MAX_SIZE': 10,
         'REDIS_HOST': '127.0.0.1',
         'REDIS_PORT': 6379,
         'REDIS_PASSWORD': '',

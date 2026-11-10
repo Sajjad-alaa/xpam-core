@@ -309,6 +309,24 @@ if DB_ENGINE == 'postgresql' and CONFIG.DB_TARGET_SESSION_ATTRS:
     DB_OPTIONS['target_session_attrs'] = CONFIG.DB_TARGET_SESSION_ATTRS
     DB_OPTIONS['connect_timeout'] = 3  # (a server that is down must not hold up the search for the primary)
 
+# XPAM: a pool of PostgreSQL connections per process (psycopg 3, Django's own pool) instead of a new connection
+# — TCP, password authentication and a new server process, ~4 ms — for every request. A connection is checked
+# when it is taken from the pool, so a database restart or a failover does not hand out dead ones. Idle
+# connections above DB_POOL_MIN_SIZE close after 5 minutes. DB_POOL_ENABLED=false turns it off.
+if DB_ENGINE == 'postgresql' and CONFIG.DB_POOL_ENABLED:
+    try:
+        import psycopg  # noqa: F401  (Django uses psycopg 3 when it is installed; the pool needs it)
+        from psycopg_pool import ConnectionPool
+    except ImportError:
+        ConnectionPool = None
+    if ConnectionPool is not None:
+        DB_OPTIONS['pool'] = {
+            'min_size': int(CONFIG.DB_POOL_MIN_SIZE), 'max_size': int(CONFIG.DB_POOL_MAX_SIZE),
+            'timeout': 30, 'max_idle': 300,
+        }
+        # (Django then checks each connection as it leaves the pool: ConnectionPool.check_connection)
+        DATABASES['default']['CONN_HEALTH_CHECKS'] = True
+
 # Password validation
 # https://docs.djangoproject.com/en/1.10/ref/settings/#auth-password-validators
 #

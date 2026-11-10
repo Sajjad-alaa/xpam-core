@@ -7,6 +7,8 @@ from Cryptodome.Cipher import AES, PKCS1_v1_5
 from Cryptodome.PublicKey import RSA
 from Cryptodome.Random import get_random_bytes
 from Cryptodome.Util.Padding import pad
+from cryptography.exceptions import InvalidTag
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
 from .base import BaseCryptoSuite
 
@@ -65,17 +67,25 @@ class AESCrypto:
 class AESCryptoGCM:
     """
     使用AES GCM模式
+
+    XPAM: OpenSSL's AES-GCM (cryptography) instead of PyCryptodome's: the same algorithm and the same stored
+    format — header (additional data), 16-byte nonce and 16-byte tag, base64, before the ciphertext — so every
+    value either library wrote opens with the other. PyCryptodome built a new GCM cipher (its GHASH tables) for
+    each value, about 0.2 ms; OpenSSL does it in microseconds, which matters where lists decrypt every row.
     """
 
     def __init__(self, key):
         self.key = self.process_key(key)
+        self._aead = AESGCM(self.key)
 
     @staticmethod
     def process_key(key):
         if not isinstance(key, bytes):
             key = bytes(key, encoding='utf-8')
+
         if len(key) >= 32:
             return key[:32]
+
         return pad(key, 32)
 
     def encrypt(self, text):
@@ -84,15 +94,10 @@ class AESCryptoGCM:
         附在密文前。解密时要用到。
         """
         header = get_random_bytes(16)
-        cipher = AES.new(self.key, AES.MODE_GCM)
-        cipher.update(header)
-        ciphertext, tag = cipher.encrypt_and_digest(bytes(text, encoding='utf-8'))
-
-        result = []
-        for byte_data in (header, cipher.nonce, tag, ciphertext):
-            result.append(base64.b64encode(byte_data).decode('utf-8'))
-
-        return ''.join(result)
+        nonce = get_random_bytes(16)
+        sealed = self._aead.encrypt(nonce, bytes(text, encoding='utf-8'), header)
+        ciphertext, tag = sealed[:-16], sealed[-16:]
+        return ''.join(base64.b64encode(part).decode('utf-8') for part in (header, nonce, tag, ciphertext))
 
     def decrypt(self, text):
         """
@@ -103,10 +108,10 @@ class AESCryptoGCM:
         nonce = base64.b64decode(metadata[24:48])
         tag = base64.b64decode(metadata[48:])
         ciphertext = base64.b64decode(text[72:])
-        cipher = AES.new(self.key, AES.MODE_GCM, nonce=nonce)
-
-        cipher.update(header)
-        plain_text_bytes = cipher.decrypt_and_verify(ciphertext, tag)
+        try:
+            plain_text_bytes = self._aead.decrypt(nonce, ciphertext + tag, header)
+        except InvalidTag:
+            raise ValueError('MAC check failed') from None  # (PyCryptodome's error for a wrong key or a changed value)
         return plain_text_bytes.decode('utf-8')
 
 
