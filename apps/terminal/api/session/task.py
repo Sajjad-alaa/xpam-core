@@ -85,6 +85,9 @@ class KillSessionAPI(APIView):
 
     def post(self, request, *args, **kwargs):
         session_ids = request.data
+        # (a list of session ids: anything else is a bad request, not a server error)
+        if not isinstance(session_ids, list) or not all(isinstance(i, str) and is_uuid(i) for i in session_ids):
+            return Response({'error': 'a list of session ids is required'}, status=status.HTTP_400_BAD_REQUEST)
         validated_session = create_sessions_tasks(session_ids, request.user)
         return Response({"ok": validated_session})
 
