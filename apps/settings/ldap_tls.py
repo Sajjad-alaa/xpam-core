@@ -4,7 +4,7 @@ import ldap
 from django.conf import settings
 from django.utils._os import safe_join
 
-from jumpserver.const import CONFIG, PROJECT_DIR
+from xpam.const import CONFIG, PROJECT_DIR
 
 __all__ = ['LDAPTLSUtil']
 

@@ -12,7 +12,7 @@ from audits.serializers import (
 )
 from common.utils import get_request_ip, get_syslogger
 from common.utils.encode import data_to_json
-from jumpserver.utils import current_request
+from xpam.utils import current_request
 from users.models import User
 from users.signals import post_user_change_password
 from terminal.models import Session, Command

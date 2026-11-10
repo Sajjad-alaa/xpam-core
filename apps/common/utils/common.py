@@ -29,7 +29,7 @@ ipip_db = None
 def get_logger(name=''):
     if '/' in name:
         name = os.path.basename(name).replace('.py', '')
-    return logging.getLogger('jumpserver.%s' % name)
+    return logging.getLogger('xpam.%s' % name)
 
 
 def get_syslogger(name=''):

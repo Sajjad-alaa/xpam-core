@@ -10,7 +10,7 @@ from common.local import similar_encrypted_pattern, exclude_encrypted_fields
 from common.utils import get_request_ip, get_logger
 from common.utils.encode import Singleton
 from common.utils.timezone import as_current_tz
-from jumpserver.utils import current_request
+from xpam.utils import current_request
 from orgs.models import Organization
 from orgs.utils import get_current_org_id
 from settings.models import Setting

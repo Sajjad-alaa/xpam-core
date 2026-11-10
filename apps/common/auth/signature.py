@@ -101,7 +101,8 @@ class SignatureAuthentication(authentication.BaseAuthentication):
         if method.lower() != 'signature':
             return None
 
-        if self.source and request.META.get('HTTP_X_SOURCE') != self.source:
+        sources = (self.source,) if isinstance(self.source, str) else tuple(self.source or ())
+        if sources and sources != ('',) and request.META.get('HTTP_X_SOURCE') not in sources:
             return None
 
         # Verify basic header structure.

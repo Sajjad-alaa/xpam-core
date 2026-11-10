@@ -108,7 +108,7 @@ func FromResponse(response *http.Response) Secret {
 	return secret
 }
 
-type JumpServerPAM struct {
+type XpamPAM struct {
 	Endpoint   string
 	KeyID      string
 	KeySecret  string
@@ -116,11 +116,11 @@ type JumpServerPAM struct {
 	httpClient *http.Client
 }
 
-func NewJumpServerPAM(endpoint, keyID, keySecret, orgID string) *JumpServerPAM {
+func NewXpamPAM(endpoint, keyID, keySecret, orgID string) *XpamPAM {
 	if orgID == "" {
 		orgID = DefaultOrgId
 	}
-	return &JumpServerPAM{
+	return &XpamPAM{
 		Endpoint:   endpoint,
 		KeyID:      keyID,
 		KeySecret:  keySecret,
@@ -129,7 +129,7 @@ func NewJumpServerPAM(endpoint, keyID, keySecret, orgID string) *JumpServerPAM {
 	}
 }
 
-func (c *JumpServerPAM) SignRequest(r *http.Request) error {
+func (c *XpamPAM) SignRequest(r *http.Request) error {
 	headers := []string{"(request-target)", "date"}
 	signer, err := httpsig.NewRequestSigner(c.KeyID, c.KeySecret, "hmac-sha256")
 	if err != nil {
@@ -138,7 +138,7 @@ func (c *JumpServerPAM) SignRequest(r *http.Request) error {
 	return signer.SignRequest(r, headers, nil)
 }
 
-func (c *JumpServerPAM) Send(req *SecretRequest) (Secret, error) {
+func (c *XpamPAM) Send(req *SecretRequest) (Secret, error) {
 	fullUrl := c.Endpoint + req.GetURL()
 	query := req.GetQuery()
 	fullURL := fmt.Sprintf("%s?%s", fullUrl, query.Encode())
@@ -148,7 +148,7 @@ func (c *JumpServerPAM) Send(req *SecretRequest) (Secret, error) {
 		return Secret{}, err
 	}
 	request.Header.Set("Accept", "application/json")
-	request.Header.Set("X-Source", "jms-pam")
+	request.Header.Set("X-Source", "xpam-pam")
 	err = c.SignRequest(request)
 	if err != nil {
 		return Secret{Desc: json.RawMessage(`{"error": "` + err.Error() + `"}`)}, nil

@@ -8,7 +8,7 @@ from django.utils.module_loading import import_string
 
 from common.utils import get_logger
 from common.exceptions import JMSException
-from jumpserver.settings import get_file_md5
+from xpam.settings import get_file_md5
 
 from .base import BaseSMSClient
 

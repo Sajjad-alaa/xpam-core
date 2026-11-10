@@ -18,7 +18,7 @@ from common.tasks import send_mail_async
 from common.utils import reverse, get_object_or_none, ip, safe_next_url
 from .models import User
 
-logger = logging.getLogger('jumpserver.users')
+logger = logging.getLogger('xpam.users')
 otp_digest = hashlib.sha256 if settings.OTP_DIGEST == 'sha256' else hashlib.sha1
 
 

@@ -7,6 +7,6 @@ from .django import *
 from .encode import *
 from .http import *
 from .ip import *
-from .jumpserver import *
+from .flash import *
 from .random import *
 from .translate import *

@@ -116,7 +116,7 @@ for host_port in ALLOWED_DOMAINS:
         CSRF_TRUSTED_ORIGINS.append('{}://*.{}'.format(schema, origin))
 
 CORS_ALLOWED_ORIGINS = [o.replace('*.', '') for o in CSRF_TRUSTED_ORIGINS]
-CSRF_FAILURE_VIEW = 'jumpserver.views.other.csrf_failure'
+CSRF_FAILURE_VIEW = 'xpam.views.other.csrf_failure'
 # print("CSRF_TRUSTED_ORIGINS: ")
 # for origin in CSRF_TRUSTED_ORIGINS:
 # print('  - ' + origin)
@@ -171,7 +171,7 @@ PRE_CUSTOM_MIDDLEWARES = [m for m in CONFIG.PRE_CUSTOM_MIDDLEWARES.split(',') if
 POST_CUSTOM_MIDDLEWARES = [m for m in CONFIG.POST_CUSTOM_MIDDLEWARES.split(',') if m.strip()]
 
 MIDDLEWARE = [
-    'jumpserver.middleware.StartMiddleware',
+    'xpam.middleware.StartMiddleware',
     *PRE_CUSTOM_MIDDLEWARES,
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
@@ -179,15 +179,15 @@ MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
     # 'django.middleware.csrf.CsrfViewMiddleware',
-    'jumpserver.middleware.CsrfCheckMiddleware',
+    'xpam.middleware.CsrfCheckMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'jumpserver.middleware.TimezoneMiddleware',
-    'jumpserver.middleware.DemoMiddleware',
-    'jumpserver.middleware.RequestMiddleware',
-    'jumpserver.middleware.RefererCheckMiddleware',
-    'jumpserver.middleware.SQLCountMiddleware',
+    'xpam.middleware.TimezoneMiddleware',
+    'xpam.middleware.DemoMiddleware',
+    'xpam.middleware.RequestMiddleware',
+    'xpam.middleware.RefererCheckMiddleware',
+    'xpam.middleware.SQLCountMiddleware',
     'orgs.middleware.OrgMiddleware',
     'authentication.backends.oidc.middleware.OIDCRefreshIDTokenMiddleware',
     'authentication.backends.cas.middleware.CASMiddleware',
@@ -195,10 +195,10 @@ MIDDLEWARE = [
     'authentication.middleware.ThirdPartyLoginMiddleware',
     'authentication.middleware.SessionCookieMiddleware',
     'simple_history.middleware.HistoryRequestMiddleware',
-    'jumpserver.middleware.SafeRedirectMiddleware',
-    'jumpserver.middleware.SecurityHeadersMiddleware',
+    'xpam.middleware.SafeRedirectMiddleware',
+    'xpam.middleware.SecurityHeadersMiddleware',
     *POST_CUSTOM_MIDDLEWARES,
-    'jumpserver.middleware.EndMiddleware',
+    'xpam.middleware.EndMiddleware',
 ]
 
 if DEBUG or DEBUG_DEV:
@@ -208,7 +208,7 @@ if DEBUG or DEBUG_DEV:
     except ImportError:
         pass
 
-ROOT_URLCONF = 'jumpserver.urls'
+ROOT_URLCONF = 'xpam.urls'
 
 TEMPLATES = [
     {
@@ -225,14 +225,14 @@ TEMPLATES = [
                 'django.template.context_processors.static',
                 'django.template.context_processors.request',
                 'django.template.context_processors.media',
-                'jumpserver.context_processor.jumpserver_processor',
+                'xpam.context_processor.xpam_processor',
                 'orgs.context_processor.org_processor',
             ],
         },
     },
 ]
 
-WSGI_APPLICATION = 'jumpserver.wsgi.application'
+WSGI_APPLICATION = 'xpam.wsgi.application'
 
 LOGIN_REDIRECT_URL = reverse_lazy('index')
 LOGIN_URL = reverse_lazy('authentication:login')
@@ -380,9 +380,9 @@ MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(PROJECT_DIR, 'data', 'media').replace('\\', '/') + '/'
 
 PRIVATE_STORAGE_ROOT = MEDIA_ROOT
-PRIVATE_STORAGE_AUTH_FUNCTION = 'jumpserver.rewriting.storage.permissions.allow_access'
+PRIVATE_STORAGE_AUTH_FUNCTION = 'xpam.rewriting.storage.permissions.allow_access'
 PRIVATE_STORAGE_INTERNAL_URL = '/private-media/'
-PRIVATE_STORAGE_SERVER = 'jumpserver.rewriting.storage.servers.StaticFileServer'
+PRIVATE_STORAGE_SERVER = 'xpam.rewriting.storage.servers.StaticFileServer'
 
 FILE_UPLOAD_TEMP_DIR = CONFIG.FILE_UPLOAD_TEMP_DIR
 
@@ -393,7 +393,7 @@ FILE_UPLOAD_TEMP_DIR = CONFIG.FILE_UPLOAD_TEMP_DIR
 FIXTURE_DIRS = [os.path.join(BASE_DIR, 'fixtures'), ]
 
 # Email config
-EMAIL_BACKEND = 'jumpserver.rewriting.smtp.EmailBackend'
+EMAIL_BACKEND = 'xpam.rewriting.smtp.EmailBackend'
 EMAIL_PROTOCOL = CONFIG.EMAIL_PROTOCOL
 EMAIL_HOST = CONFIG.EMAIL_HOST
 EMAIL_PORT = CONFIG.EMAIL_PORT

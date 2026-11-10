@@ -11,7 +11,7 @@ from django.utils.translation import gettext_lazy as _
 from common.db.fields import EncryptJsonDictTextField
 from common.db.models import JMSBaseModel
 from common.plugins.es import QuerySet as ESQuerySet
-from common.storage import jms_storage
+from common.storage import object_storage
 from common.utils import get_logger
 from common.utils.timezone import local_now_date_display
 from terminal import const
@@ -198,10 +198,10 @@ class ReplayStorage(CommonStorageModelMixin, JMSBaseModel):
     def is_valid(self):
         if self.type_null_or_server:
             return True
-        storage = jms_storage.get_object_storage(self.config)
-        target = f'jms-storage-test-{uuid4().hex}.txt'
-        with NamedTemporaryFile(mode='wb', prefix='jms-storage-test-', suffix='.txt') as src:
-            src.write(b'JumpServer storage connectivity test')
+        storage = object_storage.get_object_storage(self.config)
+        target = f'xpam-storage-test-{uuid4().hex}.txt'
+        with NamedTemporaryFile(mode='wb', prefix='xpam-storage-test-', suffix='.txt') as src:
+            src.write(b'XPAM storage connectivity test')
             src.flush()
             return storage.is_valid(src.name, target)
 

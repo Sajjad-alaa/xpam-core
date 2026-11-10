@@ -21,7 +21,7 @@ def get_command_storage():
 
 
 def get_server_replay_storage():
-    from common.storage.jms_storage import get_object_storage
+    from common.storage.object_storage import get_object_storage
     config = settings.SERVER_REPLAY_STORAGE
     storage = get_object_storage(config)
     return storage

@@ -10,7 +10,7 @@ from django.db import connection
 from django.db.models.signals import pre_save
 from django.dispatch import receiver
 
-from jumpserver.utils import get_current_request
+from xpam.utils import get_current_request
 from .local import thread_local
 from .signals import django_ready
 from .utils import get_logger
@@ -136,7 +136,7 @@ def check_migrations_file_prefix_conflict(*args, **kwargs):
     if not settings.DEBUG_DEV:
         return
 
-    from jumpserver.const import BASE_DIR
+    from xpam.const import BASE_DIR
     print('>>> Check migrations file prefix conflict.', end=' ')
     # 指定 app 目录
     _dir = BASE_DIR

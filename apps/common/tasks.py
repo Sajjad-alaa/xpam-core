@@ -5,7 +5,7 @@ from django.conf import settings
 from django.core.mail import send_mail, EmailMultiAlternatives, get_connection
 from django.utils.translation import gettext_lazy as _
 
-from common.storage import jms_storage
+from common.storage import object_storage
 from common.utils import text_hmac_sha256
 from users.models import User
 from .utils import get_logger
@@ -15,8 +15,8 @@ logger = get_logger(__file__)
 
 def get_email_connection(**kwargs):
     email_backend_map = {
-        'smtp': 'jumpserver.rewriting.smtp.EmailBackend',
-        'exchange': 'jumpserver.rewriting.exchange.EmailBackend'
+        'smtp': 'xpam.rewriting.smtp.EmailBackend',
+        'exchange': 'xpam.rewriting.exchange.EmailBackend'
     }
     return get_connection(
         backend=email_backend_map.get(settings.EMAIL_PROTOCOL), **kwargs
@@ -119,7 +119,7 @@ def send_mail_attachment_async(subject, message, recipient_list, attachment_list
 def upload_backup_to_obj_storage(recipient, upload_file):
     logger.info(f'Start upload file : {upload_file}')
     remote_path = os.path.join('account_backup', os.path.basename(upload_file))
-    storage = jms_storage.get_object_storage(recipient.config)
+    storage = object_storage.get_object_storage(recipient.config)
     ok, err = storage.upload(src=upload_file, target=remote_path)
     if not ok:
         logger.error(f'upload {upload_file} failed, error: {err}')

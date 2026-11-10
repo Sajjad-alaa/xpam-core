@@ -7,7 +7,7 @@ from django.test import RequestFactory, SimpleTestCase, override_settings
 
 from authentication.backends.oidc import backends, middleware
 from authentication.backends.oidc.utils import _get_jwks_keys
-from jumpserver.conf import Config
+from xpam.conf import Config
 
 
 TOKEN_URL = 'https://idp.example.test/token'

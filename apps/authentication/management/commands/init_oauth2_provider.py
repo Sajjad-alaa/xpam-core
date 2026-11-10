@@ -20,7 +20,7 @@ class Command(BaseCommand):
         
         try:
             from authentication.backends.oauth2_provider.utils import (
-                get_or_create_jumpserver_client_application
+                get_or_create_client_application
             )
             from oauth2_provider.models import get_application_model
             
@@ -50,7 +50,7 @@ class Command(BaseCommand):
                     )
             
             # 创建或获取应用
-            application = get_or_create_jumpserver_client_application()
+            application = get_or_create_client_application()
             
             if application:
                 self.stdout.write(

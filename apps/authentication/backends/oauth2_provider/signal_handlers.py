@@ -9,7 +9,7 @@ from common.signals import django_ready
 from common.utils import get_logger
 from .utils import (
     clear_oauth2_authorization_server_view_cache,
-    get_or_create_jumpserver_client_application,
+    get_or_create_client_application,
 )
 
 __all__ = [
@@ -26,7 +26,7 @@ logger = get_logger(__name__)
 def on_django_ready_refresh_oauth2_provider_client(sender, **kwargs):
     clear_oauth2_authorization_server_view_cache()
     try:
-        get_or_create_jumpserver_client_application()
+        get_or_create_client_application()
     except (OperationalError, ProgrammingError):
         # The startup command initializes the client again after database migrations.
         logger.warning('OAuth client initialization deferred: database unavailable or not migrated')

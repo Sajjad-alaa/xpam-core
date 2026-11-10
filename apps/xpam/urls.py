@@ -110,5 +110,5 @@ if os.environ.get('DEBUG_TOOLBAR', False):
         path('__debug__/', include('debug_toolbar.urls')),
     ]
 
-handler404 = 'jumpserver.views.handler404'
-handler500 = 'jumpserver.views.handler500'
+handler404 = 'xpam.views.handler404'
+handler500 = 'xpam.views.handler500'

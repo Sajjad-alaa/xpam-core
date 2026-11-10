@@ -58,10 +58,10 @@ REST_FRAMEWORK = {
     'SEARCH_PARAM': "q",
     'DATETIME_FORMAT': '%Y/%m/%d %H:%M:%S %z',
     'DATETIME_INPUT_FORMATS': ['%Y/%m/%d %H:%M:%S %z', 'iso-8601', '%Y-%m-%d %H:%M:%S %z'],
-    'DEFAULT_PAGINATION_CLASS': 'jumpserver.rewriting.pagination.MaxLimitOffsetPagination',
+    'DEFAULT_PAGINATION_CLASS': 'xpam.rewriting.pagination.MaxLimitOffsetPagination',
     'PAGE_SIZE': None,
     'EXCEPTION_HANDLER': 'common.drf.exc_handlers.common_exception_handler',
-    'DEFAULT_SCHEMA_CLASS': 'jumpserver.views.schema.CustomAutoSchema',
+    'DEFAULT_SCHEMA_CLASS': 'xpam.views.schema.CustomAutoSchema',
 }
 
 SPECTACULAR_SETTINGS = {
@@ -78,17 +78,17 @@ SPECTACULAR_SETTINGS = {
     'SWAGGER_UI_FAVICON_HREF': 'SIDECAR',
     'SWAGGER_UI_OAUTH2_REDIRECT_URL': 'SIDECAR',
     'SERVE_PERMISSIONS': ['rest_framework.permissions.IsAuthenticated'],
-    'DEFAULT_GENERATOR_CLASS': 'jumpserver.views.schema.CustomSchemaGenerator',
+    'DEFAULT_GENERATOR_CLASS': 'xpam.views.schema.CustomSchemaGenerator',
     'SWAGGER_UI_SETTINGS': {
         'persistAuthorization': True,
         'displayOperationId': True,
     },
     # 添加自定义字段扩展
     'SERIALIZER_EXTENSIONS': [
-        'jumpserver.views.schema.ObjectRelatedFieldExtension',
-        'jumpserver.views.schema.LabeledChoiceFieldExtension',
-        'jumpserver.views.schema.BitChoicesFieldExtension',
-        'jumpserver.views.schema.LabelRelatedFieldExtension',
+        'xpam.views.schema.ObjectRelatedFieldExtension',
+        'xpam.views.schema.LabeledChoiceFieldExtension',
+        'xpam.views.schema.BitChoicesFieldExtension',
+        'xpam.views.schema.LabelRelatedFieldExtension',
     ],
     'SECURITY': [{'Bearer': []}],
     'DISABLE_ERRORS_AND_WARNINGS': True
@@ -171,7 +171,7 @@ CHANNEL_LAYERS = {
     },
 }
 
-ASGI_APPLICATION = 'jumpserver.routing.application'
+ASGI_APPLICATION = 'xpam.routing.application'
 
 # Dump all celery log to here
 CELERY_LOG_DIR = os.path.join(PROJECT_DIR, 'data', 'celery')
@@ -245,7 +245,7 @@ GM_DRIVER_PATH = CONFIG.GM_DRIVER_PATH
 
 LEAK_PASSWORD_DB_PATH = CONFIG.LEAK_PASSWORD_DB_PATH
 
-JUMPSERVER_UPTIME = int(time.time())
+XPAM_UPTIME = int(time.time())
 
 # OAuth2 Provider settings
 OAUTH2_PROVIDER = {

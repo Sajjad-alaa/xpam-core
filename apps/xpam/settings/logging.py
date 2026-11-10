@@ -5,7 +5,7 @@ import os
 from ..const import PROJECT_DIR, CONFIG
 
 LOG_DIR = os.path.join(PROJECT_DIR, 'data', 'logs')
-JUMPSERVER_LOG_FILE = os.path.join(LOG_DIR, 'jumpserver.log')
+CORE_LOG_FILE = os.path.join(LOG_DIR, 'xpam.log')
 DRF_EXCEPTION_LOG_FILE = os.path.join(LOG_DIR, 'drf_exception.log')
 UNEXPECTED_EXCEPTION_LOG_FILE = os.path.join(LOG_DIR, 'unexpected_exception.log')
 GUNICORN_LOG_FILE = os.path.join(LOG_DIR, 'gunicorn.log')
@@ -30,7 +30,7 @@ LOGGING = {
             'format': '%(levelname)s %(message)s'
         },
         'syslog': {
-            'format': 'jumpserver: %(message)s'
+            'format': 'xpam: %(message)s'
         },
         'msg': {
             'format': '%(message)s'
@@ -49,15 +49,15 @@ LOGGING = {
         'file': {
             'encoding': 'utf8',
             'level': 'DEBUG',
-            'class': 'jumpserver.rewriting.logging.DailyTimedRotatingFileHandler',
+            'class': 'xpam.rewriting.logging.DailyTimedRotatingFileHandler',
             'when': 'midnight',
             'formatter': 'main',
-            'filename': JUMPSERVER_LOG_FILE,
+            'filename': CORE_LOG_FILE,
         },
         'drf_exception': {
             'encoding': 'utf8',
             'level': 'DEBUG',
-            'class': 'jumpserver.rewriting.logging.DailyTimedRotatingFileHandler',
+            'class': 'xpam.rewriting.logging.DailyTimedRotatingFileHandler',
             'when': 'midnight',
             'formatter': 'exception',
             'filename': DRF_EXCEPTION_LOG_FILE,
@@ -65,7 +65,7 @@ LOGGING = {
         'unexpected_exception': {
             'encoding': 'utf8',
             'level': 'DEBUG',
-            'class': 'jumpserver.rewriting.logging.DailyTimedRotatingFileHandler',
+            'class': 'xpam.rewriting.logging.DailyTimedRotatingFileHandler',
             'when': 'midnight',
             'formatter': 'exception',
             'filename': UNEXPECTED_EXCEPTION_LOG_FILE,
@@ -92,7 +92,7 @@ LOGGING = {
             'level': LOG_LEVEL,
             'propagate': False,
         },
-        'jumpserver': {
+        'xpam': {
             'handlers': ['console', 'file'],
             'level': LOG_LEVEL,
         },

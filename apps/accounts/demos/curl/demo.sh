@@ -31,7 +31,7 @@ curl -G "$API_URL/api/v1/accounts/integration-applications/account-secret/" \
     -H "Accept: application/json" \
     -H "Date: $DATE" \
     -H "X-JMS-ORG: $ORG_ID" \
-    -H "X-Source: jms-pam" \
+    -H "X-Source: xpam-pam" \
     -H "Authorization: Signature keyId=\"$KEY_ID\",algorithm=\"hmac-sha256\",headers=\"(request-target) accept date x-jms-org\",signature=\"$SIGNATURE\"" \
     --data-urlencode "asset=$ASSET" \
     --data-urlencode "account=$ACCOUNT"

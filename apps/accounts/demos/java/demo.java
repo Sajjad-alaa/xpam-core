@@ -52,7 +52,7 @@ public class Demo {
                     .header("Accept", "application/json")
                     .header("Date", date)
                     .header("X-JMS-ORG", ORG_ID)
-                    .header("X-Source", "jms-pam")
+                    .header("X-Source", "xpam-pam")
                     .header("Authorization", "Signature keyId=\"" + KEY_ID + "\",algorithm=\"hmac-sha256\",headers=\"(request-target) accept date x-jms-org\",signature=\"" + signature + "\"")
                     .build();
 

@@ -39,7 +39,7 @@ class InterfaceLogoTest(TestCase):
         self.assertTrue(name.startswith('custom_logo_index_') and name.endswith('.png'))
 
     def test_a_damaged_stored_logo_shows_the_default(self):
-        from jumpserver.context_processor import default_interface
+        from xpam.context_processor import default_interface
         from settings.models import Setting
         from settings.utils.common import get_interface_setting_or_default
         from xpack.api.interface import INTERFACE_UPLOAD_DIR, INTERFACE_UPLOAD_URL

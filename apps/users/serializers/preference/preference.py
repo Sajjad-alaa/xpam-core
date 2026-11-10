@@ -1,7 +1,7 @@
 from django.utils.translation import gettext_lazy as _
 
 from settings.serializers import BaseSerializerWithFieldLabel
-from .koko import KokoSerializer
+from .terminal import KokoSerializer
 from .lina import LinaSerializer
 from .luna import LunaSerializer
 

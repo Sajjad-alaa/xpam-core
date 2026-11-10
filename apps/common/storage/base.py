@@ -3,7 +3,7 @@ import os
 from django.conf import settings
 from django.core.files.storage import default_storage
 
-from common.storage import jms_storage
+from common.storage import object_storage
 from common.utils import get_logger, make_dirs
 from terminal.models import ReplayStorage
 
@@ -26,7 +26,7 @@ def get_multi_object_storage(name=None):
         configs = {name: configs[name]} if name in configs else {}
     if not configs:
         return None
-    storage = jms_storage.get_multi_object_storage(configs)
+    storage = object_storage.get_multi_object_storage(configs)
     return storage
 
 

@@ -19,7 +19,7 @@ from common.decorators import on_transaction_commit
 from common.sessions.cache import user_session_manager
 from common.signals import django_ready
 from common.utils import get_logger, text_hmac_sha256
-from jumpserver.utils import get_current_request
+from xpam.utils import get_current_request
 from ops.celery.decorator import register_as_period_task
 from orgs.models import Organization
 from orgs.utils import tmp_to_root_org

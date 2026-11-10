@@ -17,7 +17,7 @@ from audits.handler import (
 from audits.utils import model_to_dict_for_operate_log as model_to_dict
 from common.const.signals import POST_ADD, POST_REMOVE, POST_CLEAR, OP_LOG_SKIP_SIGNAL
 from common.signals import django_ready
-from jumpserver.utils import current_request
+from xpam.utils import current_request
 from ..const import MODELS_NEED_RECORD, ActionChoices
 
 M2M_ACTION = {

@@ -4,7 +4,7 @@ from .ftp import FTPStorage
 from .s3 import S3Storage
 from .azure import AzureStorage
 from .ceph import CEPHStorage
-from .jms import JMSReplayStorage, JMSCommandStorage
+from .server import JMSReplayStorage, JMSCommandStorage
 from .multi import MultiObjectStorage
 from .sftp import SFTPStorage
 

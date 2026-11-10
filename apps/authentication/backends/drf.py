@@ -157,7 +157,7 @@ class SignatureAuthentication(signature.SignatureAuthentication):
 
 class ServiceAuthentication(signature.SignatureAuthentication):
     __instance = None
-    source = 'jms-pam'
+    source = ('xpam-pam', 'jms-pam')  # (the name before the rename is still accepted)
 
     def get_object(self, key_id):
         if not self.__instance:

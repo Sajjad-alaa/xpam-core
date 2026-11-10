@@ -2,7 +2,7 @@ import asyncio
 
 from django.test import SimpleTestCase, override_settings
 
-from jumpserver.routing import WsOriginMiddleware
+from xpam.routing import WsOriginMiddleware
 
 
 def connect(origin=None, host='xpam.example.com'):

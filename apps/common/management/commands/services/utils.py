@@ -120,11 +120,11 @@ class ServicesUtil(object):
 
     @property
     def daemon_pid_filepath(self):
-        return os.path.join(TMP_DIR, 'jms.pid')
+        return os.path.join(TMP_DIR, 'services.pid')
 
     @property
     def daemon_log_filepath(self):
-        return os.path.join(LOG_DIR, 'jms.log')
+        return os.path.join(LOG_DIR, 'services.log')
 
     @property
     def daemon_context(self):

@@ -14,7 +14,7 @@ from common.api import JMSBulkModelViewSet
 from common.drf.filters import BaseFilterSet
 from common.exceptions import JMSException
 from common.permissions import WithBootstrapToken, IsServiceAccount
-from jumpserver.conf import ConfigCrypto
+from xpam.conf import ConfigCrypto
 from terminal import serializers
 from terminal.models import Terminal
 

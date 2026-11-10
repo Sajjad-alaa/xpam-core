@@ -19,7 +19,7 @@ from users.models import User
 __all__ = ['AssetPermission', 'ActionChoices', 'AssetPermissionQuerySet']
 
 # 使用场景
-logger = logging.getLogger('jumpserver.permissions')
+logger = logging.getLogger('xpam.permissions')
 
 
 class AssetPermissionQuerySet(models.QuerySet):

@@ -471,16 +471,16 @@ function parseTableFilter(value) {
 }
 
 
-var jumpserver = {};
-jumpserver.checked = false;
-jumpserver.selected = {};
-jumpserver.language = {};
+var xpam = {};
+xpam.checked = false;
+xpam.selected = {};
+xpam.language = {};
 
 function setDataTablePagerLength(num) {
     $.fn.DataTable.ext.pager.numbers_length = num;
 }
 
-jumpserver.initDataTable = function (options) {
+xpam.initDataTable = function (options) {
     // options = {
     //    ele *: $('#dataTable_id'),
     //    ajax_url *: '{% url 'users:user-list-api' %}',
@@ -530,17 +530,17 @@ jumpserver.initDataTable = function (options) {
         },
         columns: options.columns || [],
         select: options.select || select,
-        language: jumpserver.language,
+        language: xpam.language,
         lengthMenu: [[10, 15, 25, 50, -1], [10, 15, 25, 50, "All"]]
     });
     table.on('select', function (e, dt, type, indexes) {
         var $node = table[type](indexes).nodes().to$();
         $node.find('input.ipt_check').prop('checked', true);
-        jumpserver.selected[$node.find('input.ipt_check').prop('id')] = true
+        xpam.selected[$node.find('input.ipt_check').prop('id')] = true
     }).on('deselect', function (e, dt, type, indexes) {
         var $node = table[type](indexes).nodes().to$();
         $node.find('input.ipt_check').prop('checked', false);
-        jumpserver.selected[$node.find('input.ipt_check').prop('id')] = false
+        xpam.selected[$node.find('input.ipt_check').prop('id')] = false
     }).on('draw', function () {
         $('#op').html(options.op_html || '');
         $('#uc').html(options.uc_html || '');
@@ -556,11 +556,11 @@ jumpserver.initDataTable = function (options) {
     $('.ipt_check_all').on('click', function () {
         if ($(this).prop("checked")) {
             $(this).closest('table').find('.ipt_check').prop('checked', true);
-            jumpserver.checked = true;
+            xpam.checked = true;
             table.rows({search: 'applied', page: 'current'}).select();
         } else {
             $(this).closest('table').find('.ipt_check').prop('checked', false);
-            jumpserver.checked = false;
+            xpam.checked = false;
             table.rows({search: 'applied', page: 'current'}).deselect();
         }
     });
@@ -568,17 +568,17 @@ jumpserver.initDataTable = function (options) {
     return table;
 };
 
-jumpserver.initStaticTable = function (selector) {
+xpam.initStaticTable = function (selector) {
     $(selector).DataTable({
         "searching": false,
         "bInfo": false,
         "paging": false,
         "order": [],
-        "language": jumpserver.language
+        "language": xpam.language
     });
 };
 
-jumpserver.initServerSideDataTable = function (options) {
+xpam.initServerSideDataTable = function (options) {
     // options = {
     //    ele *: $('#dataTable_id'),
     //    ajax_url *: '{% url 'users:user-list-api' %}',
@@ -698,7 +698,7 @@ jumpserver.initServerSideDataTable = function (options) {
         },
         columns: options.columns || [],
         select: options.select || select,
-        language: jumpserver.language,
+        language: xpam.language,
         lengthMenu: options.lengthMenu || [[15, 25, 50, 9999], [15, 25, 50, 'All']]
     });
     table.selected = [];
@@ -706,7 +706,7 @@ jumpserver.initServerSideDataTable = function (options) {
     table.on('select', function (e, dt, type, indexes) {
         var $node = table[type](indexes).nodes().to$();
         $node.find('input.ipt_check').prop('checked', true);
-        jumpserver.selected[$node.find('input.ipt_check').prop('id')] = true;
+        xpam.selected[$node.find('input.ipt_check').prop('id')] = true;
         if (type === 'row') {
             var rows = table.rows(indexes).data();
             $.each(rows, function (id, row) {
@@ -724,7 +724,7 @@ jumpserver.initServerSideDataTable = function (options) {
     }).on('deselect', function (e, dt, type, indexes) {
         var $node = table[type](indexes).nodes().to$();
         $node.find('input.ipt_check').prop('checked', false);
-        jumpserver.selected[$node.find('input.ipt_check').prop('id')] = false;
+        xpam.selected[$node.find('input.ipt_check').prop('id')] = false;
         if (type === 'row') {
             var rows = table.rows(indexes).data();
             $.each(rows, function (id, row) {
@@ -780,7 +780,7 @@ jumpserver.initServerSideDataTable = function (options) {
         }
     });
 
-    // jumpserver.table = table;
+    // xpam.table = table;
     return table;
 };
 

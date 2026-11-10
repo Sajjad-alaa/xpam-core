@@ -8,7 +8,7 @@ from django.core.management.base import BaseCommand
 from django.test import Client
 from django.urls import URLPattern, URLResolver
 
-from jumpserver.urls import api_v1
+from xpam.urls import api_v1
 
 path_uuid_pattern = re.compile(r'<\w+:\w+>', re.IGNORECASE)
 uuid_pattern = re.compile(r'\(\(\?P<.*>[^)]+\)/\)\?', re.IGNORECASE)

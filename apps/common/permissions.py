@@ -34,7 +34,7 @@ class WithBootstrapToken(permissions.BasePermission):
         if enabled == 'auto':
             if cache.get(f'APPLET_HOST_DELOYING'):
                 return True
-            return time.time() - settings.JUMPSERVER_UPTIME < 300
+            return time.time() - settings.XPAM_UPTIME < 300
         elif enabled:
             return True
         else:

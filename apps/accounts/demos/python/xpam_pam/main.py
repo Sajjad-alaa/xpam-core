@@ -99,7 +99,7 @@ class Secret(object):
         return cls(secret=secret, desc=error)
 
 
-class JumpServerPAM(object):
+class XpamPAM(object):
     def __init__(self, endpoint, key_id, key_secret, org_id=DEFAULT_ORG_ID):
         self.endpoint = endpoint
         self.key_id = key_id
@@ -114,7 +114,7 @@ class JumpServerPAM(object):
             'Accept': 'application/json',
             'X-JMS-ORG': self.org_id,
             'Date': datetime.utcnow().strftime(gmt_form),
-            'X-Source': 'jms-pam'
+            'X-Source': 'xpam-pam'
         }
 
     def _build_url(self, url, query_params=None):

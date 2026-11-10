@@ -9,7 +9,7 @@ APPS_DIR = os.path.join(BASE_DIR, 'apps')
 if APPS_DIR not in sys.path:
     sys.path.insert(0, APPS_DIR)
 
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'jumpserver.settings')
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'xpam.settings')
 os.environ.setdefault('PYTHONOPTIMIZE', '1')
 if os.getuid() == 0:
     os.environ.setdefault('C_FORCE_ROOT', '1')

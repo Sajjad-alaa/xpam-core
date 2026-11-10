@@ -7,7 +7,7 @@ from django.db.models import TextChoices
 from .hands import *
 from .utils import ServicesUtil
 
-# XPAM: small, medium or large — from the server, or SERVER_SIZE in config.txt (jumpserver/settings/custom.py)
+# XPAM: small, medium or large — from the server, or SERVER_SIZE in config.txt (xpam/settings/custom.py)
 SERVER_SIZE = settings.SERVER_SIZE
 WEB_WORKERS = {'small': 1, 'medium': 2}
 

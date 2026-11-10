@@ -207,7 +207,7 @@ class ChatAITestingAPI(ChatAIProviderMixin, GenericAPIView):
                     {
                         'role': 'user',
                         'content': (
-                            'Call the provided tool to obtain the JumpServer '
+                            'Call the provided tool to obtain the XPAM '
                             'health-check nonce. Do not answer without calling it.'
                         ),
                     }
@@ -217,10 +217,10 @@ class ChatAITestingAPI(ChatAIProviderMixin, GenericAPIView):
                     {
                         'type': 'function',
                         'function': {
-                            'name': 'get_jumpserver_health_check_nonce',
+                            'name': 'get_health_check_nonce',
                             'description': (
                                 'Return the private nonce required to complete '
-                                'the JumpServer model capability test.'
+                                'the XPAM model capability test.'
                             ),
                             'parameters': {
                                 'type': 'object',

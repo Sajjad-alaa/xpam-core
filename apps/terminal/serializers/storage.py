@@ -159,7 +159,7 @@ class CommandStorageTypeESSerializer(serializers.Serializer):
         child=serializers.CharField(validators=[command_storage_es_host_format_validator]),
         label=_('Hosts'), help_text=_(
             'If there are multiple hosts, use a comma (,) to separate them. <br>'
-            '(For example: http://www.jumpserver.a.com:9100, http://www.jumpserver.b.com:9100)'),
+            '(For example: http://es1.example.com:9200, http://es2.example.com:9200)'),
         allow_null=True
     )
     INDEX_BY_DATE = serializers.BooleanField(

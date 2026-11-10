@@ -1,7 +1,7 @@
 # coding: utf-8
 import functools
 import re
-from jumpserver.context_processor import default_interface
+from xpam.context_processor import default_interface
 from django.conf import settings
 from IPy import IP
 

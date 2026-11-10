@@ -8,8 +8,8 @@ from unittest.mock import patch
 from django.http import HttpResponse
 from django.test import RequestFactory, SimpleTestCase, override_settings
 
-from jumpserver.middleware import SafeRedirectMiddleware
-from jumpserver.views.other import RedirectConfirm
+from xpam.middleware import SafeRedirectMiddleware
+from xpam.views.other import RedirectConfirm
 
 
 TEMPLATES = [{
@@ -55,7 +55,7 @@ class RedirectConfirmTests(SimpleTestCase):
                 request.resolver_match = SimpleNamespace(namespace='authentication:oauth2-provider')
                 authorization = HttpResponse(status=302, headers={'Location': target})
                 middleware = SafeRedirectMiddleware(lambda _: authorization)
-                with patch('jumpserver.middleware.reverse', return_value='/core/redirect/confirm/'):
+                with patch('xpam.middleware.reverse', return_value='/core/redirect/confirm/'):
                     response = middleware(request)
                 self.assertEqual(response.status_code, 302)
                 self.assertEqual(response['Location'], f'/core/redirect/confirm/?next={quote(target)}')

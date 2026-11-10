@@ -18,7 +18,7 @@ class GunicornService(BaseService):
         bind = f'{HTTP_HOST}:{HTTP_PORT}'
 
         cmd = [
-            'gunicorn', 'jumpserver.asgi:application',
+            'gunicorn', 'xpam.asgi:application',
             '-b', bind,
             '-k', 'uvicorn.workers.UvicornWorker',
             '-w', str(self.worker),

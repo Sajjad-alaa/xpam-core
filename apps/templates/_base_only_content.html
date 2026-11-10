@@ -10,8 +10,8 @@
     <title>{% block html_title %}{% endblock %}</title>
 
     {% include '_head_css_js.html' %}
-    <link href="{% static "css/jumpserver.css" %}" rel="stylesheet">
-    <script src="{% static "js/jumpserver.js" %}?v=10"></script>
+    <link href="{% static "css/app.css" %}" rel="stylesheet">
+    <script src="{% static "js/app.js" %}?v=10"></script>
     <style>
         :root {
             --page-bg: {% if INTERFACE.theme_info.is_dark %}#1e293b{% else %}#f3f4f6{% endif %};

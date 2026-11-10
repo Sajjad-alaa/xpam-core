@@ -29,7 +29,7 @@ def get_vault_client(raise_exception=False, **kwargs):
 class VaultClient(LazyObject):
 
     def _setup(self):
-        from jumpserver import settings as js_settings
+        from xpam import settings as js_settings
         from django.conf import settings
         vault_config_names = [k for k in js_settings.__dict__.keys() if k.startswith('VAULT_')]
         vault_configs = {name: getattr(settings, name, None) for name in vault_config_names}

@@ -8,7 +8,7 @@ from django.utils.translation import gettext_lazy as _, gettext_noop
 from audits.models import ActivityLog
 from common.decorators import bulk_create_decorator
 from common.utils import i18n_fmt, get_logger
-from jumpserver.utils import current_request
+from xpam.utils import current_request
 from ops.celery import app
 from orgs.models import Organization
 from orgs.utils import current_org, tmp_to_org

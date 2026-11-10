@@ -82,7 +82,7 @@ def sign_connection_token_ssh_certificate(token, public_key):
         {'source-address': source_address.strip()}
         if source_address.strip() else None
     )
-    key_id = f'jms-{token.id}'
+    key_id = f'xpam-{token.id}'
 
     try:
         result = get_ssh_ca_client().sign(

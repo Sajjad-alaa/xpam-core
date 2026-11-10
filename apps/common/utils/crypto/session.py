@@ -9,7 +9,7 @@ ENCRYPTED_SEPARATOR = '::encrypted::'
 
 
 def decrypt_session_password(value):
-    from jumpserver.utils import current_request
+    from xpam.utils import current_request
     if not current_request:
         return value
 

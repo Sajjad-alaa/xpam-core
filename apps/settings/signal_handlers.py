@@ -12,7 +12,7 @@ from django.db.models.signals import post_migrate
 from django.utils.functional import LazyObject
 from django.apps import apps
 
-from jumpserver.const import BASE_DIR
+from xpam.const import BASE_DIR
 from common.decorators import on_transaction_commit
 from common.signals import django_ready
 from common.utils import get_logger, ssh_key_gen
@@ -88,7 +88,7 @@ def monkey_patch_settings(sender, **kwargs):
     def monkey_patch_getattr(self, name):
         val = getattr(self._wrapped, name)
         # 只解析 defaults 中的 callable
-        if callable(val) and val.__module__.endswith('jumpserver.conf'):
+        if callable(val) and val.__module__.endswith('xpam.conf'):
             val = val()
         return val
 

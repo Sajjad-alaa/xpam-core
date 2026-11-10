@@ -100,7 +100,7 @@ class OptimizationsKeepBehaviourTest(TestCase):
         self.assertNotEqual(usable().id, other.id)          # (removed: refused at once)
 
     def test_the_server_size_follows_the_server_unless_configured(self):
-        from jumpserver.settings import custom
+        from xpam.settings import custom
         memory = lambda gb: mock.Mock(total=gb * 1024 ** 3)
         cases = [((2, 16), 'small'), ((4, 6), 'small'), ((4, 7.5), 'medium'), ((16, 8), 'medium'), ((8, 16), 'large')]
         for (cpus, gb), size in cases:

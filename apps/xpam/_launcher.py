@@ -15,7 +15,7 @@ APP_DIR = os.path.join(BASE_DIR, 'apps')
 os.chdir(APP_DIR)
 if APP_DIR not in sys.path:
     sys.path.insert(0, APP_DIR)
-os.environ.setdefault("DJANGO_SETTINGS_MODULE", "jumpserver.settings")
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "xpam.settings")
 django.setup()
 
 try:
@@ -28,7 +28,7 @@ except Exception as e:
 logging.basicConfig(level=log_level, format="%(asctime)s %(message)s", datefmt="%Y-%m-%d %H:%M:%S")
 
 try:
-    from jumpserver import const
+    from xpam import const
 
     __version__ = const.VERSION
 except ImportError as e:
@@ -39,7 +39,7 @@ except ImportError as e:
     sys.exit(1)
 
 try:
-    from jumpserver.const import CONFIG
+    from xpam.const import CONFIG
     from common.utils.file import download_file
     from common.utils import make_dirs
 except ImportError as e:
@@ -56,6 +56,29 @@ try:
     make_dirs(os.path.join(BASE_DIR, "data", "media"))
 except Exception:
     pass
+
+
+def rename_old_log_files():
+    """XPAM: the log files were named after the upstream project (jumpserver.log, jms.log and their rotated copies).
+    Give the ones an upgraded installation still has the current names, once: a file that already exists is kept."""
+    log_dir = os.path.join(BASE_DIR, "data", "logs")
+    try:
+        names = os.listdir(log_dir)
+    except OSError:
+        return
+    for old, new in (("jumpserver.log", "core.log"), ("jms.log", "services.log")):
+        for name in names:
+            if name != old and not name.startswith(old + "."):
+                continue
+            target = os.path.join(log_dir, new + name[len(old):])
+            try:
+                if not os.path.exists(target):
+                    os.rename(os.path.join(log_dir, name), target)
+            except OSError:
+                pass
+
+
+rename_old_log_files()
 
 
 def check_database_connection():

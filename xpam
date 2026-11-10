@@ -5,7 +5,7 @@ import sys
 APP_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'apps')
 os.chdir(APP_DIR)
 sys.path.insert(0, APP_DIR)
-from jumpserver._jms import main
+from xpam._launcher import main
 
 if __name__ == '__main__':
     main()

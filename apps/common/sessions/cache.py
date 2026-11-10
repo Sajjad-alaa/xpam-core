@@ -8,7 +8,7 @@ from django.contrib.sessions.backends.cache import (
 from django.core.cache import cache, caches
 
 from common.utils import get_logger
-from jumpserver.utils import get_current_request
+from xpam.utils import get_current_request
 
 logger = get_logger(__file__)
 

@@ -7,7 +7,7 @@ from django.conf import settings
 from django.urls import reverse
 from oauth2_provider.settings import oauth2_settings
 from typing import List, Dict, Any
-from .utils import get_or_create_jumpserver_client_application, CACHE_OAUTH_SERVER_VIEW_KEY_PREFIX 
+from .utils import get_or_create_client_application, CACHE_OAUTH_SERVER_VIEW_KEY_PREFIX 
 
 
 @method_decorator(csrf_exempt, name='dispatch')
@@ -34,7 +34,7 @@ class OAuthAuthorizationServerView(View):
     
     def get_metadata(self, request) -> Dict[str, Any]:
         base_url = self.get_base_url(request)
-        application = get_or_create_jumpserver_client_application()
+        application = get_or_create_client_application()
         metadata = {
             "issuer": base_url,
             "client_id": application.client_id if application else "Not found any application.",

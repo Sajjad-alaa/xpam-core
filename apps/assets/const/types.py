@@ -7,7 +7,7 @@ from django.utils.functional import lazy
 from django.utils.translation import gettext as _
 
 from common.db.models import ChoicesMixin
-from jumpserver.utils import get_current_request
+from xpam.utils import get_current_request
 from .category import Category
 from .cloud import CloudTypes
 from .custom import CustomTypes

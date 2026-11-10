@@ -25,7 +25,7 @@ class APIClient:
             'Accept': 'application/json',
             'X-JMS-ORG': ORG_ID,
             'Date': datetime.utcnow().strftime('%a, %d %b %Y %H:%M:%S GMT'),
-            'X-Source': 'jms-pam'
+            'X-Source': 'xpam-pam'
         }
         params = {"asset": asset, "account": account}
 

@@ -14,7 +14,7 @@ from rest_framework.utils.encoders import JSONEncoder
 from common.db.utils import close_old_connections, get_logger
 from common.signals import django_ready
 from common.utils.connection import RedisPubSub
-from jumpserver.utils import get_current_request
+from xpam.utils import get_current_request
 from orgs.utils import get_current_org_id, set_current_org
 from .ansible.runner import interface
 from .celery import app

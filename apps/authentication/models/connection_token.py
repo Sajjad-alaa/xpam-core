@@ -297,7 +297,7 @@ class ConnectionToken(JMSOrgBaseModel):
     @lazyproperty
     def connect_method_object(self):
         from common.utils import get_request_os
-        from jumpserver.utils import get_current_request
+        from xpam.utils import get_current_request
         from terminal.connect_methods import ConnectMethodUtil
 
         request = get_current_request()

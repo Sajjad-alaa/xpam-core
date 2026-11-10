@@ -5,7 +5,7 @@ from unittest.mock import patch
 
 from django.test import SimpleTestCase
 
-from jumpserver.views.other import ResourceDownload
+from xpam.views.other import ResourceDownload
 
 
 class ResourceDownloadTestCase(SimpleTestCase):

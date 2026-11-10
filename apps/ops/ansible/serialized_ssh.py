@@ -100,7 +100,7 @@ def run():
 
     host, port = get_endpoint(client, sys.argv[1:])
     lock_key = hashlib.sha256(f'{host}:{port}'.encode()).hexdigest()
-    lock_path = f'/tmp/jumpserver-ansible-ssh-{lock_key}.lock'
+    lock_path = f'/tmp/xpam-ansible-ssh-{lock_key}.lock'
     lock_fd = os.open(lock_path, os.O_CREAT | os.O_RDWR, 0o600)
     child = None
     try:

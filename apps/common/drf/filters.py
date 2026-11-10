@@ -26,7 +26,7 @@ from rest_framework.filters import OrderingFilter
 from common import const
 from common.db.fields import RelatedManager
 
-logger = logging.getLogger("jumpserver.common")
+logger = logging.getLogger("xpam.common")
 
 __all__ = [
     "LookupFilterBackend",

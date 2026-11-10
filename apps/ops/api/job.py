@@ -46,7 +46,7 @@ from orgs.mixins.api import OrgBulkModelViewSet
 from orgs.utils import tmp_to_org, get_current_org
 from perms.const import ActionChoices
 from perms.utils.asset_perm import PermAssetAccountsBatchUtil
-from jumpserver.settings import get_file_md5
+from xpam.settings import get_file_md5
 
 
 def set_task_to_serializer_data(serializer, task_id):

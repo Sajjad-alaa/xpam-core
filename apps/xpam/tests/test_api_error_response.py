@@ -6,7 +6,7 @@ from django.urls import path
 from rest_framework.exceptions import ValidationError
 from rest_framework.views import APIView
 
-from jumpserver.views.error_views import handler500
+from xpam.views.error_views import handler500
 
 
 class BrokenAPIView(APIView):

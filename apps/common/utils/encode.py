@@ -104,7 +104,7 @@ def ssh_private_key_gen(private_key, password=None):
     return private_key
 
 
-def ssh_pubkey_gen(private_key=None, username='jumpserver', hostname='localhost', password=None):
+def ssh_pubkey_gen(private_key=None, username='xpam', hostname='localhost', password=None):
     private_key = ssh_private_key_gen(private_key, password=password)
     if not isinstance(private_key, _supported_paramiko_ssh_key_types):
         raise IOError('Invalid private key')
@@ -118,7 +118,7 @@ def ssh_pubkey_gen(private_key=None, username='jumpserver', hostname='localhost'
     return public_key
 
 
-def ssh_key_gen(length=2048, type='rsa', password=None, username='jumpserver', hostname=None):
+def ssh_key_gen(length=2048, type='rsa', password=None, username='xpam', hostname=None):
     """Generate user ssh private and public key
 
     Use paramiko RSAKey generate it.

@@ -18,7 +18,7 @@ from common.serializers.fields import (
 )
 from common.utils import pretty_string, get_logger, text_hmac_sha256
 from common.validators import PhoneValidator
-from jumpserver.utils import get_current_request
+from xpam.utils import get_current_request
 from orgs.utils import current_org
 from rbac.builtin import BuiltinRole
 from rbac.models import OrgRoleBinding, SystemRoleBinding, Role

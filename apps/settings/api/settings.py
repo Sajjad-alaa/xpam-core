@@ -13,7 +13,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from common.utils import get_logger
-from jumpserver.conf import Config
+from xpam.conf import Config
 from rbac.models import RoleBinding
 from rbac.permissions import RBACPermission
 from users.models import User

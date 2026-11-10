@@ -30,7 +30,7 @@ XPACK_DIR = os.path.join(BASE_DIR, 'xpack')
 HAS_XPACK = os.path.isdir(XPACK_DIR)
 DEFAULT_ID = '00000000-0000-0000-0000-000000000002'
 
-logger = logging.getLogger('jumpserver.conf')
+logger = logging.getLogger('xpam.conf')
 
 
 XPAM_SECRETS_FILE = '/run/xpam-secrets/env'

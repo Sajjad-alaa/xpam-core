@@ -4,7 +4,7 @@ import uuid
 from django.conf import settings
 
 from common.utils import get_logger, make_dirs
-from jumpserver.const import PROJECT_DIR
+from xpam.const import PROJECT_DIR
 from perms.models import PermNode
 from perms.utils import UserPermAssetUtil
 from assets.models import Asset, Node

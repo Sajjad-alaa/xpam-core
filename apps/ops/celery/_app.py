@@ -3,11 +3,11 @@ import os
 from celery import Celery
 from kombu import Exchange, Queue
 
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'jumpserver.settings')
-from jumpserver import settings
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'xpam.settings')
+from xpam import settings
 from .heatbeat import *
 
-app = Celery('jumpserver')
+app = Celery('xpam')
 
 configs = {k: v for k, v in settings.__dict__.items() if k.startswith('CELERY')}
 configs["CELERY_QUEUES"] = [

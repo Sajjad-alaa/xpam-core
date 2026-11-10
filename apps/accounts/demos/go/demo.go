@@ -61,7 +61,7 @@ func (c *APIClient) GetAccountSecret(asset, account string) (map[string]interfac
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("X-JMS-ORG", c.OrgID)
 	req.Header.Set("Date", date)
-	req.Header.Set("X-Source", "jms-pam")
+	req.Header.Set("X-Source", "xpam-pam")
 
 	headersList := []string{"(request-target)", "accept", "date", "x-jms-org"}
 	var signatureParts []string

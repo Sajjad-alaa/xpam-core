@@ -23,7 +23,7 @@ from oauth2_provider.models import (
 from oauth2_provider.oauth2_validators import OAuth2Validator
 from oauth2_provider.views import AuthorizationView, RevokeTokenView, TokenView
 
-from authentication.backends.oauth2_provider.utils import get_or_create_jumpserver_client_application
+from authentication.backends.oauth2_provider.utils import get_or_create_client_application
 from authentication.backends.oauth2_provider.signal_handlers import on_django_ready_refresh_oauth2_provider_client
 from authentication.management.commands.init_oauth2_provider import Command
 from authentication.backends.oauth2_provider.views import OAuthAuthorizationServerView
@@ -60,7 +60,7 @@ class OAuthClientApplicationTests(TestCase):
         })
 
     def test_new_client_allows_only_current_desktop_callback(self):
-        application = get_or_create_jumpserver_client_application()
+        application = get_or_create_client_application()
 
         application.clean()
         self.assertTrue(application.redirect_uri_allowed(CLIENT_CALLBACK))
@@ -97,9 +97,9 @@ class OAuthClientApplicationTests(TestCase):
         self.assertEqual(other.redirect_uris, LEGACY_CALLBACK)
 
     def test_repeated_initialization_does_not_write_or_duplicate_callbacks(self):
-        application = get_or_create_jumpserver_client_application()
+        application = get_or_create_client_application()
         with self.assertNumQueries(3):  # Savepoint, locked read, release; no UPDATE.
-            again = get_or_create_jumpserver_client_application()
+            again = get_or_create_client_application()
         self.assertEqual(again.pk, application.pk)
         self.assertEqual(again.redirect_uris.split(), [CLIENT_CALLBACK])
 
@@ -125,7 +125,7 @@ class OAuthClientApplicationTests(TestCase):
         ):
             on_django_ready_refresh_oauth2_provider_client(sender=None)
         call_command(Command(), stdout=StringIO())
-        selected = get_or_create_jumpserver_client_application()
+        selected = get_or_create_client_application()
 
         self.assertEqual(selected.pk, first.pk)
         after = list(self.Application.objects.order_by('pk').values())
@@ -144,13 +144,13 @@ class OAuthClientApplicationTests(TestCase):
     def test_development_initialization_adds_loopback_to_existing_client(self):
         application = self.create_application()
 
-        updated = get_or_create_jumpserver_client_application()
+        updated = get_or_create_client_application()
 
         self.assertEqual(updated.pk, application.pk)
         self.assertEqual(updated.redirect_uris.split(), [CLIENT_CALLBACK, DEV_CALLBACK])
 
     def test_callback_matching_remains_exact(self):
-        application = get_or_create_jumpserver_client_application()
+        application = get_or_create_client_application()
 
         for uri in (
             'jms2://other/callback', 'jms2://auth/callback/other',
@@ -182,7 +182,7 @@ class OAuthClientApplicationTests(TestCase):
             with self.subTest(error=type(error).__name__), patch(
                 'authentication.backends.oauth2_provider.signal_handlers.clear_oauth2_authorization_server_view_cache',
             ) as clear_cache, patch(
-                'authentication.backends.oauth2_provider.signal_handlers.get_or_create_jumpserver_client_application',
+                'authentication.backends.oauth2_provider.signal_handlers.get_or_create_client_application',
                 side_effect=error,
             ):
                 on_django_ready_refresh_oauth2_provider_client(sender=None)
@@ -216,7 +216,7 @@ class OAuthClientConcurrentInitializationTests(TransactionTestCase):
             close_old_connections()
             try:
                 barrier.wait(timeout=10)
-                return get_or_create_jumpserver_client_application().pk
+                return get_or_create_client_application().pk
             finally:
                 close_old_connections()
 
@@ -236,10 +236,10 @@ class OAuthClientConcurrentInitializationTests(TransactionTestCase):
 
         with patch.object(Application, 'save', fail_after_insert):
             with self.assertRaisesMessage(RuntimeError, 'Initialization failed after insert'):
-                get_or_create_jumpserver_client_application()
+                get_or_create_client_application()
 
         self.assertFalse(Application.objects.exists())
-        application = get_or_create_jumpserver_client_application()
+        application = get_or_create_client_application()
         self.assertEqual(Application.objects.get().pk, application.pk)
 
 
@@ -301,7 +301,7 @@ class OAuthClientFlowCompatibilityTests(TestCase):
         return OAuthAuthorizationServerView().get_metadata(request)
 
     def create_duplicate_clients(self):
-        first = get_or_create_jumpserver_client_application()
+        first = get_or_create_client_application()
         duplicate = self.Application.objects.create(
             name=first.name, client_type=first.client_type,
             authorization_grant_type=first.authorization_grant_type,
@@ -379,9 +379,9 @@ class OAuthClientFlowCompatibilityTests(TestCase):
                 self.assertEqual(error['error'], 'invalid_grant')
 
     def test_invalid_pkce_verifier_is_still_rejected_after_initialization(self):
-        application = get_or_create_jumpserver_client_application()
+        application = get_or_create_client_application()
         code = self.authorize(application)
-        get_or_create_jumpserver_client_application()
+        get_or_create_client_application()
 
         status, error = self.exchange_code(application, code, verifier='wrong-verifier')
         self.assertEqual(status, 400)

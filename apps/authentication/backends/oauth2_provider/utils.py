@@ -8,14 +8,14 @@ from common.utils.lock import DistributedLock
 
 logger = get_logger(__name__)
 
-def get_or_create_jumpserver_client_application():
+def get_or_create_client_application():
     """Refresh built-in client callbacks without replacing its credentials."""
     Application = get_application_model()
     name = settings.OAUTH2_PROVIDER_JUMPSERVER_CLIENT_NAME
 
     # Name is not unique, and row locks cannot serialize the first insert.
     # Acquire the shared lock before opening the transaction and release after commit.
-    with DistributedLock('oauth2-provider-jumpserver-client'), transaction.atomic():
+    with DistributedLock('oauth2-provider-client'), transaction.atomic():
         applications = list(
             Application.objects.select_for_update().filter(name=name).order_by('pk')
         )

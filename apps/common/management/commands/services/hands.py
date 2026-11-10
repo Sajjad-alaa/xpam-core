@@ -4,10 +4,10 @@ import sys
 
 from django.conf import settings
 
-from jumpserver.const import CONFIG
+from xpam.const import CONFIG
 
 try:
-    from jumpserver import const
+    from xpam import const
 
     __version__ = const.VERSION
 except ImportError as e:

@@ -31,7 +31,7 @@ class APIClient {
         const params = { asset: asset, account: account };
         const headers = {
             'Accept': 'application/json',
-            'X-Source': 'jms-pam'
+            'X-Source': 'xpam-pam'
         };
         this.signRequest('GET', url, params, headers);
 

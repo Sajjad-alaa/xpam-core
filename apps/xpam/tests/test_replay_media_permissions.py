@@ -7,7 +7,7 @@ from django.test import SimpleTestCase, override_settings
 from django.contrib.auth.models import AnonymousUser
 
 from common.local import thread_local
-from jumpserver.rewriting.storage.permissions import allow_access
+from xpam.rewriting.storage.permissions import allow_access
 from orgs.models import Organization
 from orgs.utils import get_current_org, tmp_to_org
 from rbac.models import RoleBinding

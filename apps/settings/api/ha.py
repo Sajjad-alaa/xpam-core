@@ -16,7 +16,7 @@ from rest_framework.response import Response
 
 __all__ = ['HAStatusApi', 'HASwitchoverApi', 'ha_alerts']
 
-HA_DIR = '/opt/jumpserver/data/ha'
+HA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'data', 'ha')
 STATUS_FILE = os.path.join(HA_DIR, 'status.json')
 REQUEST_FILE = os.path.join(HA_DIR, 'request.json')
 

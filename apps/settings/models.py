@@ -110,7 +110,7 @@ class Setting(models.Model):
             # 关闭 Keycloak 方式的配置, 不需要刷新
             return
 
-        from jumpserver.conf import Config
+        from xpam.conf import Config
         config_names = [
             'AUTH_OPENID', 'AUTH_OPENID_REALM_NAME',
             'AUTH_OPENID_SERVER_URL', 'AUTH_OPENID_PROVIDER_ENDPOINT'

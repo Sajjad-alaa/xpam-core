@@ -6,7 +6,7 @@ from django.conf import settings
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 
-from jumpserver.settings.auth import AUTHENTICATION_BACKENDS_THIRD_PARTY
+from xpam.settings.auth import AUTHENTICATION_BACKENDS_THIRD_PARTY
 
 
 class Source(models.TextChoices):

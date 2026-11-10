@@ -35,7 +35,7 @@ default_context = {
 }
 
 
-def jumpserver_processor(request):
+def xpam_processor(request):
     from settings.utils import get_interface_setting_or_default
     # Setting default pk
     context = {**default_context}

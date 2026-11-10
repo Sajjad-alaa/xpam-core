@@ -3,7 +3,7 @@ from unittest.mock import patch
 
 from django.test import SimpleTestCase, override_settings
 
-from jumpserver.rewriting.smtp import EmailBackend
+from xpam.rewriting.smtp import EmailBackend
 from settings.serializers.feature import ChatAISettingSerializer
 from settings.serializers.msg import EmailSettingSerializer
 
