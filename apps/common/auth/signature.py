@@ -1,6 +1,16 @@
 from rest_framework import authentication
 from rest_framework import exceptions
 
+# XPAM: a signed request is accepted only while its Date is close to now (the signature covers the Date, so an old
+# copy of the request cannot be used again later). The zone name is ignored: KoKo and the web connector sign with
+# their local time and an ambiguous abbreviation (China's 'CST' reads as US Central), so any real-world offset
+# (UTC-12 .. UTC+14) is allowed, plus 15 minutes of clock difference. A copy older than about a day is refused.
+SIGNATURE_MAX_SKEW_SECONDS = 14 * 3600 + 15 * 60
+
+import calendar
+import time
+from email.utils import parsedate
+
 from httpsig import HeaderVerifier, utils
 
 """
@@ -58,6 +68,17 @@ class SignatureAuthentication(authentication.BaseAuthentication):
         h = " ".join(self.required_headers)
         return 'Signature realm="%s",headers="%s"' % (
             self.www_authenticate_realm, h)
+
+    @staticmethod
+    def date_is_fresh(value):
+        parsed = parsedate(value) if value else None  # (the clock time, without the zone)
+        if not parsed:
+            return False
+        try:
+            signed_at = calendar.timegm(parsed)
+        except (TypeError, ValueError, OverflowError):
+            return False
+        return abs(time.time() - signed_at) <= SIGNATURE_MAX_SKEW_SECONDS
 
     def authenticate(self, request):
         """
@@ -121,6 +142,9 @@ class SignatureAuthentication(authentication.BaseAuthentication):
 
         # All of that just to get to this.
         if not verified:
+            raise FAILED
+
+        if not self.date_is_fresh(headers.get('Date')):
             raise FAILED
 
         self.after_authenticate_update_date(user)
