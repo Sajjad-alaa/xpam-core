@@ -279,7 +279,7 @@
 
     - name: Ensure Panda data directory exists
       ansible.builtin.file:
-        path: /opt/jumpserver/panda/data/keys
+        path: /opt/xpam/panda/data/keys
         state: directory
         owner: root
         group: root
@@ -288,7 +288,7 @@
     - name: Configure Panda access key
       ansible.builtin.copy:
         content: '{{ PANDA_ACCESS_KEY }}'
-        dest: /opt/jumpserver/panda/data/keys/.access_key
+        dest: /opt/xpam/panda/data/keys/.access_key
         owner: root
         group: root
         mode: '0600'
@@ -320,7 +320,7 @@
           - -v
           - /var/run/docker.sock:/var/run/docker.sock
           - -v
-          - /opt/jumpserver/panda/data:/opt/panda/data
+          - /opt/xpam/panda/data:/opt/panda/data
           - -e
           - 'CORE_HOST={{ CORE_HOST }}'
           - -e

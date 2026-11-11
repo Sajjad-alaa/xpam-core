@@ -39,11 +39,11 @@ additional_build_steps:
     # pip 镜像需在 base 阶段最早注入，后续各 stage 的 pip install 都会走国内源
     - COPY _build/configs/pip.conf /etc/pip.conf
   append_final:
-    - RUN mkdir -p /opt/jumpserver/apps
-    - COPY _build/jumpserver-ansible/ /opt/jumpserver/apps/libs/ansible/
+    - RUN mkdir -p /opt/core/apps
+    - COPY _build/jumpserver-ansible/ /opt/core/apps/libs/ansible/
     - COPY _build/configs/ansible.cfg /etc/ansible/ansible.cfg
-    - ENV PYTHONPATH=/opt/jumpserver/apps
-    - ENV ANSIBLE_LIBRARY=/opt/jumpserver/apps/libs/ansible/modules
+    - ENV PYTHONPATH=/opt/core/apps
+    - ENV ANSIBLE_LIBRARY=/opt/core/apps/libs/ansible/modules
     - ENV ANSIBLE_FORCE_COLOR=True
     - ENV LC_ALL=C.UTF-8
     - ENV LANG=C.UTF-8

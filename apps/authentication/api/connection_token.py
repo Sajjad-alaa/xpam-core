@@ -335,12 +335,12 @@ class RDPFileClientProtocolURLMixin:
         if not color_quality:
             color_quality = token.user.preference.get_value(
                 'rdp_color_quality', category='luna',
-                default=os.getenv('JUMPSERVER_COLOR_DEPTH', settings.LUNA_DEFAULT_RDP_COLOR_QUALITY)
+                default=os.getenv('XPAM_COLOR_DEPTH') or os.getenv('JUMPSERVER_COLOR_DEPTH') or settings.LUNA_DEFAULT_RDP_COLOR_QUALITY
             )
 
         # 设置其他选项
         rdp_options['session bpp:i'] = color_quality
-        rdp_options['audiomode:i'] = self.parse_env_bool('JUMPSERVER_DISABLE_AUDIO', 'false', '2', '0')
+        rdp_options['audiomode:i'] = self.parse_env_bool('XPAM_DISABLE_AUDIO', 'false', '2', '0')
 
         # 设置远程麦克风。请求参数用于兼容直接下载 RDP 文件的场景，
         # 连接令牌中的临时配置优先于用户偏好。
@@ -416,7 +416,11 @@ class RDPFileClientProtocolURLMixin:
         return token.input_username or token.account
     @staticmethod
     def parse_env_bool(env_key, env_default, true_value, false_value):
-        return true_value if is_true(os.getenv(env_key, env_default)) else false_value
+        # (an XPAM_* option was named JUMPSERVER_* before the rename: that name is still honoured)
+        value = os.getenv(env_key)
+        if value is None and env_key.startswith('XPAM_'):
+            value = os.getenv('JUMPSERVER_' + env_key[len('XPAM_'):])
+        return true_value if is_true(value if value is not None else env_default) else false_value
 
     def get_client_protocol_data(self, token: ConnectionToken):
         _os = get_request_os(self.request)
