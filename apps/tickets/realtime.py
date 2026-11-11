@@ -3,8 +3,6 @@ ticket's id is published on a Redis channel once the transaction commits. Each o
 (tickets/ws.py) that passes the event on only to a user who may see that ticket, and the page then reloads its data
 through the normal, permission-checked API: no ticket content travels over the socket.
 """
-import threading
-
 from django.db import transaction
 from django.utils.functional import LazyObject
 
@@ -23,14 +21,7 @@ class TicketEventChannel(LazyObject):
 
 ticket_event_chan = TicketEventChannel()
 
-# ticket ids already announced in the current transaction (an approval saves the ticket, its step and its assignees)
-_pending = threading.local()
-
-
 def _send(ticket_id):
-    pending = getattr(_pending, 'ids', None)
-    if pending is not None:
-        pending.discard(ticket_id)
     try:
         ticket_event_chan.publish({'id': ticket_id})
     except Exception as e:  # a page that is not refreshed is not worth failing the change for
@@ -38,13 +29,20 @@ def _send(ticket_id):
 
 
 def publish_ticket_changed(ticket_id):
+    """Announce the change once the transaction commits (at once outside a transaction). An approval saves the
+    ticket, its step and its assignees in one transaction: one announcement. The pending announcements are
+    Django's own on-commit list, so a rolled back transaction leaves nothing behind."""
     if not ticket_id:
         return
     ticket_id = str(ticket_id)
-    pending = getattr(_pending, 'ids', None)
-    if pending is None:
-        pending = _pending.ids = set()
-    if ticket_id in pending:
-        return
-    pending.add(ticket_id)
-    transaction.on_commit(lambda: _send(ticket_id))
+    connection = transaction.get_connection()
+    if connection.in_atomic_block:
+        for _sids, func, *_rest in connection.run_on_commit:
+            if getattr(func, 'xpam_ticket_id', None) == ticket_id:
+                return
+
+    def announce():
+        _send(ticket_id)
+
+    announce.xpam_ticket_id = ticket_id
+    transaction.on_commit(announce)
