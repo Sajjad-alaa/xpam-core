@@ -6164,7 +6164,7 @@ msgstr "Invalid code."
 #: authentication/templates/authentication/_msg_oauth_bind.html:3
 #: authentication/templates/authentication/_msg_reset_password.html:3
 #: authentication/templates/authentication/_msg_reset_password_code.html:9
-#: jumpserver/conf.py:581
+#: xpam/conf.py:581
 #: perms/templates/perms/_msg_item_permissions_expire.html:3
 #: tickets/templates/tickets/approve_check_password.html:32
 #: users/templates/users/_msg_account_expire_reminder.html:4
@@ -7179,28 +7179,28 @@ msgstr "Code not found"
 msgid "The message code provided is invalid or has expired"
 msgstr "The provided message code is invalid or has expired"
 
-#: jumpserver/conf.py:573
+#: xpam/conf.py:573
 #, python-brace-format
 msgid "The verification code is: {code}"
 msgstr "The verification code is: {code}"
 
-#: jumpserver/conf.py:580
+#: xpam/conf.py:580
 msgid "Create account successfully"
 msgstr "Account created successfully"
 
-#: jumpserver/conf.py:582
+#: xpam/conf.py:582
 msgid "Your account has been created successfully"
 msgstr "Your account has been created successfully"
 
-#: jumpserver/context_processor.py:16
-msgid "JumpServer - An open-source PAM"
-msgstr "JumpServer"
+#: xpam/context_processor.py:16
+msgid "XPAM - Privileged Access Management"
+msgstr "XPAM"
 
-#: jumpserver/views/celery_flower.py:22
+#: xpam/views/celery_flower.py:22
 msgid "<h1>Flower service unavailable, check it</h1>"
 msgstr "Flower service is unavailable, please check"
 
-#: jumpserver/views/other.py:28
+#: xpam/views/other.py:28
 msgid ""
 "<div>Luna is a separately deployed program, you need to deploy Luna, koko, "
 "configure nginx for url distribution,</div> </div>If you see this page, "
@@ -7210,13 +7210,13 @@ msgstr ""
 "koko, </div><div>If you see this page, it means you are not accessing the "
 "port that nginx listens to. Good luck</div>"
 
-#: jumpserver/views/other.py:52
+#: xpam/views/other.py:52
 msgid "Websocket server run on port: {}, you should proxy it on nginx"
 msgstr ""
 "The Websocket service is running on port: {}, please check whether the nginx "
 "proxy is configured"
 
-#: jumpserver/views/other.py:66
+#: xpam/views/other.py:66
 msgid ""
 "<div>Koko is a separately deployed program, you need to deploy Koko, "
 "configure nginx for url distribution,</div> </div>If you see this page, "
@@ -7883,32 +7883,32 @@ msgid "Output"
 msgstr "Output"
 
 #: ops/variables.py:24
-msgid "The current user`s username of JumpServer"
-msgstr "Username of the current JumpServer user"
+msgid "The current user`s username in XPAM"
+msgstr "Username of the current XPAM user"
 
 #: ops/variables.py:25
-msgid "The id of the asset in the JumpServer"
-msgstr "Asset ID in JumpServer"
+msgid "The id of the asset in XPAM"
+msgstr "Asset ID in XPAM"
 
 #: ops/variables.py:26
-msgid "The type of the asset in the JumpServer"
-msgstr "Asset type in JumpServer"
+msgid "The type of the asset in XPAM"
+msgstr "Asset type in XPAM"
 
 #: ops/variables.py:27
-msgid "The category of the asset in the JumpServer"
-msgstr "Asset category in JumpServer"
+msgid "The category of the asset in XPAM"
+msgstr "Asset category in XPAM"
 
 #: ops/variables.py:28
-msgid "The name of the asset in the JumpServer"
-msgstr "Asset name in JumpServer"
+msgid "The name of the asset in XPAM"
+msgstr "Asset name in XPAM"
 
 #: ops/variables.py:29
-msgid "Address used to connect this asset in JumpServer"
-msgstr "Address used to connect to this asset in JumpServer"
+msgid "Address used to connect this asset in XPAM"
+msgstr "Address used to connect to this asset in XPAM"
 
 #: ops/variables.py:30
-msgid "Port used to connect this asset in JumpServer"
-msgstr "Port used to connect to this asset in JumpServer"
+msgid "Port used to connect this asset in XPAM"
+msgstr "Port used to connect to this asset in XPAM"
 
 #: ops/variables.py:31
 msgid "ID of the job"
@@ -9149,7 +9149,7 @@ msgstr "OIDC"
 
 #: settings/serializers/auth/oidc.py:17
 msgid "Base site URL"
-msgstr "JumpServer Address"
+msgstr "XPAM Address"
 
 #: settings/serializers/auth/oidc.py:18
 msgid "The current site's URL is used to construct the callback address"
@@ -10003,8 +10003,8 @@ msgstr ""
 "supports {username} {name} {email} tags"
 
 #: settings/serializers/msg.py:138
-msgid "Tips: Email signature (eg:jumpserver)"
-msgstr "Email signature (e.g., jumpserver)"
+msgid "Tips: Email signature (eg:XPAM)"
+msgstr "Email signature (e.g., XPAM)"
 
 #: settings/serializers/other.py:8
 msgid "More..."
@@ -11741,10 +11741,10 @@ msgstr "Invalid port"
 #: terminal/serializers/storage.py:194
 msgid ""
 "If there are multiple hosts, use a comma (,) to separate them. <br>(For "
-"example: http://www.jumpserver.a.com:9100, http://www.jumpserver.b.com:9100)"
+"example: http://xpam-a.example.com:9100, http://xpam-b.example.com:9100)"
 msgstr ""
 "If there are multiple hosts, please separate them with commas (,).<br>(For "
-"example: http://www.jumpserver.a.com:9100, http://www.jumpserver.b.com:9100)"
+"example: http://xpam-a.example.com:9100, http://xpam-b.example.com:9100)"
 
 #: terminal/serializers/storage.py:199
 msgid "Index by date"

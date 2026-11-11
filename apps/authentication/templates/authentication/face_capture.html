@@ -154,7 +154,7 @@
                     return;
                 }
                 const message = event.data;
-                if ((message?.source === 'xpam-facelive' || message?.source === 'jumpserver-facelive') && message.event === 'retry_requested') {
+                if (message?.source === 'xpam-facelive' && message.event === 'retry_requested') {
                     createFaceCaptureToken();
                 }
             });

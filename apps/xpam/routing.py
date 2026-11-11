@@ -15,6 +15,7 @@ from notifications.urls.ws_urls import urlpatterns as notifications_urlpatterns
 from ops.urls.ws_urls import urlpatterns as ops_urlpatterns
 from settings.urls.ws_urls import urlpatterns as setting_urlpatterns
 from terminal.urls.ws_urls import urlpatterns as terminal_urlpatterns
+from tickets.urls.ws_urls import urlpatterns as tickets_urlpatterns
 from common.utils import get_logger
 import socket
 
@@ -25,7 +26,8 @@ __all__ = ['urlpatterns', 'application']
 urlpatterns = ops_urlpatterns + \
               notifications_urlpatterns + \
               setting_urlpatterns + \
-              terminal_urlpatterns
+              terminal_urlpatterns + \
+              tickets_urlpatterns
 
 if settings.XPACK_ENABLED:
     urlpatterns += import_string('xpack.urls.ws_urls.urlpatterns')

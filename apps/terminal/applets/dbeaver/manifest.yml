@@ -3,7 +3,7 @@ display_name: "{{ 'DBeaver Community' | trans }}"
 comment: "{{ 'Free multi-platform database tool for developers, database administrators, analysts and all people who need to work with databases.' | trans }}"
 version: 0.4
 exec_type: python
-author: JumpServer Team
+author: XPAM
 type: general
 update_policy: always
 tags:
