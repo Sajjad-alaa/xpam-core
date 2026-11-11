@@ -4,15 +4,19 @@ from channels.generic.websocket import JsonWebsocketConsumer
 
 from common.db.utils import safe_db_connection
 from common.utils import get_logger
+from common.utils.ws_limit import UserSocketLimit
 from .signal_handlers import new_site_msg_chan
 from .site_msg import SiteMessageUtil
 from .models.site_msg import SiteMessage
 
 logger = get_logger(__name__)
+# XPAM: one socket per open browser tab (each holds a Redis subscription and a thread)
+socket_limit = UserSocketLimit(20)
 
 
 class SiteMsgWebsocket(JsonWebsocketConsumer):
     sub = None
+    counted_user_id = None
     refresh_every_seconds = 10
 
     @property
@@ -21,11 +25,16 @@ class SiteMsgWebsocket(JsonWebsocketConsumer):
 
     def connect(self):
         user = self.scope["user"]
-        if user.is_authenticated:
-            self.accept()
-            self.sub = self.watch_recv_new_site_msg()
-        else:
+        if not user.is_authenticated:
             self.close()
+            return
+        if not socket_limit.acquire(user.id):
+            logger.warning('Site message socket refused: too many open for user %s', user.id)
+            self.close(code=4429)
+            return
+        self.counted_user_id = user.id
+        self.accept()
+        self.sub = self.watch_recv_new_site_msg()
 
     def receive(self, text_data=None, bytes_data=None, **kwargs):
         data = json.loads(text_data)
@@ -78,6 +87,9 @@ class SiteMsgWebsocket(JsonWebsocketConsumer):
         return new_site_msg_chan.subscribe(handle_new_site_msg_recv)
 
     def disconnect(self, code):
+        if self.counted_user_id is not None:
+            socket_limit.release(self.counted_user_id)
+            self.counted_user_id = None
         if not self.sub:
             return
         self.sub.unsubscribe()

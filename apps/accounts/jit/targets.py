@@ -242,6 +242,9 @@ def _oracle_create(asset, admin, username, password, policy, port, database, db)
     conn = _oracle_conn(asset, admin.username, admin.secret, port, database)
     try:
         cur = conn.cursor()
+        if '"' in password or '\x00' in password:
+            # (a quoted identifier cannot hold these; the generated passwords never contain them)
+            raise TargetError(_('The generated password cannot be used on Oracle'))
         cur.execute(f'CREATE USER {username} IDENTIFIED BY "{password}"')
         cur.execute(f'GRANT CREATE SESSION TO {username}')
         grants = {
