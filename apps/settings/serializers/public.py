@@ -74,7 +74,6 @@ class PrivateSettingSerializer(PublicSettingSerializer):
     CHAT_AI_EMBED_URL = serializers.URLField(allow_blank=True)
     FILE_UPLOAD_SIZE_LIMIT_MB = serializers.IntegerField()
     FTP_FILE_MAX_STORE = serializers.IntegerField()
-    LOKI_LOG_ENABLED = serializers.BooleanField()
     TOOL_USER_ENABLED = serializers.BooleanField()
 
     DEFAULT_EXPIRED_YEARS = serializers.IntegerField()

@@ -11,4 +11,3 @@ from .task import *
 from .terminal import *
 from .virtualapp import *
 from .virtualapp_provider import *
-from .loki import *
