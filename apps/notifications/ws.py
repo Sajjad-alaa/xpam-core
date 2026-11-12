@@ -5,6 +5,7 @@ from channels.generic.websocket import JsonWebsocketConsumer
 from common.db.utils import safe_db_connection
 from common.utils import get_logger
 from common.utils.ws_limit import UserSocketLimit
+from common.utils.ws_thread import bind_server_loop
 from .signal_handlers import new_site_msg_chan
 from .site_msg import SiteMessageUtil
 from .models.site_msg import SiteMessage
@@ -78,7 +79,10 @@ class SiteMsgWebsocket(JsonWebsocketConsumer):
             SiteMessageUtil.create_site_msgs_for_user_if_need(user_id)
             self.send_site_msg()
 
+        bind = bind_server_loop()
+
         def handle_new_site_msg_recv(msg):
+            bind()  # XPAM: (this runs in the Redis subscription thread: send on the server's loop)
             users = msg.get('users', [])
             logger.debug('New site msg recv, message users: {}'.format(users))
             if user_id in users:

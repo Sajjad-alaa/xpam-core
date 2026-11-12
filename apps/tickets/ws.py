@@ -7,6 +7,7 @@ from channels.generic.websocket import JsonWebsocketConsumer
 
 from common.utils import get_logger
 from common.utils.ws_limit import UserSocketLimit
+from common.utils.ws_thread import bind_server_loop
 from users.models import User
 from .models import Ticket
 from .realtime import ticket_event_chan
@@ -37,8 +38,10 @@ class TicketEventsWebsocket(JsonWebsocketConsumer):
         user_id = user.id
         session = self.scope.get('session')
         session_key = getattr(session, 'session_key', None)
+        bind = bind_server_loop()
 
         def on_ticket_changed(msg):
+            bind()  # (this runs in the Redis subscription thread: send on the server's loop)
             ticket_id = msg.get('id') if isinstance(msg, dict) else None
             if not ticket_id:
                 return
