@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import re
 import uuid
 from collections import defaultdict
 from datetime import timedelta, datetime
@@ -27,6 +28,7 @@ from ops.ansible import (
 
 """stop all ssh child processes of the given ansible process pid."""
 from ops.ansible.exception import CommandInBlackListException
+from ops.ansible.utils import escape_jinja2_syntax
 from ops.mixin import PeriodTaskModelMixin
 from ops.variables import *
 from ops.const import Types, RunasPolicies, JobStatus, JobModules
@@ -297,16 +299,22 @@ class JobExecution(JMSOrgBaseModel):
                 print('not support db module: {}'.format(module))
                 raise Exception('not support db module: {}'.format(module))
 
-            login_args = "login_host={{login_host}} " \
-                         "login_user={{login_user}} " \
-                         "login_password={{login_password}} " \
-                         "login_port={{login_port}} " \
-                         "%s={{login_db}} " % login_db_token
+            # XPAM: database jobs run with the server's full Ansible rights (the module runs on this server and needs
+            # the account's secret), so the user's query must reach the module as plain text: as one JSON value (a
+            # quote in it started further module options -- another login_host received the account's password) and
+            # with template syntax escaped (it ran on this server). Job variables are filled in as text first.
+            login_args = {
+                'login_host': '{{login_host}}',
+                'login_user': '{{login_user}}',
+                'login_password': '{{login_password}}',
+                'login_port': '{{login_port}}',
+                login_db_token: '{{login_db}}',
+            }
             if module == 'mssql_script':
-                login_args += "encryption={{jms_asset.encryption | default(None) }} " \
-                              "tds_version={{jms_asset.tds_version | default(None) }} "
-            shell = "{} {}=\"{}\" ".format(login_args, query_token, self.current_job.args)
-            return module, shell
+                login_args['encryption'] = '{{jms_asset.encryption | default(None) }}'
+                login_args['tds_version'] = '{{jms_asset.tds_version | default(None) }}'
+            login_args[query_token] = self.literal_args()
+            return module, json.dumps(login_args)
 
         if module == 'win_shell':
             module = 'ansible.windows.win_shell'
@@ -323,9 +331,28 @@ class JobExecution(JMSOrgBaseModel):
 
         if module == JobModules.huawei.value:
             module = 'ce_command'
-            shell = "commands=\"{}\" ".format(self.current_job.args)
+            # (runs with the server's full Ansible rights too: the user's text as one plain value)
+            shell = json.dumps({'commands': self.literal_args()})
 
         return module, shell
+
+    def literal_args(self):
+        """
+        The job's text for a module that runs with the server's full Ansible rights: job variables
+        ({{ jms_name }}) replaced by their values as text, everything else kept literal.
+        """
+        if isinstance(self.parameters, str):
+            variables = json.loads(self.parameters)
+        else:
+            variables = dict(self.parameters or {})
+        variables.update(self.gather_static_variables())
+
+        def fill(match):
+            name = match.group(1)
+            return str(variables[name]) if name in variables else match.group(0)
+
+        text = re.sub(r'\{\{\s*(jms_\w+)\s*\}\}', fill, self.current_job.args or '')
+        return escape_jinja2_syntax(text)
 
     def get_runner(self):
         inv = self.inventory
@@ -415,6 +442,8 @@ class JobExecution(JMSOrgBaseModel):
     def private_dir(self) -> str:
         uniq = self.date_created.strftime('%Y%m%d_%H%M%S') + '_' + self.short_id
         job_name = self.current_job.name if self.current_job.name else 'instant'
+        # XPAM: the name is the user's text; as a folder name it must stay inside the jobs folder ("../..")
+        job_name = re.sub(r'[^\w.-]', '_', job_name).lstrip('.') or 'job'
         return os.path.join(settings.ANSIBLE_DIR, job_name, uniq)
 
     def set_error(self, error):

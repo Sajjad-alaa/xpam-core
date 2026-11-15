@@ -1,3 +1,4 @@
+import json
 import os
 import shutil
 import uuid
@@ -24,7 +25,7 @@ from .utils import escape_jinja2_syntax
 
 __all__ = [
     'AdHocRunner', 'PlaybookRunner', 'SuperPlaybookRunner', 'UploadFileRunner',
-    'escape_jinja2_syntax', 'neutralize_jinja2_syntax',
+    'escape_jinja2_syntax', 'neutralize_jinja2_syntax', 'clean_upload_dest',
 ]
 
 
@@ -33,6 +34,19 @@ def neutralize_jinja2_syntax(value):
     if not isinstance(value, str):
         return value
     return value.replace('{{', '{ {').replace('{%', '{ %')
+
+
+def clean_upload_dest(dest_path):
+    """
+    XPAM: the folder a file upload goes to is the user's text and ends up in Ansible's module arguments, which Ansible
+    renders as a template on this server: template syntax there ran with the server's rights, and a space started a
+    new module option (another source folder: any folder of this server). Only a plain path is accepted.
+    """
+    dest_path = str(dest_path or '/')
+    if any(mark in dest_path for mark in ('{{', '{%', '{#', '}}', '%}', '#}')) \
+            or any(ord(ch) < 32 or ord(ch) == 127 for ch in dest_path):
+        raise ValueError('Invalid destination path')
+    return dest_path
 
 
 class AdHocRunner:
@@ -219,7 +233,7 @@ class UploadFileRunner:
         self.envs = {}
         upload_file_dir = safe_join(settings.SHARE_DIR, 'job_upload_file')
         self.share_src_dir = safe_join(upload_file_dir, str(job_id))
-        self.dest_path = safe_join("/tmp", dest_path)
+        self.dest_path = safe_join("/tmp", clean_upload_dest(dest_path))
 
     def stage_upload_files(self):
         """Copy uploads into private_data_dir so Docker EE can read src for copy."""
@@ -244,7 +258,8 @@ class UploadFileRunner:
             'host_pattern': "*",
             'inventory': self.inventory,
             'module': 'copy',
-            'module_args': f"src={src_path}/ dest={self.dest_path}/",
+            # XPAM: as JSON, so the destination (the user's text) is one value and never further module options
+            'module_args': json.dumps({'src': f'{src_path}/', 'dest': f'{self.dest_path}/'}),
             'verbosity': verbosity,
             'event_handler': self.cb.event_handler,
             'status_handler': self.cb.status_handler,

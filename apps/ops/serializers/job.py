@@ -1,3 +1,4 @@
+import json
 import uuid
 
 from django.utils.translation import gettext_lazy as _
@@ -7,6 +8,7 @@ from assets.models import Asset, Node
 from common.serializers import WritableNestedModelSerializer
 from common.serializers.fields import ReadableHiddenField, ObjectRelatedField
 from ops.mixin import PeriodTaskSerializerMixin
+from ops.ansible.runner import clean_upload_dest
 from ops.models import Job, JobExecution
 from ops.serializers import JobVariableSerializer
 from orgs.mixins.serializers import BulkOrgResourceModelSerializer
@@ -47,6 +49,12 @@ class JobSerializer(BulkOrgResourceModelSerializer, PeriodTaskSerializerMixin, W
 
     def validate(self, attrs):
         attrs = super().validate(attrs)
+        if attrs.get('type') == 'upload_file':
+            # XPAM: the destination folder must be a plain path (ops/ansible/runner.py clean_upload_dest)
+            try:
+                clean_upload_dest(json.loads(attrs.get('args') or '{}').get('dst_path', '/'))
+            except (ValueError, AttributeError, TypeError):
+                raise serializers.ValidationError({'args': _('Invalid destination path')})
         if attrs.get('is_periodic') is True:
             attrs['periodic_variable'] = self.get_periodic_variable(attrs.get('variable', []))
         return attrs
