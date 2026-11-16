@@ -5,6 +5,7 @@ it under a user of its own and streams the events back; they are processed here 
 logs and callbacks stay the same. Stop: a file `xpam.stop` in the job's folder (core and the worker share it)
 closes the connection, and the runner kills the job.
 """
+import io
 import os
 import socket
 import tempfile
@@ -29,6 +30,28 @@ LOCAL_ONLY = (
 
 class RunnerUnavailable(Exception):
     pass
+
+
+class _Stream(io.RawIOBase):
+    """The runner's response as the file ansible-runner's processor reads (it also unpacks the results from it)."""
+
+    def __init__(self, raw):
+        super().__init__()
+        self._raw = raw
+
+    def readable(self):
+        return True
+
+    def readinto(self, buffer):
+        data = self._raw.read(len(buffer))
+        buffer[:len(data)] = data
+        return len(data)
+
+    def write(self, data):
+        raise io.UnsupportedOperation('read only')
+
+    def flush(self):
+        pass
 
 
 def runner_enabled():
@@ -99,7 +122,8 @@ class AnsibleRemoteRunner(BaseRunner):
         watcher.start()
         try:
             ansible_runner.run(
-                streamer='process', _input=response.raw, private_data_dir=private_data_dir, quiet=True,
+                streamer='process', _input=io.BufferedReader(_Stream(response.raw)), private_data_dir=private_data_dir,
+                quiet=True,
                 event_handler=event_handler, status_handler=status_handler,
             )
         finally:
