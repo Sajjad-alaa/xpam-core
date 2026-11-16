@@ -37,10 +37,12 @@ class OpenPublicSettingApi(generics.RetrieveAPIView):
             has_ticket = has_ticket_license()
         except Exception:
             has_ticket = False
+        from ops.const import automation_licensed
 
         return {
             "XPACK_ENABLED": settings.XPACK_ENABLED,
             "HAS_TICKET_LICENSE": has_ticket,
+            "HAS_AUTOMATION_LICENSE": automation_licensed(),
             "INTERFACE": self.public_interface(),
             "LANGUAGES":  [
                 {

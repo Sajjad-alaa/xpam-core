@@ -8257,6 +8257,14 @@ msgstr "Organization Auditor"
 msgid "OrgUser"
 msgstr "Organization Operator"
 
+#: rbac/builtin.py
+msgid "AutomationOperator"
+msgstr "Automation Operator"
+
+#: ops/const.py
+msgid "Automation is not part of this licence"
+msgstr "Automation is not part of this licence"
+
 #: rbac/filters.py:16 rbac/filters.py:28
 msgid "Role name"
 msgstr "Role name"

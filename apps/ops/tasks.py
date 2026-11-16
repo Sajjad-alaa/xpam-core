@@ -23,6 +23,7 @@ from .celery.utils import (
     disable_celery_periodic_task, delete_celery_periodic_task
 )
 from .models import Job, JobExecution
+from .const import automation_licensed
 from .notifications import ServerPerformanceCheckUtil
 
 logger = get_logger(__file__)
@@ -64,7 +65,7 @@ def run_ops_job(job_id):
     if not job:
         logger.error("Did not get the execution: {}".format(job_id))
         return
-    if not settings.SECURITY_COMMAND_EXECUTION and job.type != Types.upload_file:
+    if job.type != Types.upload_file and (not settings.SECURITY_COMMAND_EXECUTION or not automation_licensed()):
         return
     with tmp_to_org(job.org):
         execution = job.create_execution()
@@ -98,7 +99,9 @@ def run_ops_job_execution(execution_id, **kwargs):
     if not execution:
         logger.error("Did not get the execution: {}".format(execution_id))
         return
-    if not settings.SECURITY_COMMAND_EXECUTION and execution.job.type != Types.upload_file:
+    if execution.job.type != Types.upload_file and (
+            not settings.SECURITY_COMMAND_EXECUTION or not automation_licensed()):
+        execution.set_error('Automation is switched off or not part of this licence')
         return
     _run_ops_job_execution(execution)
 

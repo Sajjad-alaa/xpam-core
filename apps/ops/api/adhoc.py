@@ -26,6 +26,12 @@ class AdHocViewSet(JMSBulkModelViewSet):
         'date_updated',
     )
 
+    def check_permissions(self, request):
+        from ..const import AUTOMATION_NOT_LICENSED, automation_licensed
+        if not automation_licensed():
+            return self.permission_denied(request, AUTOMATION_NOT_LICENSED)
+        return super().check_permissions(request)
+
     def allow_bulk_destroy(self, qs, filtered):
         for obj in filtered:
             self.check_object_permissions(self.request, obj)

@@ -22,13 +22,20 @@ user_perms = (
     ('assets', 'asset', 'match', 'asset'),
     ('assets', 'systemuser', 'match', 'systemuser'),
     ('assets', 'node', 'match', 'node'),
+    ("ops", "celerytaskexecution", "view", "*"),
+    ("users", "user", "match", "user"),
+    *chat_ai_user_perms,
+)
+
+# XPAM: running commands, scripts and playbooks on servers is not part of the default user roles (2026-11-16, owner
+# decision): an administrator grants it with the "Automation operator" role (or a custom role)
+automation_operator_perms = (
+    ('rbac', 'menupermission', 'view', 'workbench'),
     ("ops", "adhoc", "*", "*"),
     ("ops", "playbook", "*", "*"),
     ("ops", "job", "*", "*"),
     ("ops", "jobexecution", "*", "*"),
     ("ops", "celerytaskexecution", "view", "*"),
-    ("users", "user", "match", "user"),
-    *chat_ai_user_perms,
 )
 
 system_user_perms = (
@@ -74,7 +81,7 @@ app_exclude_perms = [
 ]
 
 need_check = [
-    *auditor_perms, *user_perms, *app_exclude_perms,
+    *auditor_perms, *user_perms, *app_exclude_perms, *automation_operator_perms,
     *system_exclude_permissions, *org_exclude_permissions
 ]
 defines_errors = [d for d in need_check if len(d) != 4]
@@ -150,6 +157,9 @@ class BuiltinRole:
     )
     org_user = PredefineRole(
         '7', gettext_noop('OrgUser'), Scope.org, user_perms
+    )
+    org_automation_operator = PredefineRole(
+        '8', gettext_noop('AutomationOperator'), Scope.org, automation_operator_perms
     )
     system_role_mapper = None
     org_role_mapper = None

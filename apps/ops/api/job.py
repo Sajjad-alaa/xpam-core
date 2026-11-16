@@ -41,7 +41,7 @@ __all__ = [
 
 from ops.tasks import run_ops_job_execution
 from ops.variables import JMS_JOB_VARIABLE_HELP
-from ops.const import COMMAND_EXECUTION_DISABLED
+from ops.const import COMMAND_EXECUTION_DISABLED, AUTOMATION_NOT_LICENSED, automation_licensed
 from orgs.mixins.api import OrgBulkModelViewSet
 from orgs.utils import tmp_to_org, get_current_org
 from perms.const import ActionChoices
@@ -89,6 +89,8 @@ class JobViewSet(LoginAssetACLCheckMixin, OrgBulkModelViewSet):
         # job: adhoc, playbook
         if not settings.SECURITY_COMMAND_EXECUTION:
             return self.permission_denied(request, COMMAND_EXECUTION_DISABLED)
+        if not automation_licensed():
+            return self.permission_denied(request, AUTOMATION_NOT_LICENSED)
         return super().check_permissions(request)
 
     def get_queryset(self):
@@ -225,6 +227,8 @@ class JobExecutionViewSet(LoginAssetACLCheckMixin, OrgBulkModelViewSet):
 
     def perform_create(self, serializer):
         job = serializer.validated_data.get('job')
+        if job and job.type != Types.upload_file and not automation_licensed():
+            raise PermissionDenied(AUTOMATION_NOT_LICENSED)
         if job:
             assets = merge_nodes_and_assets(job.nodes.all(), list(job.assets.all()), self.request.user)
             self.check_login_asset_acls(

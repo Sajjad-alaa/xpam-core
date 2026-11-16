@@ -74,6 +74,16 @@ class JobStatus(models.TextChoices):
 CELERY_LOG_MAGIC_MARK = b'\x00\x00\x00\x00\x00'
 
 COMMAND_EXECUTION_DISABLED = _('Command execution disabled')
+AUTOMATION_NOT_LICENSED = _('Automation is not part of this licence')
+
+
+def automation_licensed():
+    """XPAM: Automation (commands, scripts and playbooks run on servers) is a licensed feature; file transfer is not."""
+    try:
+        from xpack.utils import has_automation_license
+        return bool(has_automation_license())
+    except Exception:
+        return False
 
 
 class Scope(models.TextChoices):
