@@ -32,6 +32,7 @@ from ops.ansible.utils import escape_jinja2_syntax
 from ops.ansible.runners.remote import STOP_FILE, runner_enabled
 from ops.const import HostResult
 from ops.hostresults import HostResultCallback, prepare_hosts, finish_hosts, mask
+from ops.models.script import PARAM_NAME
 from common.db.fields import EncryptTextField
 from ops.mixin import PeriodTaskModelMixin
 from ops.variables import *
@@ -447,29 +448,36 @@ class JobExecution(JMSOrgBaseModel):
         name = 'xpam_script.' + info['extension']
         with open(os.path.join(project, 'files', name), 'w', newline='\n') as f:
             f.write(info['content'])
-        task = {'cmd': name}
+        # the parameter values as the script's environment, each marked `!unsafe`: Ansible never treats them as
+        # a template (a value is data, whatever it contains); JSON strings are valid YAML double-quoted scalars
+        env = {}
+        env.update({k: str(v) for k, v in (info.get('values') or {}).items()})
+        env.update({k: str(v) for k, v in self.script_secrets.items()})
+        lines = [
+            '- hosts: all',
+            '  gather_facts: false',
+            '  tasks:',
+            '    - name: script',
+            '      ansible.builtin.script:',
+            '        cmd: %s' % json.dumps(name),
+        ]
         if info.get('executable'):
-            task['executable'] = info['executable']
-        playbook = [{
-            'hosts': 'all', 'gather_facts': False,
-            'tasks': [{
-                'name': 'script', 'ansible.builtin.script': task,
-                'environment': '{{ xpam_script_env }}',
-                'timeout': max(10, int(info.get('timeout') or 600)),
-            }],
-        }]
+            lines.append('        executable: %s' % json.dumps(info['executable']))
+        lines.append('      timeout: %d' % max(10, int(info.get('timeout') or 600)))
+        if env:
+            lines.append('      environment:')
+            for key, value in sorted(env.items()):
+                if not PARAM_NAME.match(key):
+                    raise Exception('Invalid parameter name: %s' % key)
+                lines.append('        %s: !unsafe %s' % (key, json.dumps(value)))
         entry = os.path.join(project, 'main.yml')
         with open(entry, 'w') as f:
-            json.dump(playbook, f)   # (JSON is YAML)
+            f.write('\n'.join(lines) + '\n')
+        os.chmod(entry, 0o600)
         return entry
 
     def script_extra_vars(self, extra_vars):
-        env = {}
-        env.update({k: str(v) for k, v in (self.script_info.get('values') or {}).items()})
-        env.update({k: str(v) for k, v in self.script_secrets.items()})
-        extra_vars = dict(extra_vars)
-        extra_vars['xpam_script_env'] = escape_jinja2_syntax(env)
-        return extra_vars
+        return dict(extra_vars)
 
     def check_script(self):
         """The owner's rules for scripts that are not approved, and the command filter rules on its lines."""

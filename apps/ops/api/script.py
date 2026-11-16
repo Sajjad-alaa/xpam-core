@@ -197,7 +197,7 @@ def host_results_response(request, execution):
     wanted = request.query_params.get('status')
     if wanted:
         rows = rows.filter(status__in=wanted.split(','))
-    if request.query_params.get('format') == 'csv':
+    if request.query_params.get('export') == 'csv':
         response = HttpResponse(content_type='text/csv; charset=utf-8')
         response['Content-Disposition'] = 'attachment; filename="run-%s.csv"' % str(execution.id)[:8]
         writer = csv.writer(response)
