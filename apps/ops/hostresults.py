@@ -2,6 +2,9 @@
 XPAM Automation: one result per server and run ("worked or not"), kept up to date while the job runs, so the
 console shows the progress live; secret parameter values are masked in everything that is stored.
 """
+import re
+from datetime import timedelta
+
 from django.utils import timezone
 
 from .ansible.callback import TaskLogCallback
@@ -20,6 +23,14 @@ def mask(text, secrets):
         if value and len(str(value)) >= 3:
             text = text.replace(str(value), SHADOW)
     return text
+
+
+# what SSH itself prints on a script's terminal (the script module runs with one): not the script's output
+SSH_NOISE = re.compile(r'^(Warning: Permanently added .* to the list of known hosts\.|Connection to \S+ closed\.)\s*$')
+
+
+def _quiet(text):
+    return '\n'.join(line for line in text.replace('\r\n', '\n').split('\n') if not SSH_NOISE.match(line.strip())).strip()
 
 
 def _clip(text):
@@ -84,16 +95,19 @@ class HostResultCallback(TaskLogCallback):
             return None
         return JobExecutionHost.objects.filter(execution=self.execution, name=host).first()
 
-    def _update(self, host, status=None, res=None, rc=None, reason=None):
+    def _update(self, host, status=None, res=None, rc=None, reason=None, duration=None):
         try:
             row = self._row(host)
             if not row or row.status in FINAL:
                 return
             now = timezone.now()
             row.date_start = row.date_start or now
+            if duration:
+                # (Ansible's own timing of the task on that server)
+                row.date_start = min(row.date_start, now - timedelta(seconds=float(duration)))
             if res:
-                out = mask(res.get('stdout') or '', self.secrets)
-                err = mask(res.get('stderr') or '', self.secrets)
+                out = _quiet(mask(res.get('stdout') or '', self.secrets))
+                err = _quiet(mask(res.get('stderr') or '', self.secrets))
                 if out:
                     row.stdout = _clip((row.stdout + '\n' if row.stdout else '') + out)
                 if err:
@@ -119,14 +133,15 @@ class HostResultCallback(TaskLogCallback):
 
     def runner_on_ok(self, event_data, host=None, task=None, res=None):
         super().runner_on_ok(event_data, host=host, task=task, res=res)
-        self._update(host, status=HostResult.running, res=res or {})
+        self._update(host, status=HostResult.running, res=res or {}, duration=event_data.get('duration'))
 
     def runner_on_failed(self, event_data, host=None, task=None, res=None, **kwargs):
         super().runner_on_failed(event_data, host=host, task=task, res=res, **kwargs)
         if event_data.get('ignore_errors'):
             return self._update(host, status=HostResult.running, res=res or {})
         res = res or {}
-        self._update(host, status=HostResult.failed, res=res, reason=res.get('msg') or '')
+        self._update(host, status=HostResult.failed, res=res, reason=res.get('msg') or '',
+                     duration=event_data.get('duration'))
 
     def runner_on_unreachable(self, event_data, host=None, task=None, res=None, **kwargs):
         super().runner_on_unreachable(event_data, host=host, task=task, res=res, **kwargs)

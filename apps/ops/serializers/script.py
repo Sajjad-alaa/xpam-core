@@ -1,4 +1,6 @@
 """XPAM Automation: scripts, their runs and the result of every server."""
+import json
+
 from django.utils.translation import gettext_lazy as _
 from rest_framework import serializers
 
@@ -59,6 +61,12 @@ class ScriptSerializer(BulkOrgResourceModelSerializer):
 
     @staticmethod
     def validate_parameters(value):
+        if isinstance(value, str):
+            # (a form may send the list as JSON text)
+            try:
+                value = json.loads(value or '[]')
+            except ValueError:
+                raise serializers.ValidationError(_('A list of at most 50 parameters'))
         if not isinstance(value, list) or len(value) > 50:
             raise serializers.ValidationError(_('A list of at most 50 parameters'))
         names, cleaned = set(), []
