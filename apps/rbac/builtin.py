@@ -35,6 +35,8 @@ automation_operator_perms = (
     ("ops", "playbook", "*", "*"),
     ("ops", "job", "*", "*"),
     ("ops", "jobexecution", "*", "*"),
+    ("ops", "jobexecutionhost", "view", "jobexecutionhost"),
+    ("ops", "script", "view,add,change,delete", "script"),
     ("ops", "celerytaskexecution", "view", "*"),
 )
 

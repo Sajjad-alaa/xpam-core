@@ -5,3 +5,4 @@ from .celery import *
 from .job import *
 from .playbook import *
 from .variable import *
+from .script import *

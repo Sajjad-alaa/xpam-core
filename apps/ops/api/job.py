@@ -207,6 +207,10 @@ class JobViewSet(LoginAssetACLCheckMixin, OrgBulkModelViewSet):
 
 class JobExecutionViewSet(LoginAssetACLCheckMixin, OrgBulkModelViewSet):
     serializer_class = JobExecutionSerializer
+    rbac_perms = {
+        'hosts': 'ops.view_jobexecution',
+        'retry_failed': 'ops.add_jobexecution',
+    }
     http_method_names = ('get', 'post', 'head', 'options',)
     model = JobExecution
     search_fields = ('material',)
@@ -254,6 +258,17 @@ class JobExecutionViewSet(LoginAssetACLCheckMixin, OrgBulkModelViewSet):
         queryset = super().get_queryset()
         queryset = queryset.filter(creator=self.request.user)
         return queryset
+
+    # XPAM Automation: the result of every server of a run; the run once more where it did not work
+    @action(methods=['get'], detail=True, url_path='hosts')
+    def hosts(self, request, *args, **kwargs):
+        from .script import host_results_response
+        return host_results_response(request, self.get_object())
+
+    @action(methods=[POST], detail=True, url_path='retry-failed')
+    def retry_failed(self, request, *args, **kwargs):
+        from .script import retry_failed
+        return retry_failed(request, self.get_object())
 
     @action(methods=[POST], detail=False, serializer_class=JobTaskStopSerializer, permission_classes=[IsValidUser, ],
             url_path='stop')

@@ -17,6 +17,7 @@ bulk_router.register(r'playbooks', api.PlaybookViewSet, 'playbook')
 bulk_router.register(r'jobs', api.JobViewSet, 'job')
 bulk_router.register(r'variables', api.VariableViewSet, 'variable')
 bulk_router.register(r'job-executions', api.JobExecutionViewSet, 'job-execution')
+bulk_router.register(r'scripts', api.ScriptViewSet, 'script')
 router.register(r'celery/period-tasks', api.CeleryPeriodTaskViewSet, 'celery-period-task')
 
 router.register(r'tasks', api.CeleryTaskViewSet, 'task')

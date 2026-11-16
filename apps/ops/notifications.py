@@ -5,13 +5,13 @@ from django.utils.translation import gettext_lazy as _
 
 from notifications.backends import BACKEND
 from notifications.models import SystemMsgSubscription
-from notifications.notifications import SystemMessage
+from notifications.notifications import SystemMessage, UserMessage
 from terminal.const import TerminalType
 from terminal.models import Terminal
 from terminal.models.component.status import Status
 from users.models import User
 
-__all__ = ('ServerPerformanceMessage', 'ServerPerformanceCheckUtil')
+__all__ = ('ServerPerformanceMessage', 'ServerPerformanceCheckUtil', 'JobFinishedMsg')
 
 
 class ServerPerformanceMessage(SystemMessage):
@@ -153,3 +153,30 @@ class ServerPerformanceCheckUtil(object):
             terminal.stat = Status.get_terminal_latest_stat(terminal)
             terminals.append(terminal)
         self._terminals = terminals
+
+
+class JobFinishedMsg(UserMessage):
+    """XPAM Automation: a script run ended -- on how many servers it worked, failed, could not connect."""
+    subject = _('Script run finished')
+
+    def __init__(self, user, execution):
+        self.execution = execution
+        super().__init__(user)
+
+    def get_html_msg(self) -> dict:
+        from django.utils.html import escape
+        from .const import HostResult
+        counts = {}
+        for status in self.execution.hosts.values_list('status', flat=True):
+            counts[status] = counts.get(status, 0) + 1
+        parts = ', '.join('%s: %s' % (escape(str(HostResult(k).label)), v) for k, v in sorted(counts.items()))
+        message = str(_('Hello %(name)s,<br><br>the run of <b>%(script)s</b> has ended.<br>%(parts)s<br><br>'
+                        'The result of every server is in Workbench → Job centre → Execution history.')) % {
+            'name': escape(self.user.name), 'script': escape(self.execution.material or ''), 'parts': parts or '-'}
+        return {'subject': str(self.subject), 'message': message}
+
+    @classmethod
+    def gen_test_msg(cls):
+        from .models import JobExecution
+        execution = JobExecution.objects.first()
+        return cls(User.objects.first(), execution) if execution else None

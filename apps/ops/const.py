@@ -32,6 +32,59 @@ class Types(models.TextChoices):
     adhoc = 'adhoc', _('Adhoc')
     playbook = 'playbook', _('Playbook')
     upload_file = 'upload_file', _('Upload File')
+    script = 'script', _('Script')
+
+
+# XPAM Automation: scripts
+class ScriptInterpreter(models.TextChoices):
+    bash = 'bash', 'Bash'
+    sh = 'sh', 'sh'
+    python3 = 'python3', 'Python 3'
+    powershell = 'powershell', 'PowerShell'
+
+
+SCRIPT_INTERPRETERS = {
+    # interpreter: (file extension, executable on the server, job module: which connection it needs)
+    'bash': ('sh', '/bin/bash', 'shell'),
+    'sh': ('sh', '/bin/sh', 'shell'),
+    'python3': ('py', 'python3', 'shell'),
+    'powershell': ('ps1', '', 'win_shell'),
+}
+
+
+class ScriptState(models.TextChoices):
+    draft = 'draft', _('Draft')
+    pending = 'pending', _('Waiting for approval')
+    approved = 'approved', _('Approved')
+    rejected = 'rejected', _('Rejected')
+
+
+class ScriptSharing(models.TextChoices):
+    private = 'private', _('Only me')
+    org = 'org', _('Organization')
+
+
+class ScriptParamType(models.TextChoices):
+    text = 'text', _('Text')
+    number = 'number', _('Number')
+    choice = 'choice', _('Choice')
+    boolean = 'boolean', _('Yes/No')
+    secret = 'secret', _('Secret')
+
+
+class HostResult(models.TextChoices):
+    """What happened on one server in one run."""
+    waiting = 'waiting', _('Waiting')
+    running = 'running', _('Running')
+    worked = 'worked', _('Worked')
+    failed = 'failed', _('Failed')
+    unreachable = 'unreachable', _('Unreachable')
+    timeout = 'timeout', _('Timed out')
+    skipped = 'skipped', _('Skipped')
+    stopped = 'stopped', _('Stopped')
+
+
+HOST_OUTPUT_LIMIT = 1024 * 1024
 
 
 class RunasPolicies(models.TextChoices):

@@ -30,6 +30,9 @@ from ops.ansible import (
 from ops.ansible.exception import CommandInBlackListException
 from ops.ansible.utils import escape_jinja2_syntax
 from ops.ansible.runners.remote import STOP_FILE, runner_enabled
+from ops.const import HostResult
+from ops.hostresults import HostResultCallback, prepare_hosts, finish_hosts, mask
+from common.db.fields import EncryptTextField
 from ops.mixin import PeriodTaskModelMixin
 from ops.variables import *
 from ops.const import Types, RunasPolicies, JobStatus, JobModules
@@ -157,6 +160,8 @@ class Job(JMSOrgBaseModel, PeriodTaskModelMixin):
     chdir = models.CharField(default="", max_length=1024, verbose_name=_('Run dir'), null=True, blank=True)
     timeout = models.IntegerField(default=-1, verbose_name=_('Timeout (Seconds)'))
     playbook = models.ForeignKey('ops.Playbook', verbose_name=_("Playbook"), null=True, on_delete=models.SET_NULL)
+    # XPAM Automation: the script a script job runs (its version and parameters are in args)
+    script = models.ForeignKey('ops.Script', verbose_name=_("Script"), null=True, blank=True, on_delete=models.SET_NULL)
     type = models.CharField(max_length=128, choices=Types.choices, default=Types.adhoc, verbose_name=_("Type"))
     creator = models.ForeignKey('users.User', verbose_name=_("Creator"), on_delete=models.SET_NULL, null=True)
     assets = models.ManyToManyField('assets.Asset', blank=True, verbose_name=_("Assets"))
@@ -216,6 +221,9 @@ class Job(JMSOrgBaseModel, PeriodTaskModelMixin):
 
     @property
     def material(self) -> str:
+        if self.type == 'script':
+            info = json.loads(self.args or '{}')
+            return "script:{}:v{}".format(self.script.name if self.script else info.get('name', ''), info.get('version', ''))
         if self.type == 'adhoc':
             return "{}:{}".format(self.module, self.args)
         if self.type == 'playbook':
@@ -242,6 +250,8 @@ class JobExecution(JMSOrgBaseModel):
     job = models.ForeignKey(Job, on_delete=models.SET_NULL, related_name='executions', null=True)
     job_version = models.IntegerField(default=0)
     parameters = models.JSONField(default=dict, verbose_name=_('Parameters'))
+    # XPAM: a script's secret parameters, encrypted, only until the run ends
+    secret_parameters = EncryptTextField(default='', blank=True, verbose_name=_('Secret parameters'))
     result = models.JSONField(encoder=ModelJSONFieldEncoder, blank=True, null=True, verbose_name=_('Result'))
     summary = models.JSONField(encoder=ModelJSONFieldEncoder, default=dict, verbose_name=_('Summary'))
     creator = models.ForeignKey('users.User', verbose_name=_("Creator"), on_delete=models.SET_NULL, null=True)
@@ -394,6 +404,16 @@ class JobExecution(JMSOrgBaseModel):
                 user_job=True,
                 remote=runner_enabled(),
             )
+        elif self.current_job.type == Types.script:
+            runner = PlaybookRunner(
+                self.inventory_path,
+                self.write_script_project(),
+                self.private_dir,
+                extra_vars=self.script_extra_vars(extra_vars),
+                user_job=True,
+                generated=True,
+                remote=runner_enabled(),
+            )
         elif self.current_job.type == Types.upload_file:
             job_id = self.current_job.id
             args = json.loads(self.current_job.args)
@@ -403,6 +423,77 @@ class JobExecution(JMSOrgBaseModel):
         else:
             raise Exception("unsupported job type")
         return runner
+
+    # ---------------------------------------------------------------- XPAM Automation: scripts
+    @cached_property
+    def script_info(self):
+        return json.loads(self.current_job.args or '{}') if self.current_job.type == Types.script else {}
+
+    @cached_property
+    def script_secrets(self):
+        if not self.secret_parameters:
+            return {}
+        try:
+            return json.loads(self.secret_parameters)
+        except ValueError:
+            return {}
+
+    def write_script_project(self):
+        """The playbook XPAM writes for a script run: copy the script to the server, run it with its interpreter
+        and the parameters as environment variables, remove it (the script module does). Returns its entry."""
+        info = self.script_info
+        project = os.path.join(self.private_dir, 'project')
+        os.makedirs(os.path.join(project, 'files'), mode=0o700, exist_ok=True)
+        name = 'xpam_script.' + info['extension']
+        with open(os.path.join(project, 'files', name), 'w', newline='\n') as f:
+            f.write(info['content'])
+        task = {'cmd': name}
+        if info.get('executable'):
+            task['executable'] = info['executable']
+        playbook = [{
+            'hosts': 'all', 'gather_facts': False,
+            'tasks': [{
+                'name': 'script', 'ansible.builtin.script': task,
+                'environment': '{{ xpam_script_env }}',
+                'timeout': max(10, int(info.get('timeout') or 600)),
+            }],
+        }]
+        entry = os.path.join(project, 'main.yml')
+        with open(entry, 'w') as f:
+            json.dump(playbook, f)   # (JSON is YAML)
+        return entry
+
+    def script_extra_vars(self, extra_vars):
+        env = {}
+        env.update({k: str(v) for k, v in (self.script_info.get('values') or {}).items()})
+        env.update({k: str(v) for k, v in self.script_secrets.items()})
+        extra_vars = dict(extra_vars)
+        extra_vars['xpam_script_env'] = escape_jinja2_syntax(env)
+        return extra_vars
+
+    def check_script(self):
+        """The owner's rules for scripts that are not approved, and the command filter rules on its lines."""
+        from ops.models.script import Script
+        script = Script.objects.filter(id=self.current_job.script_id).first() if self.current_job.script_id else None
+        if not script:
+            raise Exception('The script no longer exists')
+        if script.version != self.script_info.get('version'):
+            raise Exception('The script changed after this run was started; start it again')
+        refusal = script.run_refusal(self.creator, list(self.inventory.assets))
+        if refusal:
+            raise Exception(str(refusal))
+        for asset in self.inventory.assets:
+            acls = CommandFilterACL.filter_queryset(user=self.creator, asset=asset, is_active=True,
+                                                    account_username=self.current_job.runas)
+            for acl in acls:
+                for cg in acl.command_groups.all():
+                    for line in (self.script_info.get('content') or '').splitlines():
+                        if not line.strip() or line.strip().startswith('#'):
+                            continue
+                        matched, __ = cg.match(line)
+                        if matched and not acl.is_action(CommandFilterACL.ActionChoices.accept) \
+                                and not acl.is_action(CommandFilterACL.ActionChoices.warning):
+                            raise Exception('The script is refused by the command filter rule %s: %s' % (acl, line[:200]))
 
     def gather_static_variables(self):
         default = {
@@ -456,6 +547,9 @@ class JobExecution(JMSOrgBaseModel):
         this.status = JobStatus.failed
         this.summary.update({'error': str(error)})
         this.finish_task()
+        stopped = 'user cancel' in str(error) or 'revoke task' in str(error)
+        finish_hosts(this, HostResult.stopped if stopped else HostResult.failed, reason=str(error)[:500])
+        this.notify_finished()
 
     def set_result(self, cb):
         status_mapper = {
@@ -469,11 +563,27 @@ class JobExecution(JMSOrgBaseModel):
         else:
             this.result = cb.result
         this.result = json.loads(json.dumps(this.result).replace('\\u0000', ''))
+        if self.script_secrets:
+            this.result = json.loads(mask(json.dumps(this.result), [json.dumps(v)[1:-1] for v in self.script_secrets.values()]))
         this.finish_task()
+        final = {JobStatus.timeout: HostResult.timeout, 'canceled': HostResult.stopped}.get(this.status, HostResult.worked)
+        finish_hosts(this, final, success_text=self.script_info.get('success_text') or '')
+        this.notify_finished()
 
     def finish_task(self):
         self.date_finished = timezone.now()
-        self.save(update_fields=['result', 'status', 'summary', 'date_finished'])
+        self.secret_parameters = ''   # (a script's secrets are kept only while it runs)
+        self.save(update_fields=['result', 'status', 'summary', 'date_finished', 'secret_parameters'])
+
+    def notify_finished(self):
+        """XPAM: the author of a script run hears how it ended (per their notification settings)."""
+        if not (self.job and self.job.type == Types.script and self.creator):
+            return
+        try:
+            from ops.notifications import JobFinishedMsg
+            JobFinishedMsg(self.creator, self).publish_async()
+        except Exception as e:
+            logging.error('job notification: %s', e)
 
     def set_celery_id(self):
         if not current_task:
@@ -577,6 +687,8 @@ class JobExecution(JMSOrgBaseModel):
                 raise Exception("Command is rejected by data masking rules ACL")
 
     def check_assets_acls(self):
+        if self.current_job.type == 'script':
+            self.check_script()
         self.check_data_masking_rules_acls()
         if self.current_job.type == 'playbook':
             self.check_danger_keywords()
@@ -594,7 +706,8 @@ class JobExecution(JMSOrgBaseModel):
         self.before_start()
 
         runner = self.get_runner()
-        runner.cb = TaskLogCallback(self.task_id)
+        prepare_hosts(self, self.inventory)
+        runner.cb = HostResultCallback(self.task_id, execution=self, secrets=list(self.script_secrets.values()))
         ssh_tunnel = SSHTunnelManager()
         ssh_tunnel.local_gateway_prepare(runner)
         try:

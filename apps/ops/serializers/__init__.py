@@ -3,3 +3,4 @@
 from .celery import *
 from .variable import *
 from .adhoc import *
+from .script import *

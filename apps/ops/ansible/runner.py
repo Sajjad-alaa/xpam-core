@@ -161,7 +161,7 @@ class AdHocRunner:
 class PlaybookRunner:
     def __init__(
             self, inventory, playbook, project_dir='/tmp/', callback=None, extra_vars=None,
-            safety_mode=None, inventory_safety=None, user_job=False, remote=False,
+            safety_mode=None, inventory_safety=None, user_job=False, remote=False, generated=False,
     ):
 
         self.id = uuid.uuid4()
@@ -181,6 +181,11 @@ class PlaybookRunner:
         # XPAM: a playbook written by a user runs only on the runner service, and only without code for this side
         self.user_job = user_job
         self.remote = remote
+        # (a playbook XPAM writes for a user's job, e.g. a script run: the user's content is data for the targets,
+        #  so it may also run here when there is no runner; the limits of a user's run still apply)
+        self.generated = generated
+        if generated:
+            self.isolate = False
         if user_job:
             self.envs.update(runner_env(project_dir, remote))
 
@@ -212,14 +217,14 @@ class PlaybookRunner:
         return os.path.join(self.project_dir, 'project')
 
     def run(self, verbosity=0, **kwargs):
-        if self.user_job and not self.remote:
+        if self.user_job and not self.remote and not self.generated:
             raise UserPlaybookRefused(
                 'Playbooks written by users run only on the runner service, which is not available')
         if not os.path.exists(self.project_dir):
             os.makedirs(self.project_dir, mode=0o755)
         self.copy_playbook()
         self.prepare_safe_inputs()
-        if self.user_job:
+        if self.user_job and not self.generated:
             check_user_project(self.playbook_project_dir)
 
         verbosity = get_ansible_log_verbosity(verbosity)
