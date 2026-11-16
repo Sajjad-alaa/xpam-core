@@ -25,7 +25,8 @@ from .utils import escape_jinja2_syntax
 
 __all__ = [
     'AdHocRunner', 'PlaybookRunner', 'SuperPlaybookRunner', 'UploadFileRunner',
-    'escape_jinja2_syntax', 'neutralize_jinja2_syntax', 'clean_upload_dest',
+    'escape_jinja2_syntax', 'neutralize_jinja2_syntax', 'clean_upload_dest', 'check_user_project',
+    'UserPlaybookRefused',
 ]
 
 
@@ -34,6 +35,43 @@ def neutralize_jinja2_syntax(value):
     if not isinstance(value, str):
         return value
     return value.replace('{{', '{ {').replace('{%', '{ %')
+
+
+class UserPlaybookRefused(Exception):
+    pass
+
+
+# XPAM: what a playbook written by a user may contain. Python that runs on this side (plugins, a configuration that
+# names plugins, collections) is refused; modules (library/, module_utils/) run on the targets and may come with it.
+PLUGIN_DIR_SUFFIX = '_plugins'
+REFUSED_NAMES = {'ansible.cfg', 'collections', 'ansible_collections', 'plugins'}
+TARGET_CODE_DIRS = {'library', 'module_utils'}
+
+
+def check_user_project(project_dir):
+    problems = []
+    for root, dirs, files in os.walk(project_dir):
+        rel = os.path.relpath(root, project_dir)
+        parts = [] if rel == '.' else rel.split(os.sep)
+        for name in list(dirs) + list(files):
+            path = os.path.join(root, name)
+            shown = os.path.join(*(parts + [name]))
+            if os.path.islink(path):
+                problems.append(shown + ' (a link)')
+            elif name in REFUSED_NAMES or name.endswith(PLUGIN_DIR_SUFFIX):
+                problems.append(shown)
+            elif name.endswith(('.py', '.pyc', '.so')) and not TARGET_CODE_DIRS.intersection(parts):
+                problems.append(shown)
+        dirs[:] = [d for d in dirs if not os.path.islink(os.path.join(root, d))]
+    if problems:
+        raise UserPlaybookRefused(
+            'The playbook contains code that would run on the XPAM server, which is not allowed: '
+            + ', '.join(sorted(problems)[:10]))
+
+
+def runner_env(project_dir, remote):
+    # (the Ansible limits of a user's job allow reading files of this folder only, except its secret parts)
+    return {'XPAM_JOB_DIR': project_dir}
 
 
 def clean_upload_dest(dest_path):
@@ -54,7 +92,7 @@ class AdHocRunner:
     need_local_connection_modules_choices = ("mysql", "postgresql", "sqlserver", "huawei")
 
     def __init__(self, inventory, job_module, module, module_args='', pattern='*', project_dir='/tmp/', extra_vars=None,
-                 dry_run=False, timeout=-1):
+                 dry_run=False, timeout=-1, remote=False):
         if extra_vars is None:
             extra_vars = {}
         self.id = uuid.uuid4()
@@ -69,7 +107,8 @@ class AdHocRunner:
         self.extra_vars = extra_vars
         self.dry_run = dry_run
         self.timeout = timeout
-        self.envs = {}
+        self.remote = remote
+        self.envs = runner_env(project_dir, remote)
 
     def check_module(self):
         if self.module not in self.cmd_modules_choices:
@@ -110,7 +149,9 @@ class AdHocRunner:
             'status_handler': self.cb.status_handler,
             **kwargs,
         }
-        if use_ansible_docker_isolation():
+        if self.remote:
+            run_kwargs['remote'] = True
+        elif use_ansible_docker_isolation():
             run_kwargs.update(docker_isolation_kwargs(self.project_dir))
             ensure_ansible_docker_image()
         interface.run(**run_kwargs)
@@ -120,7 +161,7 @@ class AdHocRunner:
 class PlaybookRunner:
     def __init__(
             self, inventory, playbook, project_dir='/tmp/', callback=None, extra_vars=None,
-            safety_mode=None, inventory_safety=None,
+            safety_mode=None, inventory_safety=None, user_job=False, remote=False,
     ):
 
         self.id = uuid.uuid4()
@@ -137,6 +178,11 @@ class PlaybookRunner:
         self.extra_vars = extra_vars
         self.safety_mode = safety_mode
         self.inventory_safety = inventory_safety
+        # XPAM: a playbook written by a user runs only on the runner service, and only without code for this side
+        self.user_job = user_job
+        self.remote = remote
+        if user_job:
+            self.envs.update(runner_env(project_dir, remote))
 
     def copy_playbook(self):
         entry = os.path.basename(self.playbook)
@@ -166,10 +212,15 @@ class PlaybookRunner:
         return os.path.join(self.project_dir, 'project')
 
     def run(self, verbosity=0, **kwargs):
+        if self.user_job and not self.remote:
+            raise UserPlaybookRefused(
+                'Playbooks written by users run only on the runner service, which is not available')
         if not os.path.exists(self.project_dir):
             os.makedirs(self.project_dir, mode=0o755)
         self.copy_playbook()
         self.prepare_safe_inputs()
+        if self.user_job:
+            check_user_project(self.playbook_project_dir)
 
         verbosity = get_ansible_log_verbosity(verbosity)
         private_env = safe_join(self.project_dir, 'env')
@@ -180,7 +231,9 @@ class PlaybookRunner:
         inventory = stage_inventory_for_docker(self.project_dir, self.inventory)
 
         kwargs = dict(kwargs)
-        if use_ansible_docker_isolation():
+        if self.remote:
+            kwargs['remote'] = True
+        elif use_ansible_docker_isolation():
             kwargs.update(docker_isolation_kwargs(self.project_dir))
             ensure_ansible_docker_image()
         elif self.isolate and not is_macos():
@@ -225,12 +278,13 @@ class SuperPlaybookRunner(PlaybookRunner):
 class UploadFileRunner:
     UPLOAD_STAGING_DIR = 'upload'
 
-    def __init__(self, inventory, project_dir, job_id, dest_path, callback=None):
+    def __init__(self, inventory, project_dir, job_id, dest_path, callback=None, remote=False):
         self.id = uuid.uuid4()
         self.inventory = inventory
         self.project_dir = project_dir
         self.cb = DefaultCallback()
-        self.envs = {}
+        self.remote = remote
+        self.envs = runner_env(project_dir, remote)
         upload_file_dir = safe_join(settings.SHARE_DIR, 'job_upload_file')
         self.share_src_dir = safe_join(upload_file_dir, str(job_id))
         self.dest_path = safe_join("/tmp", clean_upload_dest(dest_path))
@@ -267,7 +321,9 @@ class UploadFileRunner:
             'envvars': self.envs,
             **kwargs,
         }
-        if use_ansible_docker_isolation():
+        if self.remote:
+            run_kwargs['remote'] = True
+        elif use_ansible_docker_isolation():
             run_kwargs.update(docker_isolation_kwargs(self.project_dir))
             ensure_ansible_docker_image()
         interface.run(**run_kwargs)

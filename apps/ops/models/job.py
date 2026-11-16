@@ -29,6 +29,7 @@ from ops.ansible import (
 """stop all ssh child processes of the given ansible process pid."""
 from ops.ansible.exception import CommandInBlackListException
 from ops.ansible.utils import escape_jinja2_syntax
+from ops.ansible.runners.remote import STOP_FILE, runner_enabled
 from ops.mixin import PeriodTaskModelMixin
 from ops.variables import *
 from ops.const import Types, RunasPolicies, JobStatus, JobModules
@@ -382,6 +383,7 @@ class JobExecution(JMSOrgBaseModel):
                 pattern="all",
                 project_dir=self.private_dir,
                 extra_vars=extra_vars,
+                remote=runner_enabled(),
             )
         elif self.current_job.type == Types.playbook:
             runner = PlaybookRunner(
@@ -389,12 +391,15 @@ class JobExecution(JMSOrgBaseModel):
                 self.current_job.playbook.entry,
                 self.private_dir,
                 extra_vars=extra_vars,
+                user_job=True,
+                remote=runner_enabled(),
             )
         elif self.current_job.type == Types.upload_file:
             job_id = self.current_job.id
             args = json.loads(self.current_job.args)
             dst_path = args.get('dst_path', '/')
-            runner = UploadFileRunner(self.inventory_path, self.private_dir, job_id, dst_path)
+            runner = UploadFileRunner(self.inventory_path, self.private_dir, job_id, dst_path,
+                                      remote=runner_enabled())
         else:
             raise Exception("unsupported job type")
         return runner
@@ -610,6 +615,12 @@ class JobExecution(JMSOrgBaseModel):
 
     def stop(self):
         from ops.signal_handlers import job_execution_stop_pub_sub
+        # XPAM: a job on the runner service stops when its stop file appears (the worker watches for it)
+        try:
+            if os.path.isdir(self.private_dir):
+                open(os.path.join(self.private_dir, STOP_FILE), 'w').close()
+        except OSError as e:
+            print(e)
         pid_path = os.path.join(self.private_dir, "local.pid")
         if os.path.exists(pid_path):
             with open(pid_path) as f:

@@ -82,7 +82,7 @@ class SSHTunnelManager:
             if not jms_gateway:
                 continue
             if gateway_proxy_host is None:
-                gateway_proxy_host = interface.get_gateway_proxy_host()
+                gateway_proxy_host = interface.get_gateway_proxy_host(remote=getattr(runner, 'remote', False))
 
             target_key = (
                 str(jms_gateway.get("address")),

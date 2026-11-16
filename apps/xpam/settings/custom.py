@@ -172,6 +172,13 @@ DATETIME_DISPLAY_FORMAT = '%Y-%m-%d %H:%M:%S'
 TICKETS_ENABLED = CONFIG.TICKETS_ENABLED
 TICKETS_DIRECT_APPROVE = CONFIG.TICKETS_DIRECT_APPROVE
 XPAM_BROWSER_ENABLED = CONFIG.XPAM_BROWSER_ENABLED and os.environ.get('BROWSER_ENABLED', '1') != '0'
+# XPAM: the runner service (xpam_runner) runs the jobs users write; RUNNER_KEY is the worker's key for it
+XPAM_RUNNER_ENABLED = os.environ.get('RUNNER_ENABLED', '1') != '0'
+XPAM_RUNNER_URL = os.environ.get('RUNNER_URL', 'http://runner:8086')
+XPAM_RUNNER_KEY = os.environ.get('RUNNER_KEY', '')
+# the worker's name on the runner's network (the runner reaches a job's gateway tunnels there)
+XPAM_RUNNER_GATEWAY_HOST = os.environ.get('RUNNER_GATEWAY_HOST', 'jobs-worker')
+XPAM_RUNNER_READ_TIMEOUT = int(os.environ.get('RUNNER_READ_TIMEOUT', '300'))
 REFERER_CHECK_ENABLED = CONFIG.REFERER_CHECK_ENABLED
 
 CONNECTION_TOKEN_ENABLED = CONFIG.CONNECTION_TOKEN_ENABLED

@@ -3,6 +3,7 @@ from socket import gethostbyname, gethostname
 from django.utils.functional import LazyObject
 
 from ops.ansible import AnsibleNativeRunner
+from ops.ansible.runners.remote import AnsibleRemoteRunner
 from ops.ansible.docker import use_ansible_docker_isolation
 from ops.ansible.runners.base import BaseRunner
 
@@ -30,7 +31,11 @@ class RunnerInterface:
         self._runner_type = runner_type
         self._gateway_proxy_host = gateway_proxy_host
 
-    def get_gateway_proxy_host(self):
+    def get_gateway_proxy_host(self, remote=False):
+        if remote:
+            # (a job on the runner service reaches the tunnel through the worker's address on the runner's network)
+            from django.conf import settings
+            return gethostbyname(settings.XPAM_RUNNER_GATEWAY_HOST)
         if use_ansible_docker_isolation() and self._gateway_proxy_host == '127.0.0.1':
             return gethostbyname(gethostname())
         return self._gateway_proxy_host
@@ -43,5 +48,7 @@ class RunnerInterface:
 
     def run(self, **kwargs):
         runner_type = self.get_runner_type()
+        if kwargs.pop('remote', False):
+            runner_type = AnsibleRemoteRunner
         runner = runner_type(**kwargs)
         return runner.run()
